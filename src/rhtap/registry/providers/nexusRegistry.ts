@@ -1,0 +1,18 @@
+import { BaseImageRegistry, ImageRegistryType } from '../imageRegistry';
+
+export class NexusRegistry extends BaseImageRegistry {
+  constructor(organization: string, imageName: string) {
+    super(organization, imageName);
+    // Hardcode the secret name and namespace
+    this.secretName = 'rhtap-nexus-integration';
+    this.secretNamespace = 'rhtap';
+  }
+
+  public getRegistryType(): ImageRegistryType {
+    return ImageRegistryType.NEXUS;
+  }
+
+  public getUrl(): string {
+    return this.secret.endpoint || this.getRegistryHost();
+  }
+}

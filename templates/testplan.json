@@ -1,0 +1,11 @@
+{
+  "templates": ["go", "python", "nodejs", "dotnet-basic", "java-quarkus", "java-springboot"],
+  "rhtap": {
+    "git": "github",
+    "ci": "tekton",
+    "registry": "quay.io",
+    "tpa": "remote",
+    "acs": "local"
+  },
+  "tests": ["test1", "test2"]
+}
