@@ -63,40 +63,20 @@ class SpringBootTemplate extends BaseTemplate {
     super(TemplateType.SPRINGBOOT, {
       language: 'Java',
       framework: 'Spring Boot',
-      buildTool: 'Maven',
-      repoReference: 'https://github.com/xjiangorg/mwpozzk3j-java-springboot',
     });
   }
 
   public getMainFilePath(): string {
-    return 'src/main/java/org/acme/getting/started/GreetingResource.java';
+    return 'src/main/java/com/example/demo/DemoApplication.java';
   }
 
   public getContentModifications(): ContentModifications {
+    const mainPath = this.getMainFilePath();
     return {
-      'src/main/java/org/acme/getting/started/GreetingResource.java': [
+      [mainPath]: [
         {
-          oldContent: '// Original content will be fetched by GitHub API',
-          newContent: `package org.acme.getting.started;
-
-import javax.inject.Inject;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-
-@Path("/hello")
-public class GreetingResource {
-
-    @Inject
-    GreetingService service;
-
-    @GET
-    @Produces(MediaType.TEXT_PLAIN)
-    public String hello() {
-        return "Hello from RESTEasy - Updated";
-    }
-}`,
+          oldContent: 'Hello World',
+          newContent: `Hello World - Updated! ${Date.now()} `,
         },
       ],
     };
@@ -118,11 +98,12 @@ class GoTemplate extends BaseTemplate {
   }
 
   public getContentModifications(): ContentModifications {
+    const mainPath = this.getMainFilePath();
     return {
-      'main.go': [
+      [mainPath]: [
         {
           oldContent: 'Hello World',
-          newContent: `Hello World ${Date.now()}`,
+          newContent: `Hello World - Updated! ${Date.now()} `,
         },
       ],
     };
@@ -137,40 +118,20 @@ class DotNetTemplate extends BaseTemplate {
     super(TemplateType.DOTNET, {
       language: 'C#',
       framework: '.NET',
-      repoReference: 'https://github.com/xjiangorg/kppavexgr-dotnet-basic',
     });
   }
 
   public getMainFilePath(): string {
-    return 'Program.cs';
+    return 'Views/Home/Index.cshtml';
   }
 
   public getContentModifications(): ContentModifications {
+    const mainPath = this.getMainFilePath();
     return {
-      'Program.cs': [
+      [mainPath]: [
         {
-          oldContent: '// Original content will be fetched by GitHub API',
-          newContent: `using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-app.MapGet("/", () => "Hello from .NET - Updated!");
-
-app.Run();`,
+          oldContent: 'Welcome',
+          newContent: `Welcome - Updated! ${Date.now()} `,
         },
       ],
     };
@@ -193,20 +154,12 @@ class PythonTemplate extends BaseTemplate {
   }
 
   public getContentModifications(): ContentModifications {
+    const mainPath = this.getMainFilePath();
     return {
-      'app.py': [
+      [mainPath]: [
         {
-          oldContent: '// Original content will be fetched by GitHub API',
-          newContent: `from flask import Flask, jsonify
-
-app = Flask(__name__)
-
-@app.route('/')
-def hello():
-    return jsonify(message="Hello from Python Flask - Updated!")
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)`,
+          oldContent: 'Hello World',
+          newContent: `Hello World - Updated! ${Date.now()} `,
         },
       ],
     };
@@ -220,30 +173,21 @@ class NodeJSTemplate extends BaseTemplate {
   constructor() {
     super(TemplateType.NODEJS, {
       language: 'JavaScript',
-      framework: 'Express',
+      framework: 'Node.js',
     });
   }
 
   public getMainFilePath(): string {
-    return 'index.js';
+    return 'server.js';
   }
 
   public getContentModifications(): ContentModifications {
+    const mainPath = this.getMainFilePath();
     return {
-      'index.js': [
+      [mainPath]: [
         {
-          oldContent: '// Original content will be fetched by GitHub API',
-          newContent: `const express = require('express');
-const app = express();
-const port = process.env.PORT || 3000;
-
-app.get('/', (req, res) => {
-  res.send('Hello from Node.js Express - Updated!');
-});
-
-app.listen(port, () => {
-  console.log(\`Server listening at http://localhost:\${port}\`);
-});`,
+          oldContent: 'Hello from Node.js Starter Application',
+          newContent: `Hello from Node.js Starter Application - Updated! ${Date.now()} `,
         },
       ],
     };
