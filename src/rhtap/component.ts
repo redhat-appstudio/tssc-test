@@ -43,8 +43,7 @@ export class Component {
   public static async new(
     name: string,
     testItem: TestItem,
-    repoOwner: string,
-    imageOrgName: string,
+    // imageOrgName: string,
     imageName: string,
     workspace?: string,
     project?: string
@@ -67,13 +66,11 @@ export class Component {
       );
       component.registry = await createRegistry(
         testItem.getregistryType(),
-        imageOrgName,
         imageName
       );
       component.git = await createGit(
         testItem.getGitType(),
         component.name,
-        repoOwner,
         testItem.getTemplate(),
         workspace,
         project

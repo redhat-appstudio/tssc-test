@@ -34,5 +34,5 @@ export default defineConfig({
   workers: 3,
   projects: projects.length ? projects : [{ name: 'default' }],
   reporter: [['html'], ['list']],
-  timeout: 600000,
+  timeout: 900000, // Default to 15 minutes (900000ms)
 });

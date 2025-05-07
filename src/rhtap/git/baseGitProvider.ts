@@ -64,7 +64,7 @@ export abstract class BaseGitProvider implements Git {
     throw new Error(`createPullRequest not implemented for ${this.gitType}`);
   }
 
-  public abstract mergePullRequest(pullRequest: PullRequest): Promise<void>;
+  public abstract mergePullRequest(pullRequest: PullRequest): Promise<PullRequest>;
   /**
    * Creates a sample pull request with modifications to specified files in the source repository
    */

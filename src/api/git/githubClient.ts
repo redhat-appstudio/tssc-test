@@ -40,11 +40,21 @@ export class GithubClient {
     return data;
   }
 
-  public async getPullRequest(owner: string, repo: string, pullNumber: number) {
+  /**
+   * Gets pull request details
+   * @param owner Repository owner
+   * @param repo Repository name
+   * @param pullNumber Pull request number
+   */
+  public async getPullRequest(
+    owner: string,
+    repo: string,
+    pullNumber: number
+  ) {
     const { data } = await this.octokit.pulls.get({
       owner,
       repo,
-      pull_number: pullNumber,
+      pull_number: pullNumber
     });
     return data;
   }
@@ -252,22 +262,34 @@ export class GithubClient {
     }
   }
 
-  public mergePullRequest(repoOwner: string, repoName: string, pullNumber: number) {
-    console.log(`Merging pull request #${pullNumber}...`);
-    return this.octokit.pulls
-      .merge({
-        owner: repoOwner,
-        repo: repoName,
+  /**
+   * Merges a pull request in a GitHub repository
+   * @param owner Repository owner
+   * @param repo Repository name
+   * @param pullNumber Pull request number
+   * @returns Merge response with SHA
+   */
+  async mergePullRequest(
+    owner: string, 
+    repo: string, 
+    pullNumber: number
+  ): Promise<{ sha: string, message: string }> {
+    try {
+      const response = await this.octokit.pulls.merge({
+        owner,
+        repo,
         pull_number: pullNumber,
-      })
-      .then(response => {
-        console.log(`Pull request #${pullNumber} merged successfully.`);
-        return response.data;
-      })
-      .catch(error => {
-        console.error(`Failed to merge pull request #${pullNumber}: ${error.message}`);
-        throw error;
+        merge_method: 'merge'
       });
+      
+      return {
+        sha: response.data.sha,
+        message: response.data.message
+      };
+    } catch (error) {
+      console.error(`Failed to merge pull request #${pullNumber}: ${error}`);
+      throw error;
+    }
   }
 
   /**

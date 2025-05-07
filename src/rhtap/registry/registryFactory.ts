@@ -1,4 +1,5 @@
 import { KubeClient } from '../../api/ocp/kubeClient';
+import { loadFromEnv } from '../../utils/util';
 import { ImageRegistry, ImageRegistryType } from './imageRegistry';
 import { ArtifactoryRegistry } from './providers/artifactoryRegistry';
 import { NexusRegistry } from './providers/nexusRegistry';
@@ -44,23 +45,24 @@ export class RegistryFactory {
    */
   public async createRegistry(
     imageRegistryType: ImageRegistryType,
-    orgName: string,
+    // orgName: string,
     imageName: string
   ): Promise<ImageRegistry> {
+    const imageOrg = loadFromEnv('IMAGE_REGISTRY_ORG');
     switch (imageRegistryType) {
       case ImageRegistryType.QUAY:
       case ImageRegistryType.QUAYIO:
-        const quayRegistry = new QuayRegistry(orgName, imageName);
+        const quayRegistry = new QuayRegistry(imageOrg, imageName);
         quayRegistry.setKubeClient(this.kubeClient);
         await quayRegistry.initialize();
         return quayRegistry;
       case ImageRegistryType.ARTIFACTORY:
-        const artifactoryRegistry = new ArtifactoryRegistry(orgName, imageName);
+        const artifactoryRegistry = new ArtifactoryRegistry(imageOrg, imageName);
         artifactoryRegistry.setKubeClient(this.kubeClient);
         await artifactoryRegistry.initialize();
         return artifactoryRegistry;
       case ImageRegistryType.NEXUS:
-        const nexusRegistry = new NexusRegistry(orgName, imageName);
+        const nexusRegistry = new NexusRegistry(imageOrg, imageName);
         nexusRegistry.setKubeClient(this.kubeClient);
         await nexusRegistry.initialize();
         return nexusRegistry;
@@ -76,11 +78,10 @@ export class RegistryFactory {
  */
 export async function createRegistry(
   imageRegistryType: ImageRegistryType,
-  orgName: string,
   imageName: string,
   kubeClient?: KubeClient
 ): Promise<ImageRegistry> {
   // Use existing instance or create a new one with the provided kubeClient
   const factory = RegistryFactory.getInstance(kubeClient);
-  return factory.createRegistry(imageRegistryType, orgName, imageName);
+  return factory.createRegistry(imageRegistryType, imageName);
 }

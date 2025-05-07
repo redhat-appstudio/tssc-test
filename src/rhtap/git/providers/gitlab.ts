@@ -23,7 +23,7 @@ export class GitlabProvider extends BaseGitProvider {
     }
     throw new Error('Method not implemented.');
   }
-  public mergePullRequest(pullRequest: PullRequest): Promise<void> {
+  public mergePullRequest(pullRequest: PullRequest): Promise<PullRequest> {
     if (!pullRequest) {
       throw new Error('Pull request cannot be null.');
     }

@@ -186,8 +186,8 @@ class NodeJSTemplate extends BaseTemplate {
     return {
       [mainPath]: [
         {
-          oldContent: 'Hello from Node.js Starter Application',
-          newContent: `Hello from Node.js Starter Application - Updated! ${Date.now()} `,
+          oldContent: `res.send('Hello from Node.js Starter Application`,
+          newContent: `res.send('Hello from Node.js Starter Application - Updated! ${Date.now()} `,
         },
       ],
     };

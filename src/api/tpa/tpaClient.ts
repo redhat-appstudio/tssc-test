@@ -1,5 +1,5 @@
 import axios, { AxiosError, AxiosResponse } from 'axios';
-import pRetry, { AbortError } from 'p-retry';
+import retry from 'async-retry';
 
 // Define interfaces for SBOM search response
 interface SBOMSearchResponse {
@@ -7,7 +7,7 @@ interface SBOMSearchResponse {
   total?: number;
 }
 
-interface SBOMResult {
+export interface SBOMResult {
   id: string;
   name: string;
   // Add other SBOM properties as needed
@@ -66,13 +66,8 @@ export class TPAClient {
     }
 
     // Define the operation to retry
-    const operation = async (attempt: number): Promise<SBOMResult[]> => {
+    const operation = async (): Promise<SBOMResult[]> => {
       try {
-        // Log retry attempts after the first one
-        if (attempt > 1) {
-          console.log(`Attempt ${attempt} to find SBOMs for '${name}'`);
-        }
-
         const searchUrl = `${this.bombasticApiUrl}/api/v1/sbom/search`;
 
         const response: AxiosResponse<SBOMSearchResponse> = await axios.get(searchUrl, {
@@ -108,44 +103,34 @@ export class TPAClient {
           if (axiosError.response?.status === 401) {
             console.log('Token expired. Refreshing...');
             await this.initAccessToken();
-            // Don't count this as a retry attempt, throw to continue
             throw axiosError;
           }
 
           // For server errors (5xx), retry
           if (axiosError.response && axiosError.response.status >= 500) {
             console.error(
-              `Server error (${axiosError.response.status}) on attempt ${attempt}. Retrying...`
+              `Server error (${axiosError.response.status}). Retrying...`
             );
-            throw axiosError; // This will trigger a retry
+            throw axiosError;
           }
 
           // For other error codes, don't retry
           console.error(`Non-retryable error: ${axiosError.message}`);
-          throw new AbortError(axiosError.message);
+          throw new Error(axiosError.message);
         }
 
         // For non-Axios errors, abort retries
         console.error('Unexpected error:', error);
-        throw new AbortError(error instanceof Error ? error.message : String(error));
+        throw new Error(error instanceof Error ? error.message : String(error));
       }
     };
 
     try {
-      return await pRetry(operation, {
+      return await retry(operation, {
         retries,
-        onFailedAttempt: error => {
-          console.error(
-            `Attempt ${error.attemptNumber} failed. ${error.retriesLeft} retries left.`,
-            error.message
-          );
-        },
-        // P-retry uses different terminology than the retry library it's based on
-        // These are the correct options according to p-retry docs
         factor: 2,
         minTimeout: 1000,
         maxTimeout: 15000,
-        maxRetryTime: 300000, // Maximum total time for all retries (5 minutes)
         randomize: true,
       });
     } catch (error) {

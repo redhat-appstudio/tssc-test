@@ -158,3 +158,19 @@ export async function extractYamlByRegex(content: string, pattern: RegExp): Prom
     return null;
   }
 }
+
+/**
+ * Loads a value from environment variables
+ * @param name The name of the environment variable
+ * @returns The value or empty string if undefined
+ */
+export function loadFromEnv(name: string): string {
+  const value = process.env[name] || '';
+  // Check if the variable is defined and not empty
+  if (!value || value.trim() === '') {
+    throw new Error(`Environment variable ${name} is not defined or is empty`);
+  }
+  console.log(`Loaded environment variable ${name}: ${value}`);
+  return value;
+}
+

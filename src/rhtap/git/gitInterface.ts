@@ -45,7 +45,12 @@ export interface Git {
 
   createPullRequest(): void;
 
-  mergePullRequest(pullRequest: PullRequest): Promise<void>;
+  /**
+   * Merges a pull request in the repository
+   * @param pullRequest The pull request to merge
+   * @returns Updated PullRequest object with merge information
+   */
+  mergePullRequest(pullRequest: PullRequest): Promise<PullRequest>;
 
   /**
    * Creates a sample pull request in the source repository

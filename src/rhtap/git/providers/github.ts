@@ -251,20 +251,50 @@ export class GithubProvider extends BaseGitProvider {
     }
   }
 
-  public async mergePullRequest(pullRequest: PullRequest): Promise<void> {
-    console.log(`Merging pull request #${pullRequest.pullNumber}...`);
-    try {
-      const response = await this.githubClient.mergePullRequest(
-        this.repoOwner,
-        pullRequest.repository,
-        pullRequest.pullNumber
-      );
-      console.log(`Pull request #${pullRequest.pullNumber} merged successfully: ${response}`);
-    } catch (error) {
-      console.error(`Failed to merge pull request #${pullRequest.pullNumber}: ${error}`);
-      throw error;
-    }
+/**
+ * Merges a pull request in the GitHub repository and returns the updated PR
+ * with merge information
+ * 
+ * @param pullRequest The pull request to merge
+ * @returns Updated PullRequest object with merge information
+ */
+public async mergePullRequest(pullRequest: PullRequest): Promise<PullRequest> {
+  console.log(`Merging pull request #${pullRequest.pullNumber}...`);
+  // if pullRequest is already merged, return it
+  if (pullRequest.isMerged) {
+    console.log(`Pull request #${pullRequest.pullNumber} is already merged.`);
+    return pullRequest;
   }
+  
+  try {
+    // Call the GitHub API to merge the PR
+    const mergeResponse = await this.githubClient.mergePullRequest(
+      this.repoOwner,
+      pullRequest.repository,
+      pullRequest.pullNumber
+    );
+    
+    if (!mergeResponse || !mergeResponse.sha) {
+      throw new Error(`Merge succeeded but didn't return a commit SHA for PR #${pullRequest.pullNumber}`);
+    }
+
+    console.log(`Pull request #${pullRequest.pullNumber} merged successfully with SHA: ${mergeResponse.sha}`);
+    
+    // Create a new PR object with the updated merge information
+    const mergedPR = new PullRequest(
+      pullRequest.pullNumber,
+      mergeResponse.sha,         // Use the merge commit SHA
+      pullRequest.repository,
+      true,                      // Mark as merged
+      new Date().toISOString()   // Set merge timestamp
+    );
+    
+    return mergedPR;
+  } catch (error: unknown) {
+    console.error(`Failed to merge pull request #${pullRequest.pullNumber}: ${error}`);
+    throw error;
+  }
+}
 
   /**
    * Commits changes to files in a specified repository
