@@ -174,3 +174,48 @@ export function loadFromEnv(name: string): string {
   return value;
 }
 
+/**
+ * Encodes a string to base64 format
+ * @param str The string to encode
+ * @param urlSafe If true, makes the base64 string URL-safe by replacing '+' with '-' and '/' with '_'
+ * @returns The base64 encoded string
+ */
+export function base64Encode(str: string, urlSafe: boolean = false): string {
+  // Convert string to base64
+  const buffer = Buffer.from(str, 'utf-8');
+  let encoded = buffer.toString('base64');
+
+  // Make URL-safe if needed
+  if (urlSafe) {
+    encoded = encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  return encoded;
+}
+
+/**
+ * Decodes a base64 string back to a regular string
+ * @param base64Str The base64 string to decode
+ * @param isUrlSafe If true, converts URL-safe base64 back to standard base64 before decoding
+ * @returns The decoded string
+ */
+export function base64Decode(base64Str: string, isUrlSafe: boolean = false): string {
+  try {
+    let str = base64Str;
+
+    // Convert URL-safe base64 to standard base64 if needed
+    if (isUrlSafe) {
+      str = str.replace(/-/g, '+').replace(/_/g, '/');
+      // Add back padding if necessary
+      while (str.length % 4 !== 0) {
+        str += '=';
+      }
+    }
+
+    const buffer = Buffer.from(str, 'base64');
+    return buffer.toString('utf-8');
+  } catch (err) {
+    console.error(`Error decoding base64 string: ${err}`);
+    throw new Error(`Failed to decode base64 string: ${err}`);
+  }
+}

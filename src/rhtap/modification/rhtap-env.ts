@@ -81,7 +81,7 @@ export class UpdateCosignPublicKey implements EnvModification {
       'rhtap/env.sh': [
         {
           oldContent: '# gather images params', // Use regex to match end of a line
-          newContent: '# gather images params\nexport COSIGN_PUBLIC_KEY=' + cosignPublicKey,
+          newContent: '# gather images params\nexport COSIGN_PUBLIC_KEY="' + cosignPublicKey + '"',
         },
       ],
     };
@@ -94,7 +94,7 @@ export class UpdateImageRegistryUser implements EnvModification {
       'rhtap/env.sh': [
         {
           oldContent: '# gather images params',
-          newContent: '# gather images params\nexport IMAGE_REGISTRY_USER=' + username,
+          newContent: '# gather images params\nexport IMAGE_REGISTRY_USER="' + username + '"',
         },
       ],
     };

@@ -1,4 +1,4 @@
-import { ContentModifications } from '../../rhtap/git/templates/templateFactory';
+import { ContentModifications } from '../../rhtap/modification/contentModification';
 import { Octokit } from '@octokit/rest';
 import { Buffer } from 'buffer';
 
@@ -46,38 +46,11 @@ export class GithubClient {
    * @param repo Repository name
    * @param pullNumber Pull request number
    */
-  public async getPullRequest(
-    owner: string,
-    repo: string,
-    pullNumber: number
-  ) {
+  public async getPullRequest(owner: string, repo: string, pullNumber: number) {
     const { data } = await this.octokit.pulls.get({
       owner,
       repo,
-      pull_number: pullNumber
-    });
-    return data;
-  }
-
-  public async createPullRequest(
-    owner: string,
-    repo: string,
-    options: {
-      title: string;
-      head: string;
-      base: string;
-      body?: string;
-      draft?: boolean;
-    }
-  ) {
-    const { data } = await this.octokit.pulls.create({
-      owner,
-      repo,
-      title: options.title,
-      head: options.head,
-      base: options.base,
-      body: options.body,
-      draft: options.draft,
+      pull_number: pullNumber,
     });
     return data;
   }
@@ -110,7 +83,7 @@ export class GithubClient {
    * @throws Error if any part of the process fails
    *
    * @example
-   * const result = await githubClient.modifyAndCreatePullRequest(
+   * const result = await githubClient.createPullRequest(
    *   'octocat',
    *   'hello-world',
    *   'myusername',
@@ -136,7 +109,7 @@ export class GithubClient {
    *   'This PR updates the README and config settings.'
    * );
    */
-  public async modifyAndCreatePullRequest(
+  public async createPullRequest(
     originalRepoOwner: string,
     originalRepoName: string,
     yourGithubUsername: string,
@@ -270,21 +243,21 @@ export class GithubClient {
    * @returns Merge response with SHA
    */
   async mergePullRequest(
-    owner: string, 
-    repo: string, 
+    owner: string,
+    repo: string,
     pullNumber: number
-  ): Promise<{ sha: string, message: string }> {
+  ): Promise<{ sha: string; message: string }> {
     try {
       const response = await this.octokit.pulls.merge({
         owner,
         repo,
         pull_number: pullNumber,
-        merge_method: 'merge'
+        merge_method: 'merge',
       });
-      
+
       return {
         sha: response.data.sha,
-        message: response.data.message
+        message: response.data.message,
       };
     } catch (error) {
       console.error(`Failed to merge pull request #${pullNumber}: ${error}`);
@@ -370,7 +343,7 @@ export class GithubClient {
           const fileChanges = fileModificationsMap.get(filePath)!;
 
           // Add each change to the file's changes array
-          for (const change of changes) {
+          for (const change of changes as Array<{ oldContent: string; newContent: string }>) {
             fileChanges.push({
               oldContent: change.oldContent,
               newContent: change.newContent,
@@ -562,6 +535,32 @@ export class GithubClient {
       return commitSha;
     } catch (error: any) {
       console.error(`Failed to get commit SHA for branch '${branch}': ${error.message}`);
+      throw error;
+    }
+  }
+
+  public async configWebhook(
+    repoOwner: string,
+    repoName: string,
+    webhookUrl: string
+  ): Promise<void> {
+    try {
+      console.log(`Configuring webhook for ${repoOwner}/${repoName} at ${webhookUrl}`);
+
+      await this.octokit.repos.createWebhook({
+        owner: repoOwner,
+        repo: repoName,
+        config: {
+          url: webhookUrl,
+          content_type: 'form',
+          insecure_ssl: '1', // Use '0' for secure SSL
+        },
+        events: ['push', 'pull_request'],
+        active: true,
+      });
+      console.log(`Webhook configured successfully for ${repoOwner}/${repoName}`);
+    } catch (error) {
+      console.error(`Failed to configure webhook for ${repoOwner}/${repoName}: ${error}`);
       throw error;
     }
   }

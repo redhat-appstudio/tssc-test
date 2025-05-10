@@ -1,15 +1,15 @@
-import pino, { Logger, LoggerOptions } from 'pino';
-import path from 'path';
-import fs from 'fs';
 import { TestInfo } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+import pino, { Logger, LoggerOptions } from 'pino';
 
 // Store transport references to allow proper cleanup
-const state: { 
-  loggers: Map<string, Logger>,
-  transports: Map<string, pino.TransportMultiOptions | pino.TransportSingleOptions>
+const state: {
+  loggers: Map<string, Logger>;
+  transports: Map<string, pino.TransportMultiOptions | pino.TransportSingleOptions>;
 } = {
   loggers: new Map(),
-  transports: new Map()
+  transports: new Map(),
 };
 
 function sanitizeFilename(input: string): string {
@@ -26,10 +26,10 @@ function createLoggerConfig(logFile: string, template: string) {
     targets: [
       {
         target: 'pino/file',
-        options: { 
-          destination: logFile, 
+        options: {
+          destination: logFile,
           mkdir: true,
-          sync: true // Make file writes synchronous
+          sync: true, // Make file writes synchronous
         },
         level: 'debug',
       },
@@ -39,7 +39,7 @@ function createLoggerConfig(logFile: string, template: string) {
           colorize: true,
           ignore: 'pid,hostname',
           messageFormat: '{time} {template} {levelLabel} {msg}',
-          destination: 1 // 1 means process.stdout
+          destination: 1, // 1 means process.stdout
         },
         level: 'info',
       },
@@ -79,7 +79,7 @@ export function createNamedLogger(name: string, template: string): Logger {
 
     // Add a flush method to the logger
     (logger as any).flush = () => {
-      return new Promise<void>((resolve) => {
+      return new Promise<void>(resolve => {
         if ((transport as any).end) {
           (transport as any).end(resolve);
         } else {
@@ -120,7 +120,7 @@ export async function closeAllLoggers(): Promise<void> {
     }
     return Promise.resolve();
   });
-  
+
   await Promise.all(flushPromises);
   state.loggers.clear();
   state.transports.clear();

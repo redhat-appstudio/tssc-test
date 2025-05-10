@@ -20,9 +20,16 @@ export class KubeClient {
   private customApi: k8s.CustomObjectsApi;
   // private networkingApi: k8s.NetworkingV1Api;
 
-  constructor() {
+  //TODO: need to move the parameter skipTLSVerify to the constructor
+  constructor(skipTLSVerify: boolean = true) {
+    // Set NODE_TLS_REJECT_UNAUTHORIZED to '0' to skip TLS verification
+    if (skipTLSVerify) {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    }
+
     this.kubeConfig = new KubeConfig();
     this.kubeConfig.loadFromDefault();
+
     this.k8sApi = this.kubeConfig.makeApiClient(CoreV1Api);
     this.customApi = this.kubeConfig.makeApiClient(CustomObjectsApi);
     // this.networkingApi = this.kubeConfig.makeApiClient(NetworkingV1Api);
@@ -246,5 +253,51 @@ export class KubeClient {
       );
       return null;
     }
+  }
+
+  public async getCosignPrivateKey(): Promise<string> {
+    const secret = await this.getSecret('signing-secrets', 'openshift-pipelines');
+    if (!secret) {
+      console.error('Failed to retrieve the secret');
+      throw new Error('Secret signing-secrets under namespace openshift-pipelines not found');
+    }
+    const key = secret['cosign.key'];
+    if (!key) {
+      console.error('Failed to retrieve the cosign private key from the secret');
+      throw new Error('Cosign private key not found in the secret');
+    }
+    return key;
+  }
+
+  public async getCosignPrivateKeyPassword(): Promise<string> {
+    const secret = await this.getSecret('signing-secrets', 'openshift-pipelines');
+    if (!secret) {
+      console.error('Failed to retrieve the secret');
+      throw new Error('Secret signing-secrets under namespace openshift-pipelines not found');
+    }
+    const key = secret['cosign.password'];
+    if (!key) {
+      console.error('Failed to retrieve the cosign private key password from the secret');
+      throw new Error('Cosign private key password not found in the secret');
+    }
+    return key;
+  }
+
+  /**
+   * Retrieves the Cosign public key from Kubernetes secrets
+   * @returns The Cosign public key as a string
+   */
+  public async getCosignPublicKey(): Promise<string> {
+    const secret = await this.getSecret('signing-secrets', 'openshift-pipelines');
+    if (!secret) {
+      console.error('Failed to retrieve the secret');
+      throw new Error('Secret signing-secrets under namespace openshift-pipelines not found');
+    }
+    const key = secret['cosign.pub'];
+    if (!key) {
+      console.error('Failed to retrieve the cosign public key from the secret');
+      throw new Error('Cosign public key not found in the secret');
+    }
+    return key;
   }
 }

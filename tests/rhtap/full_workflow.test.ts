@@ -1,14 +1,16 @@
-import { expect } from '@playwright/test';
+import { Component } from '../../src/rhtap/core/component';
+import { ArgoCD, Environment } from '../../src/rhtap/core/integration/cd/argocd';
+import { CI } from '../../src/rhtap/core/integration/ci';
+import { Git } from '../../src/rhtap/core/integration/git';
+import { TPA } from '../../src/rhtap/core/integration/tpa';
+import { ComponentPostCreateAction } from '../../src/rhtap/postcreation/componentPostCreateAction';
+import {
+  handleSourceRepoCodeChanges,
+  promoteToEnvironmentWithPR,
+} from '../../src/utils/test/common';
 import { createBasicFixture } from '../../src/utils/test/fixtures';
-import { Component } from '../../src/rhtap/component';
-import { ComponentPostCreateAction } from '../../src/rhtap/componentPostCreateAction';
-import { TPA } from '../../src/rhtap/tpa';
-import { Environment } from '../../src/rhtap/cd/argocd';
-import { ArgoCD } from '../../src/rhtap/cd/argocd';
-import { CI } from '../../src/rhtap/ci';
-import { Git } from '../../src/rhtap/git';
-import { handleSourceRepoCodeChanges, promoteToEnvironmentWithPR } from '../../src/utils/test/common';
 import { randomString } from '../../src/utils/util';
+import { expect } from '@playwright/test';
 
 /**
  * Create a basic test fixture with testItem
@@ -17,7 +19,7 @@ const test = createBasicFixture();
 
 /**
  * A complete test scenario for RHTAP workflow:
- * 
+ *
  * This test suite follows a full component lifecycle through:
  * 1. Component creation and verification
  * 2. Source repo changes and pipeline execution
@@ -37,19 +39,20 @@ test.describe('RHTAP Complete Component Workflow', () => {
     test('should create a component successfully', async ({ testItem }) => {
       // Generate component name directly in the test
       const componentName = `${testItem.getTemplate()}-${randomString()}`;
+      const imageName = `${componentName}`;
       console.log(`Creating component: ${componentName}`);
-      
+
       // Create the component directly in the test
-      component = await Component.new(componentName, testItem, componentName);
-      
+      component = await Component.new(componentName, testItem, imageName);
+
       // Wait for the component to be created
       await component.waitUntilComponentIsCompleted();
-      
+
       // Initialize shared resources
       cd = component.getCD();
       git = component.getGit();
       ci = component.getCI();
-      
+
       // Verify component status
       const componentStatus = await component.getStatus();
       expect(componentStatus).toBe('completed');
@@ -83,7 +86,7 @@ test.describe('RHTAP Complete Component Workflow', () => {
       // Get latest git commit and sync application
       const commitSha = await git.getGitOpsRepoCommitSha();
       await cd.syncApplication(Environment.DEVELOPMENT);
-      
+
       // Verify sync was successful
       const result = await cd.waitUntilApplicationIsSynced(Environment.DEVELOPMENT, commitSha);
       expect(result.synced).toBe(true);
@@ -94,11 +97,11 @@ test.describe('RHTAP Complete Component Workflow', () => {
       // Extract the image from development
       image = await git.extractApplicationImage(Environment.DEVELOPMENT);
       expect(image).toBeTruthy();
-      
+
       // Promote to stage environment using PR workflow
       await promoteToEnvironmentWithPR(git, ci, cd, Environment.STAGE, image);
       console.log('Image promoted to stage environment successfully!');
-      
+
       // Additional verification for stage environment could be added here
     });
 
@@ -106,11 +109,11 @@ test.describe('RHTAP Complete Component Workflow', () => {
       // Extract the image from stage
       image = await git.extractApplicationImage(Environment.STAGE);
       expect(image).toBeTruthy();
-      
+
       // Promote to production environment using PR workflow
       await promoteToEnvironmentWithPR(git, ci, cd, Environment.PROD, image);
       console.log('Image promoted to production environment successfully!');
-      
+
       // Additional verification for production environment could be added here
     });
   });
@@ -119,15 +122,15 @@ test.describe('RHTAP Complete Component Workflow', () => {
     test('should verify SBOM is uploaded to Trustification server', async () => {
       // Skip if no image to verify
       test.skip(!image, 'No image available to verify SBOM');
-      
+
       // Extract image digest from image URL
       const imageDigest = image.split(':')[2];
       expect(imageDigest).toBeTruthy();
-      
+
       // Get TPA instance and search for SBOM
-      const tpa = await TPA.getInstance(component.getKubeClient());
+      const tpa = await TPA.initialize(component.getKubeClient());
       const sbomResults = await tpa.searchSBOM(imageDigest);
-      
+
       // Verify SBOM results exist
       expect(sbomResults.length).toBeGreaterThan(0);
       console.log(`SBOM verification successful! Found ${sbomResults.length} results`);

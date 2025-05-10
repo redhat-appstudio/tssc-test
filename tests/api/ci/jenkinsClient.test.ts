@@ -1,6 +1,6 @@
-import { JenkinsClient } from '../../../src/api/ci/jenkinsClient';
+import { CredentialType, JenkinsClient } from '../../../src/api/ci/jenkinsClient';
+import { expect, test } from '@playwright/test';
 import * as dotenv from 'dotenv';
-import { test, expect } from '@playwright/test';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -9,8 +9,8 @@ dotenv.config();
 const JENKINS_URL =
   process.env.JENKINS_URL ||
   'https://jenkins-jenkins.apps.rosa.rhtap-services.xmdt.p3.openshiftapps.com';
-const JENKINS_USERNAME = process.env.JENKINS_USERNAME;
-const JENKINS_TOKEN = process.env.JENKINS_TOKEN ;
+const JENKINS_USERNAME = '';
+const JENKINS_TOKEN = '';
 
 // Test constants - change these as needed
 const TEST_FOLDER_NAME = 'test-folder-xjiang';
@@ -54,7 +54,7 @@ test.describe('JenkinsClient Integration Tests', () => {
       TEST_FOLDER_NAME,
       TEST_CREDENTIAL_ID,
       'test-secret-value',
-      'Secret text'
+      CredentialType.SECRET_TEXT
     );
 
     expect(result.success).toBe(true);
@@ -68,7 +68,7 @@ test.describe('JenkinsClient Integration Tests', () => {
       TEST_FOLDER_NAME,
       credentialId,
       'testuser:testpassword',
-      'Username with password'
+      CredentialType.USERNAME_PASSWORD
     );
 
     expect(result.success).toBe(true);
@@ -76,10 +76,10 @@ test.describe('JenkinsClient Integration Tests', () => {
     expect(result.status).toBeLessThan(300);
   });
 
-  test('Should get job information', async () => {
+  test.only('Should get job information', async () => {
     // const jobPath = `${TEST_FOLDER_NAME}/${TEST_JOB_NAME}`;
-    const testFolderName = 'a2zhytown-java-quarkus'; // Adjusted for root folder
-    const testJobName = 'a2zhytown-java-quarkus';
+    const testFolderName = 'b6cybvqqx-dotnet-basic'; // Adjusted for root folder
+    const testJobName = 'b6cybvqqx-dotnet-basic';
     const jobPath = `${testFolderName}/${testJobName}`; // Adjusted for root folder
     const jobInfo = await jenkins.getJob(jobPath);
     console.log('Job information:', jobInfo);

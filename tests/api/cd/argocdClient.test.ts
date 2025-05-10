@@ -1,15 +1,15 @@
 import { ArgoCDClient } from '../../../src/api/cd/argocdClient';
 import { KubeClient } from '../../../src/api/ocp/kubeClient';
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-const kubeClient = new KubeClient();
+const kubeClient = new KubeClient(true);
 // Initialize the ArgoCD client
 const tektonClient = new ArgoCDClient(kubeClient);
 
 test.describe('ArgoCDClient Integration Tests', () => {
   // Set timeout for tests (ArgoCD operations can be slow)
   test.setTimeout(30000);
-  
+
   // test getArgoCDInstanceName
   test('Should get ArgoCD instance name', async () => {
     const instanceName = await tektonClient.getArgoCDInstanceName('rhtap-gitops');
@@ -23,7 +23,7 @@ test.describe('ArgoCDClient Integration Tests', () => {
     expect(route).toBeDefined();
     console.log(`ArgoCD server route: ${route}`);
   });
-  
+
   test('Should get application successfully', async () => {
     const applicationName = 'go-nvnnqqnl';
     const namespace = 'rhtap-app-cd';

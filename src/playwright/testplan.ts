@@ -1,7 +1,7 @@
-import { CIType } from '../rhtap/ci';
-import { GitType } from '../rhtap/git';
-import { TemplateType } from '../rhtap/git/templates/templateFactory';
-import { ImageRegistryType } from '../rhtap/registry';
+import { CIType } from '../../src/rhtap/core/integration/ci';
+import { GitType } from '../../src/rhtap/core/integration/git';
+import { TemplateType } from '../../src/rhtap/core/integration/git';
+import { ImageRegistryType } from '../../src/rhtap/core/integration/registry';
 import { TestItem } from './testItem';
 
 export class TestPlan {

@@ -41,11 +41,17 @@ Modify the testplan.json file to match your testing requirements. Below are the 
 ```
 
 3. Export Environment Variables
-Set the required environment variables running automation tests:
 
+Copy the template file from `templates/.env` to the root directory of the project:
+
+```bash
+cp templates/.env .env
 ```
-export GITHUB_ORGANIZATION="your-github-org"
-export GITHUB_TOKEN="your-github-token"
+
+Edit the `.env` file to set required environment variables for running automation tests. Ater that, you can source the file before running tests:
+
+```bash
+source .env
 ```
 
 Running Tests

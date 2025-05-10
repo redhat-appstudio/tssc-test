@@ -1,4 +1,5 @@
 import { GithubClient } from '../../../src/api/git/githubClient';
+import test from '@playwright/test';
 
 // Initialize the GitHub client
 const githubClient = new GithubClient({
@@ -6,11 +7,10 @@ const githubClient = new GithubClient({
 });
 
 // Set timeout for tests (Tekton operations can be slow)
-jest.setTimeout(30000);
 
-describe('TektonClient Integration Tests', () => {
+test.describe('TektonClient Integration Tests', () => {
   // Run before all tests
-  beforeAll(async () => {
+  test.beforeAll(async () => {
     // // Create a test folder for all tests to use
     // try {
     //   console.log('Setting up test folder...');
@@ -25,7 +25,7 @@ describe('TektonClient Integration Tests', () => {
   });
 
   // Run after all tests
-  afterAll(async () => {
+  test.afterAll(async () => {
     // Clean up test resources
     // Note: You may want to implement a deleteFolder and deleteJob method in JenkinsClient
     // For now, we'll leave this commented out since the methods don't exist yet
@@ -88,6 +88,22 @@ describe('TektonClient Integration Tests', () => {
       // Additional assertion to ensure the extracted value matches expectations
     } catch (error) {
       console.error('Error during test execution:', error);
+      throw error;
+    }
+  });
+
+  // test configWebhook
+  test.only('Should configure webhook for GitHub repository', async () => {
+    const repoOwner = 'xjiangorg';
+    const repoName = 'nodejs-ufflmxra';
+    const webhookUrl =
+      'https://jenkins-jenkins.apps.rosa.rhtap-services.xmdt.p3.openshiftapps.com/github-webhookaa/'; // Replace with your actual webhook URL
+
+    try {
+      await githubClient.configWebhook(repoOwner, repoName, webhookUrl);
+      console.log(`Webhook configured successfully`);
+    } catch (error) {
+      console.error('Error during webhook configuration:', error);
       throw error;
     }
   });

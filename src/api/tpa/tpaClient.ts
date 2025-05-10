@@ -1,5 +1,5 @@
-import axios, { AxiosError, AxiosResponse } from 'axios';
 import retry from 'async-retry';
+import axios, { AxiosError, AxiosResponse } from 'axios';
 
 // Define interfaces for SBOM search response
 interface SBOMSearchResponse {
@@ -108,9 +108,7 @@ export class TPAClient {
 
           // For server errors (5xx), retry
           if (axiosError.response && axiosError.response.status >= 500) {
-            console.error(
-              `Server error (${axiosError.response.status}). Retrying...`
-            );
+            console.error(`Server error (${axiosError.response.status}). Retrying...`);
             throw axiosError;
           }
 

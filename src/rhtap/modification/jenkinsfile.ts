@@ -34,6 +34,7 @@ export class KubernetesAgentModification implements JenkinsfileModification {
 
 /**
  * Concrete implementation for registry credentials configuration
+ * @deprecated this is not used anymore
  */
 export class EnableRegistryUserModification implements JenkinsfileModification {
   getModification(): ContentModifications {
@@ -78,13 +79,13 @@ export class DisableQuayIOCredentialsModification implements JenkinsfileModifica
 }
 
 // TODO: need to fix, this only is applied to the gitopts repo
-export class DisableCosignPublicKeyModification implements JenkinsfileModification {
+export class EnableCosignPublicKeyModification implements JenkinsfileModification {
   getModification(): ContentModifications {
     return {
       Jenkinsfile: [
         {
-          oldContent: "COSIGN_PUBLIC_KEY = credentials('COSIGN_PUBLIC_KEY')",
-          newContent: "/* COSIGN_PUBLIC_KEY = credentials('COSIGN_PUBLIC_KEY') */",
+          oldContent: "/* COSIGN_PUBLIC_KEY = credentials('COSIGN_PUBLIC_KEY') */",
+          newContent: "COSIGN_PUBLIC_KEY = credentials('COSIGN_PUBLIC_KEY')",
         },
       ],
     };
@@ -99,7 +100,7 @@ export enum JenkinsfileModificationType {
   REGISTRY_USER = 'REGISTRY_USER',
   REGISTRY_PASSWORD = 'REGISTRY_PASSWORD',
   DISABLE_QUAY_CREDENTIALS = 'DISABLE_QUAY_CREDENTIALS',
-  DISABLE_COSIGN_PUBLIC_KEY = 'DISABLE_COSIGN_PUBLIC_KEY',
+  ENABLE_COSIGN_PUBLIC_KEY = 'ENABLE_COSIGN_PUBLIC_KEY',
 }
 
 /**
@@ -121,8 +122,8 @@ export class JenkinsfileModificationFactory {
         return new EnableRegistryPasswordModification();
       case JenkinsfileModificationType.DISABLE_QUAY_CREDENTIALS:
         return new DisableQuayIOCredentialsModification();
-      case JenkinsfileModificationType.DISABLE_COSIGN_PUBLIC_KEY:
-        return new DisableCosignPublicKeyModification();
+      case JenkinsfileModificationType.ENABLE_COSIGN_PUBLIC_KEY:
+        return new EnableCosignPublicKeyModification();
       default:
         throw new Error(`Unknown Jenkinsfile modification type: ${type}`);
     }
@@ -181,9 +182,9 @@ export class JenkinsfileModifier {
     return this;
   }
 
-  disableCosignPublicKey(): JenkinsfileModifier {
+  enableCosignPublicKey(): JenkinsfileModifier {
     const modification = JenkinsfileModificationFactory.create(
-      JenkinsfileModificationType.DISABLE_COSIGN_PUBLIC_KEY
+      JenkinsfileModificationType.ENABLE_COSIGN_PUBLIC_KEY
     ).getModification();
     this.container.merge(modification);
     return this;
@@ -209,26 +210,9 @@ export class JenkinsfileModifier {
       .enableRegistryUser()
       .enableRegistryPassword()
       .disableQuayCredentials()
-      .disableCosignPublicKey()
+      .enableCosignPublicKey()
       .getModifications();
   }
-
-  // static modifyJenkinsfile(content: string, modifications: ContentModifications[]): string {
-  //   let modifiedContent = content;
-
-  //   // Apply each modification to the content
-  //   for (const modification of modifications) {
-  //     if (modification['Jenkinsfile']) {
-  //       for (const changeArray of Object.values(modification['Jenkinsfile'])) {
-  //         for (const change of changeArray) {
-  //           modifiedContent = modifiedContent.replace(change.oldContent, change.newContent);
-  //         }
-  //       }
-  //     }
-  //   }
-
-  //   return modifiedContent;
-  // }
 
   static applyModification(content: string, modification: ContentModifications): string {
     let modifiedContent = content;

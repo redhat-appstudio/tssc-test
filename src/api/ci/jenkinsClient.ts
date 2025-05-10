@@ -1,5 +1,10 @@
 import axios, { AxiosInstance } from 'axios';
 
+export enum CredentialType {
+  SECRET_TEXT = 'Secret text',
+  USERNAME_PASSWORD = 'Username with password',
+}
+
 interface JenkinsClientConfig {
   baseUrl: string;
   username: string;
@@ -94,7 +99,8 @@ export class JenkinsClient {
    * @param folderName Optional folder where to create the job. If not provided, job will be created at root level
    * @param branch The branch to build (default: main)
    * @param jenkinsfilePath The path to the Jenkinsfile (default: Jenkinsfile)
-   * @param credentialId The credential ID to use (default: GITOPS_CREDENTIALS)
+   * @param credentialId The credential ID to use (default: GITOPS_AUTH_PASSWORD). If folderName is provided and useFolderScopedCredential is true, the credential will be scoped to the folder.
+   * @param useFolderScopedCredential Whether to use folder-scoped credentials (default: false)
    */
   public async createJob(
     jobName: string,
@@ -102,11 +108,18 @@ export class JenkinsClient {
     folderName?: string,
     branch: string = 'main',
     jenkinsfilePath: string = 'Jenkinsfile',
-    credentialId: string = 'GITOPS_CREDENTIALS'
+    credentialId: string = 'GITOPS_AUTH_PASSWORD'
   ): Promise<any> {
     try {
       // Determine the path based on whether folderName is provided
       const path = folderName ? `job/${encodeURIComponent(folderName)}/createItem` : 'createItem';
+
+      // // Construct folder-scoped credential ID if requested and folder is provided
+      // let effectiveCredentialId = credentialId;
+      // if (folderName && !credentialId.includes('/')) {
+      //   // Only prepend the folder path if the credential ID doesn't already contain a path
+      //   effectiveCredentialId = `${folderName}/${credentialId}`;
+      // }
 
       const jobConfigXml = `
             <flow-definition plugin="workflow-job@2.40">
@@ -176,13 +189,13 @@ export class JenkinsClient {
    * @param folderName Optional folder where to create the credential. If not provided, credential will be created at root level
    * @param credentialId The ID for the credential
    * @param secretValue The secret value
-   * @param credentialType The type of credential (default: 'Secret text'), valid options are 'Secret text' and 'Username with password'
+   * @param credentialType The type of credential (default: CredentialType.SECRET_TEXT), valid options are CredentialType.SECRET_TEXT and CredentialType.USERNAME_PASSWORD
    */
   public async createCredential(
-    folderName: string | undefined,
+    folderName: string,
     credentialId: string,
     secretValue: string,
-    credentialType: string = 'Secret text'
+    credentialType: CredentialType = CredentialType.SECRET_TEXT
   ): Promise<any> {
     try {
       // The path to create credentials in Jenkins
@@ -193,7 +206,7 @@ export class JenkinsClient {
       // XML for creating secret text credentials using plain-credentials plugin
       let credentialXml;
 
-      if (credentialType === 'Secret text') {
+      if (credentialType === CredentialType.SECRET_TEXT) {
         credentialXml = `
                 <org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl plugin="plain-credentials">
                     <scope>GLOBAL</scope>
@@ -202,7 +215,7 @@ export class JenkinsClient {
                     <secret>${secretValue}</secret>
                 </org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl>
                 `;
-      } else if (credentialType === 'Username with password') {
+      } else if (credentialType === CredentialType.USERNAME_PASSWORD) {
         // For username-password credentials
         const [username, password] = secretValue.split(':');
         credentialXml = `

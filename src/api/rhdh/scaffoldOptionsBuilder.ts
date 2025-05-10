@@ -1,5 +1,5 @@
-import { CIType } from '../../rhtap/ci';
-import { GitType } from '../../rhtap/git/gitInterface';
+import { CIType } from '../../../src/rhtap/core/integration/ci';
+import { GitType } from '../../../src/rhtap/core/integration/git';
 import { ScaffolderScaffoldOptions } from '@backstage/plugin-scaffolder-react';
 
 /**
