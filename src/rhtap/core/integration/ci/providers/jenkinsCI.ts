@@ -20,7 +20,7 @@ export class JenkinsCI extends BaseCI {
   }
 
   private async loadSecret(): Promise<void> {
-    const secret = await this.kubeClient.getSecret('rhtap-jenkins-integration', 'rhtap');
+    const secret = await this.kubeClient.getSecret('rhtap-jenkins-integration', 'tssc');
     if (!secret) {
       throw new Error('Jenkins secret not found in the cluster. Please ensure the secret exists.');
     }

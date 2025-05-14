@@ -55,12 +55,6 @@ export interface GitLabBranch {
   web_url: string;
 }
 
-export interface GitLabRepository {
-  root_ref: string;
-  empty: boolean;
-  size: number;
-}
-
 export interface GitLabClientOptions {
   token: string;
   baseUrl?: string;
@@ -199,9 +193,9 @@ export class GitLabClient {
    * @returns Object containing the PR number and commit SHA
    */
   async createMergeRequest(
-    owner: string,
+    group: string,
     repo: string,
-    targetOwner: string,
+    targetGroup: string,
     baseBranch: string,
     newBranchName: string,
     contentModifications: ContentModifications,
@@ -271,7 +265,14 @@ export class GitLabClient {
         await this.client.Branches.create(projectId, newBranchName, baseBranch);
         console.log(`Created new branch '${newBranchName}' from '${baseBranch}'`);
 
-        // Process each file modification
+        // Process all file modifications in one batch
+        const fileModifications: { 
+          action: 'create' | 'update';
+          filePath: string;
+          content: string; 
+        }[] = [];
+        
+        // First, collect all file modifications
         for (const [filePath, modifications] of Object.entries(contentModifications)) {
           try {
             let fileContent: string;
@@ -284,50 +285,59 @@ export class GitLabClient {
                 baseBranch
               );
               fileContent = Buffer.from(fileData.content, 'base64').toString('utf-8');
+              
+              // Apply each modification in sequence
+              for (const { oldContent, newContent } of modifications) {
+                fileContent = fileContent.replace(oldContent, newContent);
+              }
+              
+              fileModifications.push({
+                action: 'update',
+                filePath,
+                content: fileContent
+              });
+              
             } catch (error: any) {
               if (error.message && error.message.includes('not found')) {
                 // File doesn't exist yet, start with empty content
                 fileContent = '';
-              } else {
-                throw error;
-              }
-            }
-            
-            // Apply each modification in sequence
-            for (const { oldContent, newContent } of modifications) {
-              fileContent = fileContent.replace(oldContent, newContent);
-            }
-            
-            try {
-              // Try to update the file, create it if it doesn't exist
-              await this.updateFile(
-                projectId,
-                filePath,
-                newBranchName,
-                fileContent,
-                `Update ${filePath}`
-              );
-              console.log(`Updated file ${filePath} in branch ${newBranchName}`);
-            } catch (error: any) {
-              if (error.message && error.message.includes('not found')) {
-                // File doesn't exist yet in the new branch, create it
-                await this.createFile(
-                  projectId,
+                
+                // Apply each modification in sequence (for new files)
+                for (const { oldContent, newContent } of modifications) {
+                  fileContent = fileContent.replace(oldContent, newContent);
+                }
+                
+                fileModifications.push({
+                  action: 'create',
                   filePath,
-                  newBranchName,
-                  fileContent,
-                  `Create ${filePath}`
-                );
-                console.log(`Created new file ${filePath} in branch ${newBranchName}`);
+                  content: fileContent
+                });
               } else {
                 throw error;
               }
             }
           } catch (error: any) {
-            console.error(`Error modifying file ${filePath}: ${error.message}`);
+            console.error(`Error preparing file modification for ${filePath}: ${error.message}`);
             throw error;
           }
         }
+        
+        // Now batch commit all changes
+        const commitActions = fileModifications.map(mod => ({
+          action: mod.action,
+          filePath: mod.filePath,
+          content: mod.content
+        }));
+        
+        // Commit all changes at once using the Commits API
+        await this.client.Commits.create(
+          projectId,
+          newBranchName,
+          title, // Using MR title as commit message
+          commitActions
+        );
+        
+        console.log(`Committed ${commitActions.length} file changes to branch ${newBranchName}`);
 
         // Create merge request from new branch to base branch
         const mergeRequest = await this.client.MergeRequests.create(
@@ -365,10 +375,18 @@ export class GitLabClient {
         if (contentModifications) {
           console.log(`Processing file modifications for merge request in project ${projectId}`);
           
-          // Process each file modification
+          // Process all file modifications in one batch
+          const fileModifications: { 
+            action: 'create' | 'update';
+            filePath: string;
+            content: string; 
+          }[] = [];
+          
+          // First, collect all file modifications
           for (const [filePath, modifications] of Object.entries(contentModifications)) {
             try {
               let fileContent: string;
+              let fileAction: 'create' | 'update' = 'update';
               
               // Try to get existing file content first
               try {
@@ -382,6 +400,7 @@ export class GitLabClient {
                 if (error.message && error.message.includes('not found')) {
                   // File doesn't exist yet, start with empty content
                   fileContent = '';
+                  fileAction = 'create';
                 } else {
                   throw error;
                 }
@@ -392,35 +411,32 @@ export class GitLabClient {
                 fileContent = fileContent.replace(oldContent, newContent);
               }
               
-              try {
-                // Try to update the file, create it if it doesn't exist
-                await this.updateFile(
-                  projectId,
-                  filePath,
-                  sourceBranch,
-                  fileContent,
-                  `Update ${filePath}`
-                );
-                console.log(`Updated file ${filePath} in branch ${sourceBranch}`);
-              } catch (error: any) {
-                if (error.message && error.message.includes('not found')) {
-                  // File doesn't exist yet in the source branch, create it
-                  await this.createFile(
-                    projectId,
-                    filePath,
-                    sourceBranch,
-                    fileContent,
-                    `Create ${filePath}`
-                  );
-                  console.log(`Created new file ${filePath} in branch ${sourceBranch}`);
-                } else {
-                  throw error;
-                }
-              }
+              // Add this file to the actions array
+              fileModifications.push({
+                action: fileAction,
+                filePath: filePath,
+                content: fileContent
+              });
+              
             } catch (error: any) {
-              console.error(`Error modifying file ${filePath}: ${error.message}`);
+              console.error(`Error preparing file modification for ${filePath}: ${error.message}`);
               throw error;
             }
+          }
+          
+          // Create a commit with all file modifications in a single batch
+          if (fileModifications.length > 0) {
+            console.log(`Committing ${fileModifications.length} file changes to branch ${sourceBranch}`);
+            
+            // Use the GitLab API to commit all files in a single batch
+            await this.client.Commits.create(
+              projectId,
+              sourceBranch,
+              title, // Using MR title as commit message
+              fileModifications
+            );
+          } else {
+            console.log('No file changes to commit');
           }
         }
 
@@ -438,6 +454,39 @@ export class GitLabClient {
         console.error(`Error creating merge request: ${error.message}`);
         throw error;
       }
+    }
+  }
+
+  /**
+   * Get file content from the repository
+   * @param projectId Project ID
+   * @param filePath Path to the file in the repository
+   * @param branch Branch name
+   * @returns Promise with the file content (base64 encoded)
+   */
+  async getFileContent(
+    projectId: number | string,
+    filePath: string,
+    branch: string = 'main'
+  ): Promise<{ content: string; encoding: string }> {
+    try {
+      const fileContent = await this.client.RepositoryFiles.show(
+        projectId,
+        filePath,
+        branch
+      );
+
+      if (!fileContent || !fileContent.content) {
+        throw new Error(`Could not retrieve content for file: ${filePath}`);
+      }
+
+      return {
+        content: fileContent.content,
+        encoding: fileContent.encoding || 'base64'
+      };
+    } catch (error: any) {
+      console.error(`Error getting file content from ${filePath}: ${error.message}`);
+      throw error;
     }
   }
 
@@ -496,6 +545,53 @@ export class GitLabClient {
     } catch (error) {
       console.error(`Error extracting content with regex from ${filePath}: ${error}`);
       return [];
+    }
+  }
+
+  /**
+   * Merges a merge request in a GitLab project
+   * @param projectId Project ID
+   * @param mergeRequestId Merge request IID (internal ID, not global ID)
+   * @param options Additional merge options
+   * @returns Promise with the merge information
+   */
+  async mergeMergeRequest(
+    projectId: number | string,
+    mergeRequestId: number,
+    options?: {
+      mergeCommitMessage?: string;
+      squash?: boolean;
+      squashCommitMessage?: string;
+      shouldRemoveSourceBranch?: boolean;
+    }
+  ): Promise<{ id: string; sha: string; mergeCommitSha: string }> {
+    try {
+      console.log(`Merging merge request #${mergeRequestId} in project ${projectId}`);
+      
+      // Convert options if provided
+      let mergeOptions = {};
+      if (options) {
+        if (options.shouldRemoveSourceBranch) {
+          mergeOptions = { ...mergeOptions, should_remove_source_branch: options.shouldRemoveSourceBranch };
+        }
+        if (options.mergeCommitMessage) {
+          mergeOptions = { ...mergeOptions, merge_commit_message: options.mergeCommitMessage };
+        }
+      }
+      
+      // Use GitLab API to accept the merge request (correct method is accept, not merge)
+      const response = await this.client.MergeRequests.accept(projectId, mergeRequestId, mergeOptions);
+
+      console.log(`Successfully merged merge request #${mergeRequestId}`);
+      
+      return {
+        id: String(response.id || mergeRequestId),
+        sha: String(response.sha || ''),
+        mergeCommitSha: response.merge_commit_sha ? String(response.merge_commit_sha) : String(response.sha || '')
+      };
+    } catch (error: any) {
+      console.error(`Failed to merge merge request #${mergeRequestId}: ${error.message}`);
+      throw new Error("Failed to merge Merge Request. Check below error");
     }
   }
 }

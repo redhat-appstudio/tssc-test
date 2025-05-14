@@ -5,7 +5,7 @@ import { DEFAULT_APP_NAMESPACE } from '../../constants';
 import { TestItem } from '../../playwright/testItem';
 import { ArgoCD } from '../core/integration/cd/argocd';
 import { CI, CIFactory } from '../core/integration/ci';
-import { Git, GitType } from '../core/integration/git';
+import { Git, GitlabProvider, GitType } from '../core/integration/git';
 import { createGit } from '../core/integration/git';
 import { BitbucketProvider } from '../core/integration/git';
 import { ImageRegistry, createRegistry } from '../core/integration/registry';
@@ -44,8 +44,6 @@ export class Component {
     name: string,
     testItem: TestItem,
     imageName: string,
-    workspace?: string,
-    project?: string
   ): Promise<Component> {
     const component = new Component(name);
 
@@ -56,7 +54,7 @@ export class Component {
       // }
 
       // Initialize KubeClient inside the try-catch block with skipTLSVerify enabled
-      component.kubeClient = new KubeClient(true);
+      component.kubeClient = new KubeClient();
       // Initialize CI, image registry and git properties
       component.ci = await CIFactory.createCI(
         testItem.getCIType(),
@@ -69,8 +67,6 @@ export class Component {
         testItem.getGitType(),
         component.name,
         testItem.getTemplate(),
-        workspace,
-        project
       );
 
       component.cd = new ArgoCD(component.name, component.kubeClient);
@@ -126,7 +122,7 @@ export class Component {
   private async createDeveloperHub(): Promise<DeveloperHub> {
     const routeHostname = await this.kubeClient.getOpenshiftRoute(
       'backstage-developer-hub',
-      'rhtap-dh'
+      'tssc-dh'
     );
     const developerHubUrl = `https://${routeHostname}`;
     const developerHub = new DeveloperHub(developerHubUrl);
@@ -167,6 +163,7 @@ export class Component {
           .forGitRepo(git.getRepoOwner(), git.getSourceRepoName())
           .build();
       case GitType.GITLAB:
+        const gitlab = git as GitlabProvider;
         return ScaffolderOptionsBuilder(GitType.GITLAB)
           .withTemplateName(template)
           .withName(git.getSourceRepoName())
@@ -177,14 +174,14 @@ export class Component {
           )
           .withCIType(ci.getCIType())
           .withNamespace(DEFAULT_APP_NAMESPACE)
-          .forGitRepo(git.getRepoOwner(), git.getSourceRepoName())
+          .forGitRepo(gitlab.getGroup(), gitlab.getSourceRepoName())
           .build();
       case GitType.BITBUCKET:
         const bitbucket = git as BitbucketProvider;
         const repoName = bitbucket.getSourceRepoName();
         const workspaceName = bitbucket.getWorkspace();
         const projectName = bitbucket.getProject();
-        const username = bitbucket.getRepoOwner();
+        const username = bitbucket.getUsername();
         return ScaffolderOptionsBuilder(GitType.BITBUCKET)
           .withTemplateName(template)
           .withName(repoName)

@@ -33,7 +33,7 @@ export class TPA implements IntegrationSecret {
    * @returns Promise with the secret data
    */
   private async loadSecret(): Promise<Record<string, string>> {
-    const secret = await this.kubeClient.getSecret('rhtap-trustification-integration', 'rhtap');
+    const secret = await this.kubeClient.getSecret('rhtap-trustification-integration', 'tssc');
     if (!secret) {
       throw new Error(
         'Trustification integration secret rhtap-trustification-integration not found in the cluster. Please ensure the secret exists.'

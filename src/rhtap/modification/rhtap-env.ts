@@ -35,7 +35,7 @@ export class UpdateTUFMirrorURL implements EnvModification {
     return {
       'rhtap/env.sh': [
         {
-          oldContent: 'http://tuf.rhtap-tas.svc',
+          oldContent: 'http://tuf.tssc-tas.svc',
           newContent: tufURL,
         },
       ],
@@ -51,7 +51,7 @@ export class UpdateRokorServerURL implements EnvModification {
     return {
       'rhtap/env.sh': [
         {
-          oldContent: 'http://rekor-server.rhtap-tas.svc',
+          oldContent: 'http://rekor-server.tssc-tas.svc',
           newContent: rokorURL,
         },
       ],

@@ -14,6 +14,7 @@ import {
 export class GithubProvider extends BaseGitProvider {
   private githubClient!: GithubClient;
   private template!: ITemplate;
+  private repoOwner: string;
 
   public constructor(
     componentName: string,
@@ -21,12 +22,12 @@ export class GithubProvider extends BaseGitProvider {
     templateType: TemplateType,
     kubeClient: KubeClient
   ) {
-    super(componentName, repoOwner, GitType.GITHUB, kubeClient);
+    super(componentName, GitType.GITHUB, kubeClient);
+    this.repoOwner = repoOwner;
     this.template = TemplateFactory.createTemplate(templateType);
-    this.initialize();
   }
 
-  private async initialize(): Promise<void> {
+  public async initialize(): Promise<void> {
     this.secret = await this.loadSecret();
     this.githubClient = await this.initGithubClient();
   }
@@ -36,7 +37,7 @@ export class GithubProvider extends BaseGitProvider {
    * @returns Promise with the secret data
    */
   protected async loadSecret(): Promise<Record<string, string>> {
-    const secret = await this.kubeClient.getSecret('rhtap-github-integration', 'rhtap');
+    const secret = await this.kubeClient.getSecret('rhtap-github-integration', 'tssc');
     if (!secret) {
       throw new Error(
         'GitHub integration secret not found in the cluster. Please ensure the secret exists.'

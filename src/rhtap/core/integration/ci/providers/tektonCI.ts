@@ -6,7 +6,7 @@ import { BaseCI } from '../baseCI';
 import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
 import { PipelineRunKind } from '@janus-idp/shared-react/index';
 
-const CI_NAMESPACE = 'rhtap-app-ci';
+const CI_NAMESPACE = 'tssc-app-ci';
 
 export class TektonCI extends BaseCI {
   private tektonClient: TektonClient;
@@ -273,6 +273,7 @@ export class TektonCI extends BaseCI {
    * @throws Logs but does not throw errors to prevent process termination
    */
   public async waitForAllPipelinesToFinish(): Promise<void> {
+    console.log(`Waiting for all pipelines to finish for component: ${this.componentName}`);
     try {
       const sourceRepoName = this.componentName;
       const maxAttempts = 20;

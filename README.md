@@ -54,6 +54,18 @@ Edit the `.env` file to set required environment variables for running automatio
 source .env
 ```
 
+4. (Optional) Skip TLS verification globally
+
+For testing environments with self-signed certificates or invalid SSL certificates, you can disable TLS verification globally. This is useful in testing environments but should not be used in production:
+
+```bash
+# Option 1: Set environment variable before running tests
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+
+# Option 2: Add to your .env file
+echo "NODE_TLS_REJECT_UNAUTHORIZED=0" >> .env
+```
+
 Running Tests
 
 Run All Tests

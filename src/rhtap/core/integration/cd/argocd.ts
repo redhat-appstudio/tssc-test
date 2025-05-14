@@ -11,7 +11,7 @@ export enum Environment {
 
 export class ArgoCD {
   private argoCDClient: ArgoCDClient;
-  private readonly NAMESPACE = 'rhtap-gitops';
+  private readonly NAMESPACE = 'tssc-gitops';
 
   constructor(
     public readonly componentName: string,

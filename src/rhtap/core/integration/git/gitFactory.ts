@@ -14,33 +14,30 @@ export class GitFactory {
     type: GitType,
     componentName: string,
     templateType: TemplateType,
-    workspace?: string,
-    project?: string
   ): Promise<Git> {
     try {
       switch (type) {
         case GitType.GITHUB:
           const github_org = loadFromEnv('GITHUB_ORGANIZATION');
           const github = new GithubProvider(componentName, github_org, templateType, kubeClient);
+          await github.initialize();
           return github;
         case GitType.GITLAB:
-          //TODO: gitlab group should be retrieved from the secret rhtap-gitlab-integration?
-          const gitlab_group = loadFromEnv('GITLAB_GROUP');
-          const git = new GitlabProvider(componentName, gitlab_group, templateType, kubeClient);
+          const git = new GitlabProvider(componentName, templateType, kubeClient);
           await git.initialize();
           return git;
         case GitType.BITBUCKET:
-          if (!workspace || !project) {
-            throw new Error('Workspace and project are required for Bitbucket');
-          }
-          const bitbucket_username = loadFromEnv('BITBUCKET_USERNAME');
-          return new BitbucketProvider(
+          const workspace = loadFromEnv('BITBUCKET_WORKSPACE');
+          const project = loadFromEnv('BITBUCKET_PROJECT');
+          const bitbucket = new BitbucketProvider(
             componentName,
-            bitbucket_username,
             workspace,
             project,
-            kubeClient
+            kubeClient,
+            templateType
           );
+          await bitbucket.initialize();
+          return bitbucket;
         default:
           throw new Error(`Unsupported Git type: ${type}`);
       }
@@ -59,8 +56,6 @@ export async function createGit(
   type: GitType,
   componentName: string,
   templateType: TemplateType,
-  workspace?: string,
-  project?: string
 ): Promise<Git> {
-  return GitFactory.createGit(kubeClient, type, componentName, templateType, workspace, project);
+  return GitFactory.createGit(kubeClient, type, componentName, templateType);
 }

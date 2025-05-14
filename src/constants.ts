@@ -1,1 +1,1 @@
-export const DEFAULT_APP_NAMESPACE = 'rhtap-app';
+export const DEFAULT_APP_NAMESPACE = 'tssc-app';

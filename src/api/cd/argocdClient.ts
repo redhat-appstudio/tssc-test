@@ -265,7 +265,7 @@ export class ArgoCDClient {
   private readonly API_GROUP = 'argoproj.io';
   private readonly API_VERSION = 'v1alpha1';
   private readonly APPLICATIONS_PLURAL = 'applications';
-  private readonly ARGOCD_PLURAL = 'argocds'; // Adding constant for ArgoCD instances
+  private readonly ARGOCD_PLURAL = 'argocds';
 
   constructor(private kubeClient: KubeClient) {}
 
@@ -276,7 +276,7 @@ export class ArgoCDClient {
     const options = this.kubeClient.createApiOptions(
       this.API_GROUP,
       this.API_VERSION,
-      this.ARGOCD_PLURAL, // Using the correct resource type for ArgoCD instances
+      this.ARGOCD_PLURAL,
       namespace
     );
 

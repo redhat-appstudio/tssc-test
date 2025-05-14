@@ -216,6 +216,87 @@ export class BitbucketClient {
   }
 
   /**
+   * Configure a webhook for a repository
+   * @param workspace The workspace ID
+   * @param repoSlug The repository slug
+   * @param webhookUrl The URL to send webhook events to
+   * @param events Array of event types to trigger the webhook
+   * @param description Description of the webhook (optional)
+   * @param skip_cert_verification Whether to skip SSL certificate verification (default: true)
+   * @param secret_set The secret string to use for webhook security (optional)
+   * @returns Created webhook data
+   */
+  async configWebhook(
+    workspace: string,
+    repoSlug: string,
+    webhookUrl: string,
+    events: string[] = ['repo:push', 'pullrequest:created', 'pullrequest:updated', 'pullrequest:fulfilled'],
+    description: string = 'Webhook configured by RHTAP',
+    skip_cert_verification: boolean = true,
+    secret_set?: string
+  ): Promise<any> {
+    try {
+      if (!workspace || !repoSlug || !webhookUrl) {
+        throw new Error('Workspace, repository slug, and webhook URL are required');
+      }
+
+      const webhookData: any = {
+        description,
+        url: webhookUrl,
+        active: true,
+        events,
+        skip_cert_verification
+      };
+
+      // Add secret if provided
+      if (secret_set) {
+        webhookData.secret = secret_set;
+      }
+
+      const endpoint = `/repositories/${workspace}/${repoSlug}/hooks`;
+      const response = await this.client.post(endpoint, webhookData);
+      return response.data;
+    } catch (error) {
+      this.handleApiError(error);
+    }
+  }
+
+  /**
+   * Merge a pull request
+   * @param workspace The workspace ID
+   * @param repoSlug The repository slug
+   * @param pullRequestId The pull request ID
+   * @param options Additional merge options (optional)
+   * @returns Merged pull request data
+   */
+  async mergePullRequest(
+    workspace: string,
+    repoSlug: string,
+    pullRequestId: number,
+    options: {
+      message?: string;
+      close_source_branch?: boolean;
+      merge_strategy?: 'merge_commit' | 'squash' | 'fast-forward';
+    } = {}
+  ): Promise<{ hash: string; message: string }> {
+    try {
+      const endpoint = `/repositories/${workspace}/${repoSlug}/pullrequests/${pullRequestId}/merge`;
+      const response = await this.client.post(endpoint, options);
+      
+      if (!response.data || !response.data.merge_commit) {
+        throw new Error(`Merge operation didn't return a commit hash for PR #${pullRequestId}`);
+      }
+      
+      return {
+        hash: response.data.merge_commit.hash,
+        message: response.data.message || `Pull request #${pullRequestId} merged successfully`,
+      };
+    } catch (error) {
+      this.handleApiError(error);
+    }
+  }
+
+  /**
    * Handle API errors
    * @param error The error object
    */

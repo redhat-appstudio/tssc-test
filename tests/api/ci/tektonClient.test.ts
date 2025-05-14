@@ -11,7 +11,7 @@ test.describe('TektonClient Integration Tests', () => {
   test.setTimeout(30000);
 
   test('Should fetch pipeline runs by Git repository', async () => {
-    const namespace = 'rhtap-app-ci';
+    const namespace = 'tssc-app-ci';
     const repositoryName = 'go-nvnnqqnl';
     const result = await tektonClient.getPipelineRunsByGitRepository(namespace, repositoryName);
 
@@ -27,7 +27,7 @@ test.describe('TektonClient Integration Tests', () => {
   });
 
   test('Should fetch pipeline run by name', async () => {
-    const namespace = 'rhtap-app-ci';
+    const namespace = 'tssc-app-ci';
     const pipelineRunName = 'go-fqzzzwtu-on-push-crkfc';
     const result = await tektonClient.getPipelineRunByName(namespace, pipelineRunName);
     console.log(`PipelineRun: ${result?.metadata?.name}`);

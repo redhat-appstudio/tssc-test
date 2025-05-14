@@ -1,5 +1,5 @@
 {
-    "name": "rhtap-test",
+    "name": "tssc-test",
     "version": "1.0.0",
     "description": "RHTAP Test is a testing framework for RHTAP API using Playwright and TypeScript.",
     "scripts": {

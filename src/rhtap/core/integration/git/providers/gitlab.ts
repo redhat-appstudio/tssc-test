@@ -1,3 +1,4 @@
+// filepath: /Users/xinjiang/Codes/rhtap-test/src/rhtap/core/integration/git/providers/gitlab.ts
 import { GitLabClient } from '../../../../../../src/api/git/gitlabClient';
 import { KubeClient } from '../../../../../../src/api/ocp/kubeClient';
 import { Environment } from '../../cd/argocd';
@@ -23,17 +24,12 @@ export class GitlabProvider extends BaseGitProvider {
 
   constructor(
     componentName: string,
-    repoOwner: string,
     templateType: TemplateType,
     kubeClient: KubeClient
   ) {
-    super(componentName, repoOwner, GitType.GITLAB, kubeClient);
+    super(componentName, GitType.GITLAB, kubeClient);
     this.template = TemplateFactory.createTemplate(templateType);
-  }
-
-  public async initialize(): Promise<void> {
-    this.secret = await this.loadSecret();
-    this.gitlabClient = await this.initGitlabClient();
+    // Initialization happens when initialize() is called explicitly by GitFactory
   }
 
   /**
@@ -54,11 +50,27 @@ export class GitlabProvider extends BaseGitProvider {
   }
 
   /**
+   * Initialize the GitLab provider
+   * This method is called explicitly by GitFactory after creating an instance
+   */
+  public async initialize(): Promise<void> {
+    this.secret = await this.loadSecret();
+    this.gitlabClient = await this.initGitlabClient();
+  }
+
+  public getGroup(): string {
+    if (!this.secret?.group) {
+      throw new Error('GitLab group not found in the secret. Please ensure the group is provided.');
+    }
+    return this.secret.group;
+  }
+
+  /**
    * Loads GitLab integration secrets from Kubernetes
    * @returns Promise with the secret data
    */
   protected async loadSecret(): Promise<Record<string, string>> {
-    const secret = await this.kubeClient.getSecret('rhtap-gitlab-integration', 'rhtap');
+    const secret = await this.kubeClient.getSecret('rhtap-gitlab-integration', 'tssc');
     if (!secret) {
       throw new Error(
         'GitLab token secret not found in the cluster. Please ensure the secret exists.'
@@ -132,30 +144,63 @@ export class GitlabProvider extends BaseGitProvider {
       // Find the GitOps project ID
       const projects = await this.gitlabClient.getProjects({ search: this.gitOpsRepoName });
       const project = projects.find(
-        p => p.name === this.gitOpsRepoName && p.namespace.path === this.repoOwner
+        p => p.name === this.gitOpsRepoName && p.namespace.path === this.getGroup()
       );
 
       if (!project) {
-        throw new Error(`GitOps project ${this.repoOwner}/${this.gitOpsRepoName} not found`);
+        throw new Error(`GitOps project ${this.getGroup()}/${this.gitOpsRepoName} not found`);
       }
 
-      // const projectId = project.id;
+      const projectId = project.id;
 
-      // Placeholder for getting current file content
-      // We need to add a getFileContent method to GitLabClient
-      console.log(`Will update image to: ${image}`);
+      // Get the current content of the deployment patch file
+      const fileContent = await this.gitlabClient.getFileContent(
+        projectId,
+        filePath,
+        branch
+      );
 
-      // Placeholder for content modification
+      if (!fileContent || !fileContent.content) {
+        throw new Error(`Could not retrieve content for file: ${filePath}`);
+      }
+
+      // Decode the content from base64
+      const currentContent = Buffer.from(fileContent.content, 'base64').toString('utf-8');
+
+      // Parse the content to find the current image line
+      const lines = currentContent.split('\n');
+      let imageLineIndex = -1;
+      let oldImageLine = '';
+
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim().startsWith('- image:')) {
+          imageLineIndex = i;
+          oldImageLine = lines[i];
+          break;
+        }
+      }
+
+      if (imageLineIndex === -1) {
+        throw new Error(`Could not find image line in file: ${filePath}`);
+      }
+
+      // Create the new image line with the same indentation
+      const indentation = oldImageLine.match(/^\s*/)?.[0] || '';
+      const newImageLine = `${indentation}- image: ${image}`;
+
+      // Add the modification
       contentModifications[filePath] = [
         {
-          oldContent: '- image: current-image',
-          newContent: `- image: ${image}`,
+          oldContent: oldImageLine,
+          newContent: newImageLine,
         },
       ];
 
+      console.log(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
+
       // Use the common commit method
       const commitSha = await this.commitChangesToRepo(
-        this.repoOwner,
+        this.getGroup(),
         this.gitOpsRepoName,
         contentModifications,
         commitMessage,
@@ -195,30 +240,33 @@ export class GitlabProvider extends BaseGitProvider {
       // Find the project ID for the repository
       const projects = await this.gitlabClient.getProjects({ search: pullRequest.repository });
       const project = projects.find(
-        p => p.name === pullRequest.repository && p.namespace.path === this.repoOwner
+        p => p.name === pullRequest.repository && p.namespace.path === this.getGroup()
       );
 
       if (!project) {
-        throw new Error(`Project ${this.repoOwner}/${pullRequest.repository} not found`);
+        throw new Error(`Project ${this.getGroup()}/${pullRequest.repository} not found`);
       }
 
       const projectId = project.id;
 
-      // We need to add a mergeMergeRequest method to GitLabClient
-      // For now, we'll just show the concept
-      console.log(`Would merge merge request #${pullRequest.pullNumber} in project ${projectId}`);
-
-      // The mergeResponse would contain the SHA of the merge commit
-      const mergeResponseSha = 'merged-commit-sha';
+      // Execute the merge operation using the GitLabClient
+      const mergeResponse = await this.gitlabClient.mergeMergeRequest(
+        projectId,
+        pullRequest.pullNumber,
+        {
+          shouldRemoveSourceBranch: true, // Clean up by removing the source branch
+          mergeCommitMessage: `Merge request #${pullRequest.pullNumber}`, // Custom merge commit message
+        }
+      );
 
       console.log(
-        `Merge request #${pullRequest.pullNumber} merged successfully with SHA: ${mergeResponseSha}`
+        `Merge request #${pullRequest.pullNumber} merged successfully with SHA: ${mergeResponse.sha}`
       );
 
       // Create a new PR object with the updated merge information
       const mergedPR = new PullRequest(
         pullRequest.pullNumber,
-        mergeResponseSha,
+        mergeResponse.mergeCommitSha, // Use the merge commit SHA
         pullRequest.repository,
         true, // Mark as merged
         new Date().toISOString() // Set merge timestamp
@@ -261,46 +309,78 @@ export class GitlabProvider extends BaseGitProvider {
       // Find the GitOps project ID
       const projects = await this.gitlabClient.getProjects({ search: this.gitOpsRepoName });
       const project = projects.find(
-        p => p.name === this.gitOpsRepoName && p.namespace.path === this.repoOwner
+        p => p.name === this.gitOpsRepoName && p.namespace.path === this.getGroup()
       );
 
       if (!project) {
-        throw new Error(`GitOps project ${this.repoOwner}/${this.gitOpsRepoName} not found`);
+        throw new Error(`GitOps project ${this.getGroup()}/${this.gitOpsRepoName} not found`);
       }
 
       const projectId = project.id;
 
-      // Get the current file content - we need to add a getFileContent method to GitLabClient
-      // For now, we'll just demonstrate the concept
-      console.log(`Creating a promotion PR for environment: ${environment}`);
-      console.log(`Will update image to: ${image}`);
+      // Get the current content of the deployment patch file
+      const fileContent = await this.gitlabClient.getFileContent(
+        projectId,
+        filePath,
+        baseBranch
+      );
 
-      // Placeholder for content modification logic
+      if (!fileContent || !fileContent.content) {
+        throw new Error(`Could not retrieve content for file: ${filePath}`);
+      }
+
+      // Decode the content from base64
+      const currentContent = Buffer.from(fileContent.content, 'base64').toString('utf-8');
+
+      // Parse the content to find the current image line
+      const lines = currentContent.split('\n');
+      let imageLineIndex = -1;
+      let oldImageLine = '';
+
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim().startsWith('- image:')) {
+          imageLineIndex = i;
+          oldImageLine = lines[i];
+          break;
+        }
+      }
+
+      if (imageLineIndex === -1) {
+        throw new Error(`Could not find image line in file: ${filePath}`);
+      }
+
+      // Create the new image line with the same indentation
+      const indentation = oldImageLine.match(/^\s*/)?.[0] || '';
+      const newImageLine = `${indentation}- image: ${image}`;
+
+      // Add the modification
       contentModifications[filePath] = [
         {
-          oldContent: '- image: current-image',
-          newContent: `- image: ${image}`,
+          oldContent: oldImageLine,
+          newContent: newImageLine,
         },
       ];
 
-      // Create a merge request
-      const mergeRequest = await this.gitlabClient.createMergeRequest(
-        projectId,
-        newBranchName,
+      console.log(`Creating a promotion PR for environment: ${environment}`);
+      console.log(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
+
+      // Create a merge request with the changes
+      const result = await this.gitlabClient.createMergeRequest(
+        this.getGroup(),
+        this.gitOpsRepoName,
+        this.getGroup(),
         baseBranch,
+        newBranchName,
+        contentModifications,
         title,
-        { description }
+        description
       );
 
       // Extract the merge request ID and commit SHA
-      const mrNumber = mergeRequest.iid;
+      const { prNumber, commitSha } = result;
 
-      // Get the commit SHA from the most recent commit
-      const commits = await this.gitlabClient.getCommits(projectId, { ref_name: newBranchName });
-      const commitSha = commits[0]?.id || 'promotion-commit-sha';
-
-      console.log(`Successfully created promotion MR #${mrNumber} for ${environment} environment`);
-      return new PullRequest(mrNumber, commitSha, this.gitOpsRepoName);
+      console.log(`Successfully created promotion MR #${prNumber} for ${environment} environment`);
+      return new PullRequest(prNumber, commitSha, this.gitOpsRepoName);
     } catch (error: any) {
       console.error(`Error creating promotion PR for ${environment}: ${error.message}`);
       throw error;
@@ -323,11 +403,11 @@ export class GitlabProvider extends BaseGitProvider {
       // Find the GitOps project ID
       const projects = await this.gitlabClient.getProjects({ search: this.gitOpsRepoName });
       const project = projects.find(
-        p => p.name === this.gitOpsRepoName && p.namespace.path === this.repoOwner
+        p => p.name === this.gitOpsRepoName && p.namespace.path === this.getGroup()
       );
 
       if (!project) {
-        throw new Error(`GitOps project ${this.repoOwner}/${this.gitOpsRepoName} not found`);
+        throw new Error(`GitOps project ${this.getGroup()}/${this.gitOpsRepoName} not found`);
       }
 
       const projectId = project.id;
@@ -406,10 +486,10 @@ export class GitlabProvider extends BaseGitProvider {
 
       // Use the GitLabClient's createMergeRequest method which handles branch creation and file modifications
       const result = await this.gitlabClient.createMergeRequest(
-        this.repoOwner,
+        this.getGroup(),
         this.sourceRepoName,
-        this.repoOwner, // targetOwner
-        baseBranch, 
+        this.getGroup(), // targetOwner
+        baseBranch,
         newBranchName,
         contentModifications,
         title,
@@ -443,7 +523,7 @@ export class GitlabProvider extends BaseGitProvider {
 
     // Use the common commit method
     return this.commitChangesToRepo(
-      this.repoOwner,
+      this.getGroup(),
       this.sourceRepoName,
       contentModifications,
       commitMessage,
@@ -470,7 +550,7 @@ export class GitlabProvider extends BaseGitProvider {
     console.log(`Base Branch: ${baseBranch || 'main'}`);
 
     // Construct repository URL for GitLab
-    const repositoryUrl = `https://gitlab.com/${this.repoOwner}/${this.getSourceRepoName()}`;
+    const repositoryUrl = `https://gitlab.com/${this.getGroup}/${this.getSourceRepoName()}`;
 
     // Here you would typically use the GitLab API to create the pull request
     // For now, we'll just return a dummy PR ID
@@ -505,7 +585,7 @@ export class GitlabProvider extends BaseGitProvider {
       if (!commitMessage) {
         throw new Error('Commit message is required');
       }
-
+      
       console.log(`Committing changes to ${owner}/${repo} in branch ${branch}`);
 
       // Find the project ID for the repository
@@ -588,11 +668,11 @@ export class GitlabProvider extends BaseGitProvider {
       // Find the project ID for the source repository
       const projects = await this.gitlabClient.getProjects({ search: this.sourceRepoName });
       const project = projects.find(
-        p => p.name === this.sourceRepoName && p.namespace.path === this.repoOwner
+        p => p.name === this.sourceRepoName && p.namespace.path === this.getGroup()
       );
 
       if (!project) {
-        throw new Error(`Project ${this.repoOwner}/${this.sourceRepoName} not found`);
+        throw new Error(`Project ${this.getGroup()}/${this.sourceRepoName} not found`);
       }
 
       const projectId = project.id;
@@ -629,11 +709,11 @@ export class GitlabProvider extends BaseGitProvider {
       // Find the project ID for the GitOps repository
       const projects = await this.gitlabClient.getProjects({ search: this.gitOpsRepoName });
       const project = projects.find(
-        p => p.name === this.gitOpsRepoName && p.namespace.path === this.repoOwner
+        p => p.name === this.gitOpsRepoName && p.namespace.path === this.getGroup()
       );
 
       if (!project) {
-        throw new Error(`GitOps project ${this.repoOwner}/${this.gitOpsRepoName} not found`);
+        throw new Error(`GitOps project ${this.getGroup()}/${this.gitOpsRepoName} not found`);
       }
 
       const projectId = project.id;
@@ -661,13 +741,13 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public override async configWebhookOnSourceRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(`Configuring webhook for source repo at ${webhookUrl}`);
+      console.log(`Configuring webhook for source repo ${this.getGroup()}/${this.sourceRepoName} with ${webhookUrl}`);
 
       // Set up webhook using GitLab client with specific event triggers
-      await this.gitlabClient.configWebhook(this.repoOwner, this.sourceRepoName, webhookUrl);
+      await this.gitlabClient.configWebhook(this.getGroup(), this.sourceRepoName, webhookUrl);
 
       console.log(
-        `Webhook configured successfully for source repo ${this.repoOwner}/${this.sourceRepoName}`
+        `Webhook configured successfully for source repo ${this.getGroup()}/${this.sourceRepoName} with ${webhookUrl}`
       );
     } catch (error: any) {
       console.error(`Failed to configure webhook on source repo: ${error.message}`);
@@ -681,13 +761,13 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public override async configWebhookOnGitOpsRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(`Configuring webhook for GitOps repo at ${webhookUrl}`);
+      console.log(`Configuring webhook for GitOps repo ${this.getGroup()}/${this.gitOpsRepoName} with ${webhookUrl}`);
 
       // Set up webhook using GitLab client with specific event triggers
-      await this.gitlabClient.configWebhook(this.repoOwner, this.gitOpsRepoName, webhookUrl);
+      await this.gitlabClient.configWebhook(this.getGroup(), this.gitOpsRepoName, webhookUrl);
 
       console.log(
-        `Webhook configured successfully for GitOps repo ${this.repoOwner}/${this.gitOpsRepoName}`
+        `Webhook configured successfully for GitOps repo ${this.getGroup()}/${this.gitOpsRepoName} with ${webhookUrl}`
       );
     } catch (error: any) {
       console.error(`Failed to configure webhook on GitOps repo: ${error.message}`);
@@ -701,7 +781,7 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public override getGitOpsRepoUrl(): string {
     const hostname = this.getHost();
-    return `https://${hostname}/${this.repoOwner}/${this.getGitOpsRepoName()}`;
+    return `https://${hostname}/${this.getGroup()}/${this.getGitOpsRepoName()}`;
   }
 
   /**
@@ -710,7 +790,7 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public override getSourceRepoUrl(): string {
     const hostname = this.getHost();
-    return `https://${hostname}/${this.repoOwner}/${this.getSourceRepoName()}`;
+    return `https://${hostname}/${this.getGroup()}/${this.getSourceRepoName()}`;
   }
 
   /**

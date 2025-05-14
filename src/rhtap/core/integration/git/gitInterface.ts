@@ -15,8 +15,6 @@ export interface Git extends IntegrationSecret {
 
   getGitType(): GitType;
 
-  getRepoOwner(): string;
-
   /**
    * Get the source repository name (same as component name)
    * @returns The source repository name

@@ -28,7 +28,7 @@ export class RegistryFactory {
    */
   public static getInstance(kubeClient?: KubeClient): RegistryFactory {
     if (!this.instance) {
-      this.instance = new RegistryFactory(kubeClient || new KubeClient(true));
+      this.instance = new RegistryFactory(kubeClient || new KubeClient());
     }
     return this.instance;
   }

@@ -17,12 +17,10 @@ export abstract class BaseGitProvider implements Git {
 
   constructor(
     componentName: string,
-    public repoOwner: string, //TODO: need to rename this to groupName
     type: GitType,
     kubeClient: KubeClient
   ) {
     this.gitType = type;
-    this.repoOwner = repoOwner;
     this.componentName = componentName;
     // Default initialization for source and gitops repo names
     this.sourceRepoName = componentName;
@@ -51,10 +49,6 @@ export abstract class BaseGitProvider implements Git {
 
   public getGitType(): GitType {
     return this.gitType;
-  }
-
-  public getRepoOwner(): string {
-    return this.repoOwner;
   }
 
   public getSourceRepoName(): string {

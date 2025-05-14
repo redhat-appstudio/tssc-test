@@ -21,12 +21,7 @@ export class KubeClient {
   // private networkingApi: k8s.NetworkingV1Api;
 
   //TODO: need to move the parameter skipTLSVerify to the constructor
-  constructor(skipTLSVerify: boolean = true) {
-    // Set NODE_TLS_REJECT_UNAUTHORIZED to '0' to skip TLS verification
-    if (skipTLSVerify) {
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    }
-
+  constructor() {
     this.kubeConfig = new KubeConfig();
     this.kubeConfig.loadFromDefault();
 

@@ -43,7 +43,7 @@ export class TAS {
    * Loads the secrets required by TAS
    */
   private async loadSecrets(): Promise<void> {
-    this.secret = await this.kubeClient.getSecret('rhtap-tas-integration', 'rhtap');
+    this.secret = await this.kubeClient.getSecret('rhtap-tas-integration', 'tssc');
   }
 
   /**

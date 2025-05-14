@@ -42,7 +42,7 @@ export class ACS {
    * Loads the secrets required by ACS
    */
   private async loadSecrets(): Promise<void> {
-    this.secret = await this.kubeClient.getSecret('rhtap-acs-integration', 'rhtap');
+    this.secret = await this.kubeClient.getSecret('rhtap-acs-integration', 'tssc');
   }
 
   /**
