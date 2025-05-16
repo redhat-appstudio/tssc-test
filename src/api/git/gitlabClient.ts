@@ -371,6 +371,27 @@ export class GitLabClient {
       const options = newBranchNameOrOptions as { description?: string } || {};
       
       try {
+        let sourceBranchExists = false;
+        
+        // Check if source branch already exists
+        try {
+          await this.client.Branches.show(projectId, sourceBranch);
+          sourceBranchExists = true;
+          console.log(`Source branch '${sourceBranch}' already exists`);
+        } catch (error: any) {
+          if (error.message && error.message.includes('not found')) {
+            // Branch doesn't exist, need to create it
+            console.log(`Source branch '${sourceBranch}' doesn't exist, will create it`);
+            sourceBranchExists = false;
+            
+            // Create the branch from target branch
+            await this.client.Branches.create(projectId, sourceBranch, targetBranch);
+            console.log(`Created new branch '${sourceBranch}' from '${targetBranch}'`);
+          } else {
+            throw error;
+          }
+        }
+        
         // Handle content modifications if provided
         if (contentModifications) {
           console.log(`Processing file modifications for merge request in project ${projectId}`);
@@ -388,12 +409,15 @@ export class GitLabClient {
               let fileContent: string;
               let fileAction: 'create' | 'update' = 'update';
               
-              // Try to get existing file content first
+              // Try to get existing file content first - use target branch as reference
+              // for new branches or source branch for existing branches
+              const refBranch = sourceBranchExists ? sourceBranch : targetBranch;
+              
               try {
                 const fileData = await this.client.RepositoryFiles.show(
                   projectId, 
                   filePath, 
-                  targetBranch // Use target branch as base for content
+                  refBranch
                 );
                 fileContent = Buffer.from(fileData.content, 'base64').toString('utf-8');
               } catch (error: any) {
@@ -584,10 +608,39 @@ export class GitLabClient {
 
       console.log(`Successfully merged merge request #${mergeRequestId}`);
       
+      // For debugging, log the structure of the response
+      console.log(`Merge response data: ${JSON.stringify({
+        id: response.id,
+        iid: response.iid,
+        sha: response.sha,
+        merge_commit_sha: response.merge_commit_sha
+      }, null, 2)}`);
+      
+      // If merge_commit_sha is not available, we need to fetch it separately
+      let mergeCommitSha = response.merge_commit_sha;
+      
+      if (!mergeCommitSha) {
+        console.log(`merge_commit_sha not found in merge response, fetching merge request details to get it`);
+        try {
+          // Fetch the merge request details after merging to get the merge commit SHA
+          const mergeRequestDetails = await this.client.MergeRequests.show(projectId, mergeRequestId);
+          mergeCommitSha = mergeRequestDetails.merge_commit_sha;
+          console.log(`Fetched merge commit SHA: ${mergeCommitSha}`);
+        } catch (detailsError) {
+          console.error(`Failed to fetch merge request details: ${detailsError}`);
+        }
+      }
+      
+      // If we still don't have a merge commit SHA, fall back to the regular SHA
+      if (!mergeCommitSha) {
+        console.warn(`Could not obtain merge_commit_sha, falling back to commit SHA`);
+        mergeCommitSha = response.sha;
+      }
+      
       return {
         id: String(response.id || mergeRequestId),
         sha: String(response.sha || ''),
-        mergeCommitSha: response.merge_commit_sha ? String(response.merge_commit_sha) : String(response.sha || '')
+        mergeCommitSha: String(mergeCommitSha || '')
       };
     } catch (error: any) {
       console.error(`Failed to merge merge request #${mergeRequestId}: ${error.message}`);

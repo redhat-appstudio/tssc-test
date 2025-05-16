@@ -3,7 +3,7 @@ import { ArgoCD, Environment } from '../../rhtap/core/integration/cd/argocd';
 import { CI, CIType } from '../../rhtap/core/integration/ci';
 import { EventType } from '../../rhtap/core/integration/ci';
 import { PipelineHandler } from '../../rhtap/core/integration/ci';
-import { Git, GitType } from '../../rhtap/core/integration/git';
+import { Git } from '../../rhtap/core/integration/git';
 import { PullRequest } from '../../rhtap/core/integration/git';
 import { expect } from '@playwright/test';
 
@@ -171,7 +171,7 @@ export async function handleSourceRepoCodeChanges(git: Git, ci: CI): Promise<voi
 
   try {
     // Step 1: Make changes to the source repo based on CI type
-    if (ciType === CIType.JENKINS) {
+    if (ciType === CIType.JENKINS) {//TODO: this if block should be removed
       // For Jenkins: Commit directly to the main branch
       console.log('Jenkins CI detected, committing changes directly to main branch...');
       const commitSha = await git.createSampleCommitOnSourceRepo();
@@ -183,7 +183,7 @@ export async function handleSourceRepoCodeChanges(git: Git, ci: CI): Promise<voi
 
       // Get the pipeline triggered by the commit
       console.log(`Getting Jenkins pipeline for commit: ${commitSha}`);
-      const pipeline = await PipelineHandler.getPipelineFromPullRequest(commitRef, ci);
+      const pipeline = await PipelineHandler.getPipelineFromPullRequest(commitRef, ci, EventType.PULL_REQUEST);
       expect(pipeline).not.toBeNull();
 
       // console.log(`Waiting for Jenkins pipeline ${pipeline.getDisplayName()} to finish...`);
@@ -204,17 +204,10 @@ export async function handleSourceRepoCodeChanges(git: Git, ci: CI): Promise<voi
       // Step 2: Get the pipeline triggered by the PR
       console.log('Getting Tekton pipeline for PR event...');
       
-      //TODO: need to refactor this block
-      let eventType;
-      if (git.getGitType() === GitType.GITLAB) {
-        eventType = EventType.MERGE_REQUEST;
-      } else {
-        eventType = EventType.PULL_REQUEST;
-      }
       const pipeline = await PipelineHandler.getPipelineFromPullRequest(
         pullRequest,
         ci,
-        eventType
+        EventType.PULL_REQUEST
       );
 
       if (!pipeline) {
@@ -234,12 +227,12 @@ export async function handleSourceRepoCodeChanges(git: Git, ci: CI): Promise<voi
       );
 
       // TODO: Uncomment the following line when mergePullRequest is implemented
-      await git.mergePullRequest(pullRequest);
+      const mergedPR = await git.mergePullRequest(pullRequest);
 
       // Step 5: Wait for the push pipeline triggered by the merge
       console.log('Getting push pipeline...');
       const pushPipeline = await PipelineHandler.getPipelineFromPullRequest(
-        pullRequest,
+        mergedPR,
         ci,
         EventType.PUSH
       );

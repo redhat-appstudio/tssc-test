@@ -1,4 +1,3 @@
-// filepath: /Users/xinjiang/Codes/rhtap-test/src/rhtap/core/integration/git/providers/gitlab.ts
 import { GitLabClient } from '../../../../../../src/api/git/gitlabClient';
 import { KubeClient } from '../../../../../../src/api/ocp/kubeClient';
 import { Environment } from '../../cd/argocd';
@@ -70,7 +69,7 @@ export class GitlabProvider extends BaseGitProvider {
    * @returns Promise with the secret data
    */
   protected async loadSecret(): Promise<Record<string, string>> {
-    const secret = await this.kubeClient.getSecret('rhtap-gitlab-integration', 'tssc');
+    const secret = await this.kubeClient.getSecret('tssc-gitlab-integration', 'tssc');
     if (!secret) {
       throw new Error(
         'GitLab token secret not found in the cluster. Please ensure the secret exists.'
@@ -260,7 +259,7 @@ export class GitlabProvider extends BaseGitProvider {
       );
 
       console.log(
-        `Merge request #${pullRequest.pullNumber} merged successfully with SHA: ${mergeResponse.sha}`
+        `Merge request #${pullRequest.pullNumber} merged successfully with merge commit SHA: ${mergeResponse.mergeCommitSha}`
       );
 
       // Create a new PR object with the updated merge information
@@ -799,5 +798,14 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public getTemplateType(): TemplateType {
     return this.template.getType();
+  }
+  
+  /**
+   * Gets the owner identifier for the repository
+   * For GitLab, this is the group name
+   * @returns The repository owner (group)
+   */
+  public override getRepoOwner(): string {
+    return this.getGroup();
   }
 }

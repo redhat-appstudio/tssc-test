@@ -4,7 +4,7 @@ export class ArtifactoryRegistry extends BaseImageRegistry {
   constructor(organization: string, imageName: string) {
     super(organization, imageName);
     // Hardcode the secret name and namespace
-    this.secretName = 'rhtap-artifactory-integration';
+    this.secretName = 'tssc-artifactory-integration';
     this.secretNamespace = 'tssc';
   }
 

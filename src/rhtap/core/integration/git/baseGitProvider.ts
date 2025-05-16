@@ -144,4 +144,12 @@ export abstract class BaseGitProvider implements Git {
     }
     return this.secret.host;
   }
+
+  /**
+   * Gets the owner identifier for the repository
+   * This could be an organization name (GitHub), group name (GitLab), workspace name (Bitbucket), etc.
+   * Every provider must implement this method to return the appropriate owner concept
+   * @returns The repository owner identifier appropriate for the Git provider
+   */
+  public abstract getRepoOwner(): string;
 }

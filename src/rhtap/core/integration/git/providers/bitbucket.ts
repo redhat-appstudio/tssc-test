@@ -63,9 +63,9 @@ export class BitbucketProvider extends BaseGitProvider {
    * @returns Promise with the secret data
    */
   protected async loadSecret(): Promise<Record<string, string>> {
-    const secret = await this.kubeClient.getSecret('rhtap-bitbucket-integration', 'tssc');
+    const secret = await this.kubeClient.getSecret('tssc-bitbucket-integration', 'tssc');
     if (!secret) {
-      throw new Error(`Secret rhtap-bitbucket-integration not found`);
+      throw new Error(`Secret tssc-bitbucket-integration not found`);
     }
     return secret;
   }
@@ -932,5 +932,14 @@ export class BitbucketProvider extends BaseGitProvider {
   }
   public override getSourceRepoUrl(): string {
     return `https://bitbucket.org/${this.workspace}/${this.sourceRepoName}`;
+  }
+  
+  /**
+   * Gets the owner identifier for the repository
+   * For Bitbucket, this is the workspace name
+   * @returns The repository owner (workspace)
+   */
+  public override getRepoOwner(): string {
+    return this.getWorkspace();
   }
 }
