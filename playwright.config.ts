@@ -2,10 +2,10 @@ import { defineConfig, PlaywrightTestConfig, PlaywrightTestOptions, PlaywrightWo
 import { readFileSync } from 'fs';
 import path from 'path';
 import { TestItem } from './src/playwright/testItem';
-import { TemplateType } from './src/rhtap/git/templates/templateFactory';
-import { ImageRegistryType } from './src/rhtap/registry';
-import { GitType } from './src/rhtap/git';
-import { CIType } from './src/rhtap/ci';
+import { TemplateType } from './src/rhtap/core/integration/git/templates/templateFactory';
+import { ImageRegistryType } from './src/rhtap/core/integration/registry';
+import { GitType } from './src/rhtap/core/integration/git';
+import { CIType } from './src/rhtap/core/integration/ci';
 
 // Load the test plan
 const testPlanPath = process.env.TESTPLAN_PATH || path.resolve(process.cwd(), 'testplan.json');

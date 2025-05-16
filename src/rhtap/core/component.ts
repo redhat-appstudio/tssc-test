@@ -5,7 +5,7 @@ import { DEFAULT_APP_NAMESPACE } from '../../constants';
 import { TestItem } from '../../playwright/testItem';
 import { ArgoCD } from '../core/integration/cd/argocd';
 import { CI, CIFactory } from '../core/integration/ci';
-import { Git, GitlabProvider, GitType } from '../core/integration/git';
+import { Git, GithubProvider, GitlabProvider, GitType } from '../core/integration/git';
 import { createGit } from '../core/integration/git';
 import { BitbucketProvider } from '../core/integration/git';
 import { ImageRegistry, createRegistry } from '../core/integration/registry';
@@ -48,11 +48,6 @@ export class Component {
     const component = new Component(name);
 
     try {
-      // Check if KUBECONFIG is set
-      // if (!process.env.KUBECONFIG) {
-      //   throw new Error('KUBECONFIG environment variable is not set');
-      // }
-
       // Initialize KubeClient inside the try-catch block with skipTLSVerify enabled
       component.kubeClient = new KubeClient();
       // Initialize CI, image registry and git properties
@@ -150,6 +145,7 @@ export class Component {
 
     switch (testItem.getGitType()) {
       case GitType.GITHUB:
+        const github = git as GithubProvider;
         return ScaffolderOptionsBuilder(GitType.GITHUB)
           .withTemplateName(template)
           .withName(git.getSourceRepoName())
@@ -160,7 +156,7 @@ export class Component {
           )
           .withCIType(ci.getCIType())
           .withNamespace(DEFAULT_APP_NAMESPACE)
-          .forGitRepo(git.getRepoOwner(), git.getSourceRepoName())
+          .forGitRepo(github.getOrganization(), github.getSourceRepoName())
           .build();
       case GitType.GITLAB:
         const gitlab = git as GitlabProvider;

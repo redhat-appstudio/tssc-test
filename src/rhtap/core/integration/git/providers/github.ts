@@ -37,7 +37,7 @@ export class GithubProvider extends BaseGitProvider {
    * @returns Promise with the secret data
    */
   protected async loadSecret(): Promise<Record<string, string>> {
-    const secret = await this.kubeClient.getSecret('rhtap-github-integration', 'tssc');
+    const secret = await this.kubeClient.getSecret('tssc-github-integration', 'tssc');
     if (!secret) {
       throw new Error(
         'GitHub integration secret not found in the cluster. Please ensure the secret exists.'
@@ -70,13 +70,6 @@ export class GithubProvider extends BaseGitProvider {
     }
     return this.secret.clientSecret;
   }
-
-  // public getHostname(): string {
-  //   if (!this.secret?.host) {
-  //     throw new Error('Host not found in the secret. Please ensure the host is provided.');
-  //   }
-  //   return this.secret.host;
-  // }
 
   public getWebhookSecret(): string {
     if (!this.secret?.webhookSecret) {
@@ -561,5 +554,18 @@ export class GithubProvider extends BaseGitProvider {
 
   public override getSourceRepoUrl(): string {
     return `https://${this.getHost()}/${this.repoOwner}/${this.sourceRepoName}`;
+  }
+
+  public getOrganization(): string {
+    return this.repoOwner;
+  }
+  
+  /**
+   * Gets the owner identifier for the repository
+   * For GitHub, this is the organization or user name
+   * @returns The repository owner (organization)
+   */
+  public override getRepoOwner(): string {
+    return this.repoOwner;
   }
 }

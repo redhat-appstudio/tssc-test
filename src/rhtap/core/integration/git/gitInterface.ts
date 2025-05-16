@@ -104,4 +104,6 @@ export interface Git extends IntegrationSecret {
   getGitOpsRepoUrl(): string;
 
   getHost(): string;
+
+  getRepoOwner(): string;
 }

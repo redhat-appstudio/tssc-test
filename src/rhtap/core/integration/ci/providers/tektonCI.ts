@@ -25,13 +25,13 @@ export class TektonCI extends BaseCI {
    *
    * @param pullRequest The pull request to get the pipeline for
    * @param pipelineStatus The status of the pipeline to filter by
-   * @param eventType Optional event type to filter by (defaults to PULL_REQUEST for Tekton)
+   * @param eventType event type to filter by (defaults to PULL_REQUEST for Tekton)
    * @returns Promise<Pipeline | null> A standardized Pipeline object or null if not found
    */
   public async getPipeline(
     pullRequest: PullRequest,
     pipelineStatus: PipelineStatus,
-    eventType?: EventType
+    eventType: EventType
   ): Promise<Pipeline | null> {
     // Validate required parameters
     if (!pullRequest.repository) {
@@ -40,7 +40,7 @@ export class TektonCI extends BaseCI {
     }
 
     // Set default event type for Tekton if not provided
-    const effectiveEventType = eventType || EventType.PULL_REQUEST;
+    const effectiveEventType = eventType;
     const gitRepository = pullRequest.repository;
 
     console.log(
@@ -64,11 +64,12 @@ export class TektonCI extends BaseCI {
           };
         }
 
-        // Filter pipeline runs by the event type label and pipeline status
+        // Filter pipeline runs by checking if the on-event annotation includes the event type
         const filteredPipelineRuns = allPipelineRuns.filter(pipelineRun => {
-          const labels = pipelineRun.metadata?.labels || {};
+          const annotations = pipelineRun.metadata?.annotations || {};
+          const onEvent = annotations['pipelinesascode.tekton.dev/on-event'] || '';
           return (
-            labels['pipelinesascode.tekton.dev/event-type'] === effectiveEventType &&
+            onEvent.includes(effectiveEventType) &&
             this.mapTektonStatusToPipelineStatus(pipelineRun) === pipelineStatus
           );
         });
@@ -77,7 +78,7 @@ export class TektonCI extends BaseCI {
           return {
             success: false,
             result: null,
-            message: `No matching pipeline runs found for event type: ${effectiveEventType} with status: ${pipelineStatus}`,
+            message: `No matching pipeline runs found for event: ${effectiveEventType} with status: ${pipelineStatus}`,
           };
         }
 

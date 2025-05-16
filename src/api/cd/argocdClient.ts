@@ -1,8 +1,8 @@
 import { KubeClient } from '../../api/ocp/kubeClient';
-import { sleep } from '../../utils/util';
 import { V1ObjectMeta } from '@kubernetes/client-node';
 import { exec as execCallback } from 'child_process';
 import { promisify } from 'util';
+import retry from 'async-retry';
 
 // Promisified exec function
 const exec = promisify(execCallback);
@@ -461,19 +461,58 @@ export class ArgoCDClient {
           console.log(`ArgoCD sync output: ${stdout}`);
         }
 
-        // If sync application is triggered successfully, application status should be OutOfSync
-        sleep(3000); // Wait for a few seconds to allow the sync operation to complete
-        const syncStatus = await this.getApplicationSyncStatus(applicationName, namespace);
-        const healthStatus = await this.getApplicationHealth(applicationName, namespace);
-        console.log(`Application ${applicationName} health status: ${healthStatus}`);
-        console.log(`Application ${applicationName} sync status: ${syncStatus}`);
-        if (healthStatus === 'Progressing') {
-          console.log(`Successfully synced application ${applicationName}`);
-          return true;
-        } else {
-          console.warn(
-            `Sync command completed but application ${applicationName} is not Progressing. Current health status: ${healthStatus}`
+        // Monitor the sync process - waiting for health status to become "Progressing"
+        console.log(`Monitoring sync process for application ${applicationName}...`);
+        
+        try {
+          // Use async-retry to poll until the application health status is "Progressing" or until we detect a failure
+          const result = await retry<boolean>(
+            async (bail, attempt) => {
+              const healthStatus = await this.getApplicationHealth(applicationName, namespace);
+              const syncStatus = await this.getApplicationSyncStatus(applicationName, namespace);
+              const operationPhase = await this.getApplicationOperationPhase(applicationName, namespace);
+              
+              console.log(`[Attempt ${attempt}/120] Application ${applicationName} - Health: ${healthStatus}, Sync: ${syncStatus}, Operation: ${operationPhase}`);
+              
+              // Check if health status is "Progressing" - this is what we're waiting for
+              if (healthStatus === 'Progressing') {
+                console.log(`Successfully started sync for application ${applicationName}`);
+                return true;
+              }
+              
+              // Check for clear failure cases and bail immediately (based on ArgoCD health checks)
+              if (healthStatus === 'Degraded' || syncStatus === 'SyncFailed' || operationPhase === 'Failed' || operationPhase === 'Error') {
+                console.error(`Sync failed for application ${applicationName} - Health: ${healthStatus}, Sync: ${syncStatus}, Operation: ${operationPhase}`);
+                bail(new Error(`Sync failed for application ${applicationName}`));
+                return false;
+              }
+              
+              // If not yet Progressing and not failed, throw error to trigger retry
+              console.log(`Waiting for application ${applicationName} to start progressing...`);
+              throw new Error('Waiting for application sync to start');
+            },
+            {
+              retries: 4, // Just try a few times (around 20 seconds total)
+              factor: 1, // No exponential backoff
+              minTimeout: 5000, // 5 second intervals
+              maxTimeout: 5000, // Keep intervals consistent
+              onRetry: (_error: unknown, attempt) => {
+                console.log(`Checking application status, attempt ${attempt}/4 for ${applicationName}`);
+              }
+            }
           );
+          
+          return result;
+        } catch (error: any) {
+          // If we exited the retry without success, report timeout or failure
+          console.warn(
+            `Sync did not start progressing within timeout period for application ${applicationName}.`
+          );
+          
+          // Get detailed application status to help with debugging
+          console.log(`Fetching detailed status for ${applicationName}:`);
+          const status = await this.getApplicationStatus(applicationName, namespace);
+          console.log(`Application details: ${status}`);
           return false;
         }
       } catch (syncError: any) {
@@ -559,6 +598,24 @@ export class ArgoCDClient {
     } catch (error) {
       console.error(
         `Error getting application sync status: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Get operation phase of an ArgoCD application
+   */
+  public async getApplicationOperationPhase(
+    applicationName: string,
+    namespace: string
+  ): Promise<string | null> {
+    try {
+      const application = await this.getApplication(applicationName, namespace);
+      return application?.status?.operationState?.phase || 'Unknown';
+    } catch (error) {
+      console.error(
+        `Error getting application operation phase: ${error instanceof Error ? error.message : String(error)}`
       );
       return null;
     }

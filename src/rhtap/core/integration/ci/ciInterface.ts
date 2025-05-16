@@ -9,13 +9,16 @@ export enum CIType {
 }
 
 // event types
+//TODO: it matches the value of annotation "pipelinesascode.tekton.dev/on-event" in pipelinerun.
+// why don't use label "pipelinesascode.tekton.dev/event-type" in pipelinerun? this is because Gitlab is using Merge_Request, github is using pull_request. we need unified event type to manage them.
+// Jenkins, GitHub Actions, and GitLab CI may have different event types?
 export enum EventType {
   PULL_REQUEST = 'pull_request',
   PUSH = 'push',
   // Add Jenkins-specific event types if needed
   COMMIT = 'commit',
   BUILD = 'build',
-  MERGE_REQUEST="Merge_Request"
+  // MERGE_REQUEST="Merge_Request"
 }
 
 export interface CI {

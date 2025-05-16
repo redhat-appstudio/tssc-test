@@ -2,13 +2,13 @@
 
 ## Overview
 
-This project is an end-to-end automation testing framework designed to validate the functionality of the [Red Hat Trusted Application Platform](https://github.com/redhat-appstudio/rhtap-cli) (RHTAP). Built with Playwright and TypeScript, this framework simulates real-world user interactions and backend processes to ensure the reliability and correctness of RHTAP's core features.
+This project is an end-to-end automation testing framework designed to validate the functionality of the [Red Hat Trusted Software Supply Chain CLI ](https://github.com/redhat-appstudio/rhtap-cli) (tssc). Built with Playwright and TypeScript, this framework simulates real-world user interactions and backend processes to ensure the reliability and correctness of tssc's core features.
 
 ## Prerequisites
 
 Before using this testing framework, ensure you have:
 
-* An OpenShift cluster with RHTAP installed and properly configured
+* An OpenShift cluster with tssc installed and properly configured(Enable `debug/ci=true`)
 
 * Node.js (v23+)
 

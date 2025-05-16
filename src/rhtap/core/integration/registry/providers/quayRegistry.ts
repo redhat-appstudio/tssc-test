@@ -4,7 +4,7 @@ export class QuayRegistry extends BaseImageRegistry {
   constructor(organization: string, imageName: string) {
     super(organization, imageName);
     // Hardcode the secret name and namespace
-    this.secretName = 'rhtap-quay-integration';
+    this.secretName = 'tssc-quay-integration';
     this.secretNamespace = 'tssc';
   }
 

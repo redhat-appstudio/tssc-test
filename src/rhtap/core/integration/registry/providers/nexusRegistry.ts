@@ -4,7 +4,7 @@ export class NexusRegistry extends BaseImageRegistry {
   constructor(organization: string, imageName: string) {
     super(organization, imageName);
     // Hardcode the secret name and namespace
-    this.secretName = 'rhtap-nexus-integration';
+    this.secretName = 'tssc-nexus-integration';
     this.secretNamespace = 'tssc';
   }
 
