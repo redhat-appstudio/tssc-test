@@ -1,9 +1,9 @@
 import { CIType } from '../../core/integration/ci';
 import { EmptyPostCreateActionStrategy } from './emptyPostCreateActionStrategy';
-import { GitlabPostCreateActionStrategy } from './gitlab/gitlabPostCreateActionStrategy';
-import { JenkinsPostCreateActionStrategy } from './jenkins/jenkinsPostCreateActionStrategy';
+import { GitlabCIPostCreateActionStrategy } from './gitlabCIPostCreateActionStrategy';
+import { JenkinsPostCreateActionStrategy } from './jenkinsPostCreateActionStrategy';
 import { PostCreateActionStrategy } from './postCreateActionStrategy';
-import { TektonPostCreateActionStrategy } from './tekton/tektonPostCreateActionStrategy';
+import { TektonPostCreateActionStrategy } from './tektonPostCreateActionStrategy';
 
 /**
  * Factory class for creating PostCreateActionStrategy instances
@@ -15,6 +15,11 @@ export class PostCreateActionStrategyFactory {
    * @param ciType Type of CI system
    * @returns An appropriate strategy implementation for the CI type
    */
+  //Rules:
+  //1. tekton + github ==> no post-creation actions
+  //2. tekton + gitlab ==> 
+  //2. gitlab + gitlabci do not require any post-creation actions
+  //3. jenkins requires a webhook to be created in the repository
   public static createStrategy(ciType: CIType): PostCreateActionStrategy {
     switch (ciType) {
       case CIType.JENKINS:
@@ -27,7 +32,7 @@ export class PostCreateActionStrategyFactory {
         return new EmptyPostCreateActionStrategy();
       case CIType.GITLABCI:
         // GitLab CI requires configuring a webhook in the repository
-        return new GitlabPostCreateActionStrategy();
+        return new GitlabCIPostCreateActionStrategy();
       default:
         throw new Error(`No post-create action strategy available for CI type: ${ciType}`);
     }

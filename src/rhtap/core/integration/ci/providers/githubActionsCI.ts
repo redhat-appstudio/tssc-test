@@ -4,9 +4,15 @@ import { BaseCI } from '../baseCI';
 import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
 
 export class GitHubActionsCI extends BaseCI {
+  public getPipelineLogs(pipeline: Pipeline): Promise<string> {
+    throw new Error('Method not implemented.');
+  }
+  public getIntegrationSecret(): Promise<Record<string, string>> {
+    throw new Error('Method not implemented.');
+  }
   private component: string;
 
-  public getPipeline(
+  public override getPipeline(
     pullRequest: PullRequest,
     pipelineStatus: PipelineStatus,
     eventType?: EventType
@@ -26,13 +32,13 @@ export class GitHubActionsCI extends BaseCI {
     }
     throw new Error('Method not implemented.');
   }
-  protected checkPipelineStatus(pipeline: Pipeline): Promise<PipelineStatus> {
+  protected override checkPipelineStatus(pipeline: Pipeline): Promise<PipelineStatus> {
     if (!pipeline) {
       throw new Error('Pipeline is not defined');
     }
     throw new Error('Method not implemented.');
   }
-  public waitForAllPipelinesToFinish(): Promise<void> {
+  public override waitForAllPipelinesToFinish(): Promise<void> {
     if (!this.component) {
       throw new Error('Component is not defined');
     }
@@ -43,7 +49,7 @@ export class GitHubActionsCI extends BaseCI {
     this.component = component;
   }
 
-  public async getWebhookUrl(): Promise<string> {
+  public override async getWebhookUrl(): Promise<string> {
     // GitHub Actions does not support webhooks in the same way as other CI systems.
     throw new Error(
       'GitHub Actions does not support webhooks in the same way as other CI systems.'

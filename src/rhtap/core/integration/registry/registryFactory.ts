@@ -26,9 +26,9 @@ export class RegistryFactory {
    * Get the singleton instance of RegistryFactory
    * Creates a new instance with the provided KubeClient if none exists
    */
-  public static getInstance(kubeClient?: KubeClient): RegistryFactory {
+  public static getInstance(kubeClient: KubeClient): RegistryFactory {
     if (!this.instance) {
-      this.instance = new RegistryFactory(kubeClient || new KubeClient());
+      this.instance = new RegistryFactory(kubeClient);
     }
     return this.instance;
   }
@@ -79,7 +79,7 @@ export class RegistryFactory {
 export async function createRegistry(
   imageRegistryType: ImageRegistryType,
   imageName: string,
-  kubeClient?: KubeClient
+  kubeClient: KubeClient
 ): Promise<ImageRegistry> {
   // Use existing instance or create a new one with the provided kubeClient
   const factory = RegistryFactory.getInstance(kubeClient);

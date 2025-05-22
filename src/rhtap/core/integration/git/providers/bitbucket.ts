@@ -17,10 +17,24 @@ import { KubeClient } from './../../../../../../src/api/ocp/kubeClient';
  * This class implements the Git interface for Bitbucket repositories.
  */
 export class BitbucketProvider extends BaseGitProvider {
+
   private workspace: string;
   private project: string;
   private bitbucketClient!: BitbucketClient;
   private template!: ITemplate;
+
+  /**
+   * Get the host domain for Bitbucket URLs from the secret
+   * @returns The host domain for Bitbucket URLs (defaults to 'bitbucket.org' if not specified in secret)
+   */
+  public getHost(): string {
+    if (!this.secret?.host) {
+      throw new Error(
+        'Bitbucket host not found in the secret. Please ensure the host is provided.'
+      );
+    }
+    return this.secret.host;
+  }
 
   constructor(
     componentName: string,
@@ -112,7 +126,7 @@ export class BitbucketProvider extends BaseGitProvider {
     title: string,
     description: string,
     baseBranch: string = 'main',
-    repository: string = this.sourceRepoName
+    repository: string
   ): Promise<PullRequest> {
     try {
       console.log(`Creating a sample pull request in Bitbucket with the following parameters:`);
@@ -182,10 +196,14 @@ export class BitbucketProvider extends BaseGitProvider {
 
       const commitSha = commits.values[0].hash;
       const prNumber = prResult.id;
+      
+      // Construct the pull request URL
+      const prUrl = `https://${this.getHost()}/${this.workspace}/${repository}/pull-requests/${prNumber}`;
 
       console.log(`Successfully created pull request #${prNumber} with commit SHA: ${commitSha}`);
+      console.log(`Pull request URL: ${prUrl}`);
       
-      return new PullRequest(prNumber, commitSha, repository);
+      return new PullRequest(prNumber, commitSha, repository, false, undefined, prUrl);
     } catch (error: any) {
       console.error(`Error creating sample pull request: ${error.message}`);
       throw error;
@@ -316,10 +334,14 @@ export class BitbucketProvider extends BaseGitProvider {
 
       const commitSha = commits.values[0]?.hash || 'unknown-commit-sha';
       const prNumber = prResult.id;
+      
+      // Construct the pull request URL
+      const prUrl = `https://${this.getHost()}/${this.workspace}/${this.sourceRepoName}/pull-requests/${prNumber}`;
 
       console.log(`Successfully created pull request #${prNumber} with commit SHA: ${commitSha}`);
+      console.log(`Pull request URL: ${prUrl}`);
       
-      return new PullRequest(prNumber, commitSha, this.sourceRepoName);
+      return new PullRequest(prNumber, commitSha, this.sourceRepoName, false, undefined, prUrl);
     } catch (error: any) {
       console.error(`Error creating sample pull request: ${error.message}`);
       throw error;
@@ -512,7 +534,7 @@ export class BitbucketProvider extends BaseGitProvider {
     image: string
   ): Promise<string> {
     const branch = 'main'; // Default branch for GitOps repo
-    const commitMessage = `Update ${environment} environment to image ${image}`;
+    const commitMessage = `Update ${environment} environment to deploy image ${image}`;
 
     // The file path in the gitops repository to be modified
     const filePath = `components/${this.componentName}/overlays/${environment}/deployment-patch.yaml`;
@@ -631,7 +653,8 @@ export class BitbucketProvider extends BaseGitProvider {
         mergeResponse.hash, // Use the merge commit SHA
         pullRequest.repository,
         true, // Mark as merged
-        new Date().toISOString() // Set merge timestamp
+        new Date().toISOString(), // Set merge timestamp
+        pullRequest.url // Preserve the original URL
       );
 
       return mergedPR;
@@ -785,10 +808,14 @@ export class BitbucketProvider extends BaseGitProvider {
 
       const commitSha = commits.values[0]?.hash || 'unknown-commit-sha';
       const prNumber = prResult.id;
+      
+      // Construct the pull request URL
+      const prUrl = `https://${this.getHost()}/${this.workspace}/${this.gitOpsRepoName}/pull-requests/${prNumber}`;
 
       console.log(`Successfully created promotion PR #${prNumber} for ${environment} environment`);
+      console.log(`Pull request URL: ${prUrl}`);
       
-      return new PullRequest(prNumber, commitSha, this.gitOpsRepoName);
+      return new PullRequest(prNumber, commitSha, this.gitOpsRepoName, false, undefined, prUrl);
     } catch (error: any) {
       console.error(`Error creating promotion PR for ${environment}: ${error.message}`);
       throw error;
@@ -928,10 +955,10 @@ export class BitbucketProvider extends BaseGitProvider {
   }
 
   public override getGitOpsRepoUrl(): string {
-    return `https://bitbucket.org/${this.workspace}/${this.gitOpsRepoName}`;
+    return `https://${this.getHost()}/${this.workspace}/${this.gitOpsRepoName}`;
   }
   public override getSourceRepoUrl(): string {
-    return `https://bitbucket.org/${this.workspace}/${this.sourceRepoName}`;
+    return `https://${this.getHost()}/${this.workspace}/${this.sourceRepoName}`;
   }
   
   /**
@@ -941,5 +968,18 @@ export class BitbucketProvider extends BaseGitProvider {
    */
   public override getRepoOwner(): string {
     return this.getWorkspace();
+  }
+
+  public addVariableOnSourceRepo(name: string, value: string): Promise<void> {
+    if (name === 'GIT_USERNAME' && value) {
+      return Promise.resolve();
+    }
+    throw new Error('Method not implemented.');
+  }
+  public addVariableOnGitOpsRepo(name: string, value: string): Promise<void> {
+    if (name === 'GIT_USERNAME' && value) {
+      return Promise.resolve();
+    }
+    throw new Error('Method not implemented.');
   }
 }

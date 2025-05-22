@@ -11,7 +11,6 @@ export * from './baseCI';
 
 // Export the Pipeline related classes
 export * from './pipeline';
-export * from './PipelineHandler';
 
 // Export the CI providers
 export * from './providers/tektonCI';

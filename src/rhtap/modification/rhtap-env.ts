@@ -19,7 +19,7 @@ export class EnableACS implements EnvModification {
     return {
       'rhtap/env.sh': [
         {
-          oldContent: 'export DISABLE_ACS=false',
+          oldContent: 'export DISABLE_ACS=${DISABLE_ACS-false}',
           newContent: 'export DISABLE_ACS=true',
         },
       ],

@@ -2,7 +2,7 @@
  * Enum for Jenkins credential names
  * Centralizes credential naming to avoid string duplication
  */
-export enum JenkinsCredential {
+export enum Credential {
   ROX_API_TOKEN = 'ROX_API_TOKEN',
   COSIGN_SECRET_KEY = 'COSIGN_SECRET_KEY',
   COSIGN_SECRET_PASSWORD = 'COSIGN_SECRET_PASSWORD',

@@ -56,7 +56,7 @@ export class Component {
         component.name,
         component.kubeClient
       );
-      component.registry = await createRegistry(testItem.getregistryType(), imageName);
+      component.registry = await createRegistry(testItem.getregistryType(), imageName, component.kubeClient);
       component.git = await createGit(
         component.kubeClient,
         testItem.getGitType(),
@@ -145,7 +145,7 @@ export class Component {
 
     switch (testItem.getGitType()) {
       case GitType.GITHUB:
-        const github = git as GithubProvider;
+        const github = git as unknown as GithubProvider;
         return ScaffolderOptionsBuilder(GitType.GITHUB)
           .withTemplateName(template)
           .withName(git.getSourceRepoName())
@@ -159,7 +159,7 @@ export class Component {
           .forGitRepo(github.getOrganization(), github.getSourceRepoName())
           .build();
       case GitType.GITLAB:
-        const gitlab = git as GitlabProvider;
+        const gitlab = git as unknown as GitlabProvider;
         return ScaffolderOptionsBuilder(GitType.GITLAB)
           .withTemplateName(template)
           .withName(git.getSourceRepoName())
@@ -173,7 +173,7 @@ export class Component {
           .forGitRepo(gitlab.getGroup(), gitlab.getSourceRepoName())
           .build();
       case GitType.BITBUCKET:
-        const bitbucket = git as BitbucketProvider;
+        const bitbucket = git as unknown as BitbucketProvider;
         const repoName = bitbucket.getSourceRepoName();
         const workspaceName = bitbucket.getWorkspace();
         const projectName = bitbucket.getProject();

@@ -1,3 +1,4 @@
+import { JenkinsCI } from '../../../core/integration/ci';
 import { BaseCommand } from './baseCommand';
 
 /**
@@ -11,9 +12,9 @@ export class CreateJenkinsJobsCommand extends BaseCommand {
       { name: this.git.getSourceRepoName(), url: this.git.getSourceRepoUrl() },
       { name: this.git.getGitOpsRepoName(), url: this.git.getGitOpsRepoUrl() },
     ];
-
+    const jenkinsCI = this.ci as JenkinsCI;
     await Promise.all(
-      jobs.map(job => this.jenkinsCI.createJob(job.name, this.folderName, job.url))
+      jobs.map(job => jenkinsCI.createJob(job.name, this.folderName, job.url))
     );
 
     this.logComplete('Jenkins jobs creation');

@@ -77,6 +77,10 @@ export class GitLabClient {
     });
   }
 
+  public getClient(): InstanceType<typeof Gitlab> {
+    return this.client;
+  }
+
   /**
    * Get all projects
    */
@@ -88,9 +92,11 @@ export class GitLabClient {
 
   /**
    * Get a specific project
+   * @param projectIdOrPath The project ID (number) or full path (string) in the format "owner/repo"
+   * @returns Promise with the project details
    */
-  async getProject(projectId: number | string): Promise<GitLabProject> {
-    return (await this.client.Projects.show(projectId)) as any;
+  async getProject(projectIdOrPath: number | string): Promise<GitLabProject> {
+    return (await this.client.Projects.show(projectIdOrPath)) as any;
   }
 
   /**
@@ -166,16 +172,13 @@ export class GitLabClient {
 
     // Map options to GitLab API
     const hookOptions: any = {
-      url: webhookUrl,
+      // url: webhookUrl,
       token: '',
       push_events: true,
       mergeRequestsEvents: true,
       tagPushEvents: true,
       enableSslVerification: false
     };
-
-    // Remove undefined
-    // Object.keys(hookOptions).forEach(k => hookOptions[k] === undefined && delete hookOptions[k]);
 
     return await this.client.ProjectHooks.add(projectId, webhookUrl, hookOptions);
   }
@@ -251,15 +254,14 @@ export class GitLabClient {
       const newBranchName = newBranchNameOrOptions;
       
       try {
-        // Find the project ID for the repository
-        const projects = await this.getProjects({ search: repo });
-        const project = projects.find(p => p.name === repo && p.namespace.path === owner);
-
-        if (!project) {
+        // Find the project ID for the repository using direct path lookup (more efficient)
+        let projectId;
+        try {
+          const project = await this.getProject(`${owner}/${repo}`);
+          projectId = project.id;
+        } catch (error) {
           throw new Error(`Project ${owner}/${repo} not found`);
         }
-
-        const projectId = project.id;
 
         // Create a new branch from the base branch
         await this.client.Branches.create(projectId, newBranchName, baseBranch);
@@ -645,6 +647,66 @@ export class GitLabClient {
     } catch (error: any) {
       console.error(`Failed to merge merge request #${mergeRequestId}: ${error.message}`);
       throw new Error("Failed to merge Merge Request. Check below error");
+    }
+  }
+
+  /**
+   * Create a direct commit to a branch with multiple file changes
+   * @param projectId Project ID
+   * @param branch Branch to commit to
+   * @param commitMessage Commit message
+   * @param actions Array of file actions (create/update/delete) to perform in the commit
+   * @returns Promise with the commit information
+   */
+  async createCommit(
+    projectId: number | string,
+    branch: string,
+    commitMessage: string,
+    actions: { action: 'create' | 'update' | 'delete'; file_path: string; content?: string }[]
+  ): Promise<{ id: string }> {
+    try {
+      console.log(`Creating direct commit to branch ${branch} with ${actions.length} file actions`);
+      
+      // Convert file_path to filePath as required by the GitLab API
+      const formattedActions = actions.map(action => ({
+        action: action.action,
+        filePath: action.file_path, // Map file_path to filePath
+        content: action.content
+      }));
+      
+      const response = await this.client.Commits.create(
+        projectId,
+        branch,
+        commitMessage,
+        formattedActions
+      );
+      
+      console.log(`Successfully created commit: ${JSON.stringify({
+        id: response.id,
+        short_id: response.short_id,
+        title: response.title
+      }, null, 2)}`);
+      
+      return {
+        id: response.id
+      };
+    } catch (error: any) {
+      console.error(`Failed to create commit on branch ${branch}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  public async setEnvironmentVariable(projectId: number, key: string, value: string) {
+    try {
+      const response = await this.client.ProjectVariables.create(projectId, key, value, {
+        protected: false,
+        masked: false,
+      });
+      console.log(`Environment variable '${key}' set successfully in ${projectId} in gitlab.com.`);
+      return response;
+    } catch (error) {
+      console.error(`Error setting environment variable '${key}' in ${projectId} in gitlab.com:`, error);
+      throw error;
     }
   }
 }

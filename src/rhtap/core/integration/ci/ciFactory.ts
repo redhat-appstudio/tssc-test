@@ -29,7 +29,9 @@ export class CIFactory {
   }
 
   private async createGitLabCI(componentName: string, kubeClient: KubeClient): Promise<CI> {
-    return new GitLabCI(componentName, kubeClient);
+    const gitlabCI = new GitLabCI(componentName, kubeClient);
+    await gitlabCI.initialize();
+    return gitlabCI;
   }
 
   private async createJenkinsCI(componentName: string, kubeClient: KubeClient): Promise<CI> {

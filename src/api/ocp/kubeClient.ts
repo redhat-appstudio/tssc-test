@@ -1,3 +1,4 @@
+import { TaskRunKind } from '@janus-idp/shared-react/dist/index';
 import { CoreV1Api, CustomObjectsApi, KubeConfig } from '@kubernetes/client-node';
 import * as k8s from '@kubernetes/client-node';
 
@@ -94,11 +95,11 @@ export class KubeClient {
   /// Retrieves a Tekton PipelineRun from Kubernetes
   /// @param {string} name - The name of the PipelineRun.
   /// @param {string} namespace - The namespace where the PipelineRun is located.
-  /// @returns {Promise<any>} A Promise that resolves to the PipelineRun object.
+  /// @returns {Promise<unknown>} A Promise that resolves to the PipelineRun object.
   /// @throws {Error} If the PipelineRun cannot be retrieved.
-  public async getTektonPipelineRunByName(name: string, namespace: string): Promise<any> {
+  public async getTektonPipelineRunByName(name: string, namespace: string): Promise<unknown> {
     try {
-      const options = this.createApiOptions('tekton.dev', 'v1beta1', 'pipelineruns', namespace, {
+      const options = this.createApiOptions('tekton.dev', 'v1', 'pipelineruns', namespace, {
         name,
       });
 
@@ -122,11 +123,11 @@ export class KubeClient {
   /// Retrieves a Tekton TaskRun from Kubernetes
   /// @param {string} name - The name of the TaskRun.
   /// @param {string} namespace - The namespace where the TaskRun is located.
-  /// @returns {Promise<any>} A Promise that resolves to the TaskRun object.
+  /// @returns {Promise<TaskRunKind>} A Promise that resolves to the TaskRun object.
   /// @throws {Error} If the TaskRun cannot be retrieved.
-  public async getTektonTaskRun(name: string, namespace: string): Promise<any> {
+  public async getTektonTaskRun(name: string, namespace: string): Promise<TaskRunKind> {
     try {
-      const options = this.createApiOptions('tekton.dev', 'v1beta1', 'taskruns', namespace, {
+      const options = this.createApiOptions('tekton.dev', 'v1', 'taskruns', namespace, {
         name,
       });
 
@@ -141,7 +142,7 @@ export class KubeClient {
         plural: options.plural,
         name: options.name,
       });
-      return response;
+      return response as TaskRunKind;
     } catch (error) {
       throw new Error(`Failed to retrieve Tekton TaskRun '${name}': ${error}`);
     }
@@ -247,6 +248,67 @@ export class KubeClient {
         `Error getting resource '${options.name}' in namespace '${options.namespace}': ${error}`
       );
       return null;
+    }
+  }
+
+  /**
+   * Retrieves logs from a pod or specific containers within a pod
+   * @param podName The name of the pod
+   * @param namespace The namespace where the pod is located (default: 'default')
+   * @param containerName Optional name of a specific container to get logs from
+   * @returns A Promise that resolves to the pod logs as a string
+   */
+  public async getPodLogs(
+    podName: string,
+    namespace: string = 'default',
+    containerName?: string
+  ): Promise<string> {
+    try {
+      // First get the pod to verify it exists and to get container info
+      const response = await this.k8sApi.readNamespacedPod({
+        name: podName,
+        namespace: namespace,
+      });
+      if (!response) {
+        throw new Error(`Pod '${podName}' not found in namespace '${namespace}'`);
+      }
+
+      const allLogs: string[] = [];
+
+      // If a specific container is requested, only get logs for that container
+      if (containerName) {
+        const logResponse = await this.k8sApi.readNamespacedPodLog({
+          name: podName,
+          namespace: namespace,
+          container: containerName,
+        });
+        return logResponse || '';
+      }
+      // Otherwise get logs for all containers
+      const pod = response;
+      const containers = pod.spec?.containers || [];
+      const initContainers = pod.spec?.initContainers || [];
+      const allContainers = [...initContainers, ...containers];
+      // Get logs for each container
+      for (const container of allContainers) {
+        try {
+          const logResponse = await this.k8sApi.readNamespacedPodLog({
+            name: podName,
+            namespace: namespace,
+            container: container.name,
+          });
+          allLogs.push(
+            `--- Container: ${container.name} ---\n${logResponse || 'No logs available'}\n`
+          );
+        } catch (logError: unknown) {
+          allLogs.push(
+            `--- Container: ${container.name} ---\nError getting logs: ${(logError as Error).message || 'Unknown error'}\n`
+          );
+        }
+      }
+      return allLogs.join('\n');
+    } catch (error: unknown) {
+      throw new Error(`Failed to retrieve logs for pod '${podName}': ${(error as Error).message}`);
     }
   }
 

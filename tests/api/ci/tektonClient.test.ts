@@ -2,7 +2,7 @@ import { TektonClient } from '../../../src/api/ci/tektonClient';
 import { KubeClient } from '../../../src/api/ocp/kubeClient';
 import { expect, test } from '@playwright/test';
 
-const kubeClient = new KubeClient(true);
+const kubeClient = new KubeClient();
 // Initialize the Tekton client
 const tektonClient = new TektonClient(kubeClient);
 

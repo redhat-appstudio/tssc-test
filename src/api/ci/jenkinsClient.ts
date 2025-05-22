@@ -1,5 +1,67 @@
 import axios, { AxiosInstance } from 'axios';
 
+/**
+ * Jenkins build result status enum
+ */
+export enum JenkinsBuildResult {
+  SUCCESS = 'SUCCESS',
+  FAILURE = 'FAILURE',
+  UNSTABLE = 'UNSTABLE',
+  ABORTED = 'ABORTED',
+  NOT_BUILT = 'NOT_BUILT',
+}
+
+/**
+ * Jenkins build trigger type enum
+ */
+export enum JenkinsBuildTrigger {
+  UNKNOWN = 'UNKNOWN',
+  PULL_REQUEST = 'PULL_REQUEST',
+  PUSH = 'PUSH',
+  MANUAL = 'MANUAL',
+  SCHEDULED = 'SCHEDULED',
+  API = 'API',
+}
+
+/**
+ * Basic interface for Jenkins build information
+ */
+export interface JenkinsBuild {
+  id: string; // Unique build identifier
+  number: number; // Build number
+  url: string; // URL to the build in Jenkins
+  displayName: string; // Display name of the build
+  fullDisplayName?: string; // Full display name (job name + build number)
+
+  // Status
+  building: boolean; // Whether the build is currently running
+  result: JenkinsBuildResult | null; // Build result (null if building)
+
+  // Timing
+  timestamp: number; // Build start time (milliseconds since epoch)
+  duration: number; // Build duration in milliseconds
+
+  // Build details
+  actions: any[]; // Actions related to the build (contains SCM info, etc.)
+  causes?: Array<{
+    // The causes that triggered the build
+    shortDescription: string;
+    [key: string]: any;
+  }>;
+
+  // Trigger information
+  triggerType?: JenkinsBuildTrigger; // The type of event that triggered this build
+
+  // Additional useful properties
+  description?: string; // Build description
+  artifacts?: Array<{
+    // Build artifacts
+    displayPath: string;
+    fileName: string;
+    relativePath: string;
+  }>;
+}
+
 export enum CredentialType {
   SECRET_TEXT = 'Secret text',
   USERNAME_PASSWORD = 'Username with password',
@@ -302,8 +364,22 @@ export class JenkinsClient {
    * @param jobName The name of the job
    * @param buildNumber The build number
    * @param folderName Optional folder where the job is located. If not provided, job is assumed to be at root level
+   * @returns JenkinsBuild object with build information
    */
-  public async getBuild(jobName: string, buildNumber: number, folderName?: string): Promise<any> {
+  /**
+   * Get information about a build
+   * @param jobName The name of the job
+   * @param buildNumber The build number
+   * @param folderName Optional folder where the job is located. If not provided, job is assumed to be at root level
+   * @param includeTriggerInfo Whether to include trigger information (default: false)
+   * @returns JenkinsBuild object with build information
+   */
+  public async getBuild(
+    jobName: string,
+    buildNumber: number,
+    folderName?: string,
+    includeTriggerInfo: boolean = false
+  ): Promise<JenkinsBuild> {
     try {
       // Determine the path based on whether folderName is provided
       const path = folderName
@@ -317,7 +393,14 @@ export class JenkinsClient {
         },
       });
 
-      return response.data;
+      const buildInfo = response.data as JenkinsBuild;
+
+      // Determine trigger type if requested
+      if (includeTriggerInfo) {
+        buildInfo.triggerType = this.determineBuildTrigger(buildInfo);
+      }
+
+      return buildInfo;
     } catch (error) {
       console.error('Failed to get build information:', error);
       throw error;
@@ -330,7 +413,7 @@ export class JenkinsClient {
    * @param folderName Optional folder where the job is located. If not provided, job is assumed to be at root level
    * @returns Array of running build objects or empty array if none are running
    */
-  public async getRunningBuilds(jobName: string, folderName?: string): Promise<any[]> {
+  public async getRunningBuilds(jobName: string, folderName?: string): Promise<JenkinsBuild[]> {
     try {
       // Determine the path based on whether folderName is provided
       const path = folderName
@@ -354,7 +437,7 @@ export class JenkinsClient {
       if (response.data.builds && response.data.builds.length > 0) {
         for (const build of response.data.builds) {
           // Get detailed build information
-          const buildDetails = await this.getBuild(jobName, build.number, folderName);
+          const buildDetails = await this.getBuild(jobName, build.number, folderName, false);
 
           // If the build is currently running, add it to our results
           if (buildDetails.building === true) {
@@ -374,8 +457,9 @@ export class JenkinsClient {
    * Get the latest build number for a job
    * @param jobName The name of the job
    * @param folderName Optional folder where the job is located
+   * @returns The latest build information or null if no builds exist
    */
-  public async getLatestBuild(jobName: string, folderName?: string): Promise<any> {
+  public async getLatestBuild(jobName: string, folderName?: string): Promise<JenkinsBuild | null> {
     try {
       // Get job info which includes lastBuild details
       const jobInfo = await this.getJob(folderName ? `${folderName}/${jobName}` : jobName);
@@ -386,7 +470,7 @@ export class JenkinsClient {
       }
 
       // Return the build information
-      return await this.getBuild(jobName, jobInfo.lastBuild.number, folderName);
+      return await this.getBuild(jobName, jobInfo.lastBuild.number, folderName, false);
     } catch (error) {
       console.error('Failed to get latest build:', error);
       throw error;
@@ -404,13 +488,13 @@ export class JenkinsClient {
     jobName: string,
     buildNumber: number,
     folderName?: string,
-    start: number = 0
-  ): Promise<any> {
+  ): Promise<string> {
     try {
       const path = folderName
         ? `job/${encodeURIComponent(folderName)}/job/${encodeURIComponent(jobName)}/${buildNumber}/logText/progressiveText`
         : `job/${encodeURIComponent(jobName)}/${buildNumber}/logText/progressiveText`;
 
+      const start: number = 0; // Start from the beginning of the log
       const response = await this.client.get(path, {
         headers: {
           Accept: 'text/plain',
@@ -420,11 +504,7 @@ export class JenkinsClient {
         },
       });
 
-      return {
-        text: response.data,
-        hasMore: response.headers['x-more-data'] === 'true',
-        nextStart: parseInt(response.headers['x-text-size'] || '0', 10),
-      };
+      return response.data;
     } catch (error) {
       console.error('Failed to get build log:', error);
       throw error;
@@ -438,6 +518,7 @@ export class JenkinsClient {
    * @param folderName Optional folder where the job is located
    * @param timeoutMs Timeout in milliseconds (default: 10 minutes)
    * @param pollIntervalMs Polling interval in milliseconds (default: 5 seconds)
+   * @returns The completed build information
    */
   public async waitForBuildCompletion(
     jobName: string,
@@ -445,14 +526,14 @@ export class JenkinsClient {
     folderName?: string,
     timeoutMs: number = 10 * 60 * 1000,
     pollIntervalMs: number = 5000
-  ): Promise<any> {
+  ): Promise<JenkinsBuild> {
     try {
       const startTime = Date.now();
       let buildInfo;
 
       // Poll until build is complete or timeout
       while (true) {
-        buildInfo = await this.getBuild(jobName, buildNumber, folderName);
+        buildInfo = await this.getBuild(jobName, buildNumber, folderName, false);
 
         // Check if build has completed
         if (!buildInfo.building) {
@@ -486,7 +567,7 @@ export class JenkinsClient {
     commitSha: string,
     folderName?: string,
     maxBuildsToCheck: number = 50
-  ): Promise<any> {
+  ): Promise<JenkinsBuild | null> {
     try {
       // Normalize commitSha by trimming and lowercasing
       const normalizedCommitSha = commitSha.trim().toLowerCase();
@@ -511,7 +592,7 @@ export class JenkinsClient {
       // Check each build for the commit SHA
       for (const buildRef of buildsToCheck) {
         console.log(`Checking build #${buildRef.number}`);
-        const buildInfo = await this.getBuild(jobName, buildRef.number, folderName);
+        const buildInfo = await this.getBuild(jobName, buildRef.number, folderName, false);
         let isMatch = false;
 
         // Check if the build has actions containing SCM information
@@ -641,5 +722,218 @@ export class JenkinsClient {
       console.error(`Failed to find build by commit SHA ${commitSha}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Convert a JenkinsBuild to a Pipeline object
+   * This helper method makes it easier to transform a Jenkins build into the standardized Pipeline format
+   *
+   * @param build The Jenkins build to convert
+   * @param repositoryName The name of the repository associated with this build
+   * @param logs Optional build logs
+   * @param sha Optional git commit SHA that triggered this build
+   * @returns A standardized Pipeline object
+   */
+  public convertBuildToPipeline(
+    build: JenkinsBuild,
+    jobName: string,
+    repositoryName: string,
+    logs: string = '',
+    sha?: string
+  ) {
+    // Import required types
+    const { Pipeline, PipelineStatus } = require('../../../rhtap/core/integration/ci/pipeline');
+
+    // Map Jenkins build status to standardized PipelineStatus
+    let status = PipelineStatus.UNKNOWN;
+
+    if (build.building) {
+      status = PipelineStatus.RUNNING;
+    } else if (build.result) {
+      switch (build.result) {
+        case JenkinsBuildResult.SUCCESS:
+          status = PipelineStatus.SUCCESS;
+          break;
+        case JenkinsBuildResult.FAILURE:
+          status = PipelineStatus.FAILURE;
+          break;
+        case JenkinsBuildResult.UNSTABLE:
+          status = PipelineStatus.FAILURE; // Map unstable to failure
+          break;
+        case JenkinsBuildResult.ABORTED:
+          status = PipelineStatus.FAILURE; // Map aborted to failure
+          break;
+        case JenkinsBuildResult.NOT_BUILT:
+          status = PipelineStatus.PENDING;
+          break;
+        default:
+          status = PipelineStatus.UNKNOWN;
+      }
+    }
+
+    // Create a results string from build actions
+    const results = JSON.stringify(build.actions || {});
+
+    // Create and return a Pipeline object
+    return Pipeline.createJenkinsPipeline(
+      jobName,
+      build.number,
+      status,
+      repositoryName,
+      logs,
+      results,
+      build.url,
+      sha
+    );
+
+    // Create and return a Pipeline object
+    return Pipeline.createJenkinsPipeline(
+      jobName,
+      build.number,
+      status,
+      repositoryName,
+      logs,
+      results,
+      build.url,
+      sha
+    );
+  }
+
+  /**
+   * Determines the trigger type of a Jenkins build
+   * @param build The Jenkins build object
+   * @returns The identified trigger type
+   */
+  private determineBuildTrigger(build: JenkinsBuild): JenkinsBuildTrigger {
+    // Check if build has actions array
+    if (build.actions && Array.isArray(build.actions)) {
+      // Look for pull request related information in actions
+      for (const action of build.actions) {
+        // Check for GitHub/GitLab pull request plugin information
+        if (
+          action._class?.includes('pull-request') ||
+          action._class?.includes('PullRequestAction') ||
+          action.pullRequest ||
+          (action.parameters &&
+            action.parameters.some(
+              (p: any) =>
+                p.name?.includes('ghpr') || p.name?.includes('pull') || p.name?.includes('PR')
+            ))
+        ) {
+          return JenkinsBuildTrigger.PULL_REQUEST;
+        }
+      }
+    }
+
+    // Check causes for trigger information
+    if (build.causes && Array.isArray(build.causes)) {
+      for (const cause of build.causes) {
+        // Check for pull request related causes
+        if (
+          cause.shortDescription &&
+          (cause.shortDescription.toLowerCase().includes('pull request') ||
+            cause.shortDescription.toLowerCase().includes('pr ') ||
+            cause._class?.toLowerCase().includes('pullrequest'))
+        ) {
+          return JenkinsBuildTrigger.PULL_REQUEST;
+        }
+
+        // Check for push related causes
+        if (
+          cause.shortDescription &&
+          (cause.shortDescription.includes('push') ||
+            cause._class?.includes('GitHubPushCause') ||
+            cause._class?.includes('GitLabWebHookCause'))
+        ) {
+          return JenkinsBuildTrigger.PUSH;
+        }
+
+        // Check for manual build causes
+        if (
+          cause.shortDescription &&
+          (cause.shortDescription.includes('Started by user') ||
+            cause._class?.includes('UserIdCause'))
+        ) {
+          return JenkinsBuildTrigger.MANUAL;
+        }
+
+        // Check for scheduled build causes
+        if (
+          cause.shortDescription &&
+          (cause.shortDescription.includes('timer') || cause._class?.includes('TimerTrigger'))
+        ) {
+          return JenkinsBuildTrigger.SCHEDULED;
+        }
+
+        // Check for API/remote build causes
+        if (
+          cause.shortDescription &&
+          (cause.shortDescription.includes('remote') || cause._class?.includes('RemoteCause'))
+        ) {
+          return JenkinsBuildTrigger.API;
+        }
+      }
+    }
+
+    // Default to PUSH if we have git information but couldn't identify as PR
+    if (
+      build.actions &&
+      build.actions.some(
+        action =>
+          action._class?.includes('git') || action.lastBuiltRevision || action.buildsByBranchName
+      )
+    ) {
+      return JenkinsBuildTrigger.PUSH;
+    }
+
+    return JenkinsBuildTrigger.UNKNOWN;
+  }
+
+  /**
+   * Get the trigger type of a build (Pull Request, Push, etc.)
+   * @param jobName The name of the job
+   * @param buildNumber The build number
+   * @param folderName Optional folder where the job is located
+   * @returns The identified trigger type
+   */
+  public async getBuildTriggerType(
+    jobName: string,
+    buildNumber: number,
+    folderName?: string
+  ): Promise<JenkinsBuildTrigger> {
+    const buildInfo = await this.getBuild(jobName, buildNumber, folderName, true);
+    return buildInfo.triggerType || JenkinsBuildTrigger.UNKNOWN;
+  }
+
+  /**
+   * Check if a build was triggered by a pull request
+   * @param jobName The name of the job
+   * @param buildNumber The build number
+   * @param folderName Optional folder where the job is located
+   * @returns True if the build was triggered by a pull request
+   */
+  public async isBuildTriggeredByPullRequest(
+    jobName: string,
+    buildNumber: number,
+    folderName?: string
+  ): Promise<boolean> {
+    const triggerType = await this.getBuildTriggerType(jobName, buildNumber, folderName);
+    return triggerType === JenkinsBuildTrigger.PULL_REQUEST;
+  }
+
+  /**
+   * Check if a build was triggered by a push event
+   * @param jobName The name of the job
+   * @param buildNumber The build number
+   * @param folderName Optional folder where the job is located
+   * @returns True if the build was triggered by a push event
+   */
+  public async isBuildTriggeredByPush(
+    jobName: string,
+    buildNumber: number,
+    folderName?: string
+  ): Promise<boolean> {
+    const triggerType = await this.getBuildTriggerType(jobName, buildNumber, folderName);
+    return triggerType === JenkinsBuildTrigger.PUSH;
   }
 }
