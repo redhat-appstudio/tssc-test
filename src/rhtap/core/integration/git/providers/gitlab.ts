@@ -17,6 +17,7 @@ import {
  * This class implements the Git interface for GitLab repositories.
  */
 export class GitlabProvider extends BaseGitProvider {
+
   private gitlabClient!: GitLabClient;
   private template!: ITemplate;
   private baseUrl: string = '';
@@ -140,17 +141,14 @@ export class GitlabProvider extends BaseGitProvider {
     try {
       console.log(`Creating a direct promotion commit for environment: ${environment}`);
 
-      // Find the GitOps project ID
-      const projects = await this.gitlabClient.getProjects({ search: this.gitOpsRepoName });
-      const project = projects.find(
-        p => p.name === this.gitOpsRepoName && p.namespace.path === this.getGroup()
-      );
-
-      if (!project) {
+      // Find the GitOps project ID using direct path lookup (more efficient)
+      let projectId;
+      try {
+        const project = await this.gitlabClient.getProject(`${this.getGroup()}/${this.gitOpsRepoName}`);
+        projectId = project.id;
+      } catch (error) {
         throw new Error(`GitOps project ${this.getGroup()}/${this.gitOpsRepoName} not found`);
       }
-
-      const projectId = project.id;
 
       // Get the current content of the deployment patch file
       const fileContent = await this.gitlabClient.getFileContent(
@@ -236,17 +234,14 @@ export class GitlabProvider extends BaseGitProvider {
     }
 
     try {
-      // Find the project ID for the repository
-      const projects = await this.gitlabClient.getProjects({ search: pullRequest.repository });
-      const project = projects.find(
-        p => p.name === pullRequest.repository && p.namespace.path === this.getGroup()
-      );
-
-      if (!project) {
+      // Find the project ID for the repository using direct path lookup (more efficient)
+      let projectId;
+      try {
+        const project = await this.gitlabClient.getProject(`${this.getGroup()}/${pullRequest.repository}`);
+        projectId = project.id;
+      } catch (error) {
         throw new Error(`Project ${this.getGroup()}/${pullRequest.repository} not found`);
       }
-
-      const projectId = project.id;
 
       // Execute the merge operation using the GitLabClient
       const mergeResponse = await this.gitlabClient.mergeMergeRequest(
@@ -305,17 +300,14 @@ export class GitlabProvider extends BaseGitProvider {
     const contentModifications: ContentModifications = {};
 
     try {
-      // Find the GitOps project ID
-      const projects = await this.gitlabClient.getProjects({ search: this.gitOpsRepoName });
-      const project = projects.find(
-        p => p.name === this.gitOpsRepoName && p.namespace.path === this.getGroup()
-      );
-
-      if (!project) {
+      // Find the GitOps project ID using direct path lookup (more efficient)
+      let projectId;
+      try {
+        const project = await this.gitlabClient.getProject(`${this.getGroup()}/${this.gitOpsRepoName}`);
+        projectId = project.id;
+      } catch (error) {
         throw new Error(`GitOps project ${this.getGroup()}/${this.gitOpsRepoName} not found`);
       }
-
-      const projectId = project.id;
 
       // Get the current content of the deployment patch file
       const fileContent = await this.gitlabClient.getFileContent(
@@ -399,17 +391,14 @@ export class GitlabProvider extends BaseGitProvider {
     console.log(`Extracting application image from file: ${filePath}`);
     
     try {
-      // Find the GitOps project ID
-      const projects = await this.gitlabClient.getProjects({ search: this.gitOpsRepoName });
-      const project = projects.find(
-        p => p.name === this.gitOpsRepoName && p.namespace.path === this.getGroup()
-      );
-
-      if (!project) {
+      // Find the GitOps project ID using direct path lookup (more efficient)
+      let projectId;
+      try {
+        const project = await this.gitlabClient.getProject(`${this.getGroup()}/${this.gitOpsRepoName}`);
+        projectId = project.id;
+      } catch (error) {
         throw new Error(`GitOps project ${this.getGroup()}/${this.gitOpsRepoName} not found`);
       }
-
-      const projectId = project.id;
 
       // Use a regex pattern that can handle both inline and multi-line image formats
       // Pattern explanation:
@@ -530,31 +519,43 @@ export class GitlabProvider extends BaseGitProvider {
     );
   }
 
-  public createSamplePullRequest(
+  public async createSamplePullRequest(
     newBranchName: string,
-    contentModifications: { [filePath: string]: { oldContent: string; newContent: string } },
+    contentModifications: ContentModifications,
     title: string,
     description: string,
-    baseBranch?: string
+    baseBranch: string = 'main'
   ): Promise<PullRequest> {
-    // Implement the logic to create a sample pull request in GitLab
-    // This may involve using the GitLab API to create a new branch,
-    // commit the changes, and create a pull request
-    // For now, we'll just log the parameters and return a dummy PR ID
-    console.log(`Creating a sample pull request in GitLab with the following parameters:`);
-    console.log(`New Branch Name: ${newBranchName}`);
-    console.log(`Content Modifications: ${JSON.stringify(contentModifications)}`);
-    console.log(`Title: ${title}`);
-    console.log(`Description: ${description}`);
-    console.log(`Base Branch: ${baseBranch || 'main'}`);
+    try {
+      console.log(`Creating a sample pull request in GitLab with the following parameters:`);
+      console.log(`New Branch Name: ${newBranchName}`);
+      console.log(`Title: ${title}`);
+      console.log(`Description: ${description}`);
+      console.log(`Base Branch: ${baseBranch}`);
 
-    // Construct repository URL for GitLab
-    const repositoryUrl = `https://gitlab.com/${this.getGroup}/${this.getSourceRepoName()}`;
+      // Use GitLabClient's createMergeRequest method which already supports batch changes
+      const result = await this.gitlabClient.createMergeRequest(
+        this.getGroup(),
+        this.sourceRepoName,
+        this.getGroup(), // targetOwner
+        baseBranch,
+        newBranchName,
+        contentModifications,
+        title,
+        description
+      );
 
-    // Here you would typically use the GitLab API to create the pull request
-    // For now, we'll just return a dummy PR ID
-    // In a real implementation, you would return the actual PR ID from the GitLab API
-    return Promise.resolve(new PullRequest(1, 'dummy-commit-sha', repositoryUrl));
+      // Extract the merge request number and commit SHA
+      const { prNumber, commitSha } = result;
+
+      console.log(`Successfully created merge request #${prNumber} with commit SHA: ${commitSha}`);
+
+      // Return a PullRequest object with the details
+      return new PullRequest(prNumber, commitSha, this.sourceRepoName);
+    } catch (error: any) {
+      console.error(`Error creating sample merge request: ${error.message}`);
+      throw error;
+    }
   }
 
   /**
@@ -585,69 +586,101 @@ export class GitlabProvider extends BaseGitProvider {
         throw new Error('Commit message is required');
       }
       
-      console.log(`Committing changes to ${owner}/${repo} in branch ${branch}`);
+      console.log(`Committing changes directly to ${owner}/${repo} in branch ${branch}`);
 
-      // Find the project ID for the repository
-      const projects = await this.gitlabClient.getProjects({ search: repo });
-      const project = projects.find(p => p.name === repo && p.namespace.path === owner);
-
-      if (!project) {
+      // Find the project ID for the repository using direct path lookup (more efficient)
+      let projectId;
+      try {
+        const project = await this.gitlabClient.getProject(`${owner}/${repo}`);
+        projectId = project.id;
+      } catch (error) {
         throw new Error(`Project ${owner}/${repo} not found`);
       }
 
-      const projectId = project.id;
+      // Prepare all file modifications for a single batch commit
+      const fileActions: { action: 'create' | 'update'; file_path: string; content: string }[] = [];
 
       // Process each file modification
       for (const [filePath, modifications] of Object.entries(contentModifications)) {
-        for (const { oldContent: _oldContent, newContent } of modifications) {
+        try {
+          let fileContent: string;
+          let fileExists = true;
+          
+          // Try to get existing file content first
           try {
-            // Check if file exists
-            // Note: oldContent is not used in this implementation since GitLab API doesn't require it
-            // For now, we'll try to update and catch the error if file doesn't exist
-            try {
-              // Update existing file
-              await this.gitlabClient.updateFile(
-                projectId,
-                filePath,
-                branch,
-                newContent,
-                commitMessage
-              );
-            } catch (error: any) {
-              if (error.message.includes('not found')) {
-                // File doesn't exist, create it
-                await this.gitlabClient.createFile(
-                  projectId,
-                  filePath,
-                  branch,
-                  newContent,
-                  commitMessage
-                );
-              } else {
-                throw error;
-              }
-            }
+            const fileData = await this.gitlabClient.getFileContent(
+              projectId,
+              filePath,
+              branch
+            );
+            fileContent = Buffer.from(fileData.content, 'base64').toString('utf-8');
           } catch (error: any) {
-            console.error(`Error modifying file ${filePath}: ${error.message}`);
-            throw error;
+            if (error.message && error.message.includes('not found')) {
+              // File doesn't exist yet, start with empty content
+              fileContent = '';
+              fileExists = false;
+            } else {
+              throw error;
+            }
           }
+          
+          // Apply each modification in sequence
+          for (const { oldContent, newContent } of modifications) {
+            if (!fileExists) {
+              // For new files, use the new content directly
+              fileContent = newContent;
+            } else if (oldContent && fileContent.includes(oldContent)) {
+              // For existing files with matching patterns, replace just those patterns
+              fileContent = fileContent.replace(oldContent, newContent);
+            } else {
+              // For existing files where pattern isn't found, log a warning and skip
+              // Don't replace the entire file content when a pattern isn't found
+              console.warn(`Couldn't find match for pattern in ${filePath}, skipping this modification`);
+            }
+          }
+          
+          // Add to batch actions using file_path (will be converted to filePath in createCommit)
+          fileActions.push({
+            action: fileExists ? 'update' : 'create',
+            file_path: filePath,
+            content: fileContent
+          });
+        } catch (error: any) {
+          console.error(`Error preparing file modification for ${filePath}: ${error.message}`);
+          throw error;
         }
       }
 
-      // Get the commit SHA from the most recent commit
-      const commits = await this.gitlabClient.getCommits(projectId, { ref_name: branch });
-      const commitSha = commits[0]?.id;
+      // Execute a direct batch commit to the target branch
+      console.log(`Committing ${fileActions.length} file changes in a single batch`);
+      
+      // Make a direct commit to the repository - this is using the internal GitLab APIs through gitlabClient
+      const commitResult = await this.gitlabClient.createCommit(
+        projectId,
+        branch,
+        commitMessage,
+        fileActions
+      );
+      
+      // Get the commit SHA from the result or fetch it
+      let commitSha = commitResult?.id;
+      
+      if (!commitSha) {
+        // Fallback: Get the commit SHA from the most recent commit
+        const commits = await this.gitlabClient.getCommits(projectId, { ref_name: branch });
+        commitSha = commits[0]?.id;
+      }
 
       if (!commitSha) {
         throw new Error(`Failed to retrieve commit SHA after committing changes`);
       }
 
       console.log(
-        `Successfully committed all changes to branch '${branch}' with SHA: ${commitSha}`
+        `Successfully committed all changes directly to branch '${branch}' with SHA: ${commitSha}`
       );
       return commitSha;
     } catch (error: any) {
-      console.error(`Error creating batch commit on branch '${branch}': ${error.message}`);
+      console.error(`Error creating direct commit on branch '${branch}': ${error.message}`);
       throw error;
     }
   }
@@ -665,16 +698,14 @@ export class GitlabProvider extends BaseGitProvider {
       );
 
       // Find the project ID for the source repository
-      const projects = await this.gitlabClient.getProjects({ search: this.sourceRepoName });
-      const project = projects.find(
-        p => p.name === this.sourceRepoName && p.namespace.path === this.getGroup()
-      );
-
-      if (!project) {
+            // Find the project ID using direct path lookup (more efficient)
+      let projectId;
+      try {
+        const project = await this.gitlabClient.getProject(`${this.getGroup()}/${this.sourceRepoName}`);
+        projectId = project.id;
+      } catch (error) {
         throw new Error(`Project ${this.getGroup()}/${this.sourceRepoName} not found`);
       }
-
-      const projectId = project.id;
 
       // Get the latest commit for the branch
       const commits = await this.gitlabClient.getCommits(projectId, { ref_name: branch });
@@ -705,17 +736,14 @@ export class GitlabProvider extends BaseGitProvider {
         `Getting latest commit SHA for GitOps repo: ${this.gitOpsRepoName}, branch: ${branch}`
       );
 
-      // Find the project ID for the GitOps repository
-      const projects = await this.gitlabClient.getProjects({ search: this.gitOpsRepoName });
-      const project = projects.find(
-        p => p.name === this.gitOpsRepoName && p.namespace.path === this.getGroup()
-      );
-
-      if (!project) {
+      // Find the project ID for the GitOps repository using direct path lookup (more efficient)
+      let projectId;
+      try {
+        const project = await this.gitlabClient.getProject(`${this.getGroup()}/${this.gitOpsRepoName}`);
+        projectId = project.id;
+      } catch (error) {
         throw new Error(`GitOps project ${this.getGroup()}/${this.gitOpsRepoName} not found`);
       }
-
-      const projectId = project.id;
 
       // Get the latest commit for the branch
       const commits = await this.gitlabClient.getCommits(projectId, { ref_name: branch });
@@ -807,5 +835,45 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public override getRepoOwner(): string {
     return this.getGroup();
+  }
+
+  /**
+   * Set an environment variable in the GitLab project's CI/CD settings
+   * @param key Environment variable name
+   * @param value Environment variable value
+   * @param repositoryName The name of the repository (defaults to componentName if not provided)
+   * @returns Promise that resolves when the variable is set
+   */
+  public async setEnvironmentVariable(
+    key: string, 
+    value: string, 
+    groupName: string,
+    repositoryName: string
+  ): Promise<void> {
+    
+    try {
+      // Use the provided repository name or fall back to the component name
+      const repoName = repositoryName || this.componentName;
+      
+      // Get the project ID from the repository name
+      const project = await this.gitlabClient.getProject(`${groupName}/${repoName}`)
+
+      console.log(`Setting environment variable '${key}' for repository ${repoName} (ID: ${project.id})`);
+
+      // Set the environment variable using the GitLabCIClient
+      await this.gitlabClient.setEnvironmentVariable(project.id, key, value);
+      console.log(`Environment variable '${key}' set successfully for repository ${repoName} (ID: ${project.id})`);
+    } catch (error) {
+      const repoName = repositoryName || this.componentName;
+      console.error(`Error setting environment variable '${key}' for repository ${repoName}:`, error);
+      throw error;
+    }
+  }
+
+  public override async addVariableOnSourceRepo(name: string, value: string): Promise<void> {
+    await this.setEnvironmentVariable(name, value, this.getGroup(), this.sourceRepoName);
+  }
+  public override async addVariableOnGitOpsRepo(name: string, value: string): Promise<void> {
+    await this.setEnvironmentVariable(name, value, this.getGroup(), this.gitOpsRepoName);
   }
 }

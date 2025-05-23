@@ -1,3 +1,4 @@
+import { JenkinsCI } from '../../../core/integration/ci';
 import { BaseCommand } from './baseCommand';
 
 /**
@@ -6,7 +7,10 @@ import { BaseCommand } from './baseCommand';
 export class CreateJenkinsFolderCommand extends BaseCommand {
   public async execute(): Promise<void> {
     this.logStart('Jenkins folder creation');
-    await this.jenkinsCI.createFolder(this.folderName);
+
+    const jenkinsCI = this.ci as JenkinsCI;
+    await jenkinsCI.createFolder(this.folderName);
+
     this.logComplete('Jenkins folder creation');
   }
 }

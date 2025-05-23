@@ -1,6 +1,7 @@
 import { ScaffolderScaffoldOptions, ScaffolderTask } from '@backstage/plugin-scaffolder-react';
 import axios, { Axios, AxiosResponse } from 'axios';
 import * as https from 'https';
+import retry from 'async-retry';
 
 // Define the expected response type from the Developer Hub API
 interface ComponentIdResponse {
@@ -96,35 +97,88 @@ export class DeveloperHub {
     }
   }
 
-  // wait until the task is completed
+  /**
+   * Waits until a component creation task is completed, failed, or cancelled
+   * 
+   * This method polls the component status until it reaches a terminal state
+   * (completed, failed, or cancelled). It uses exponential backoff for retries
+   * and provides detailed logging throughout the process.
+   *
+   * @param taskId ID of the component task to wait for
+   * @returns Promise resolving when the task has reached a terminal state
+   * @throws Error if the task fails or is cancelled, or if max retries are exceeded
+   */
   public async waitUntilComponentIsCompleted(taskId: string): Promise<void> {
-    let completed = false;
-    while (!completed) {
-      // Wait for 5 seconds before next status check
-      await new Promise(resolve => setTimeout(resolve, 5000));
-
-      // Get the latest task status
-      const taskStatus = await this.getComponent(taskId);
-      const status = taskStatus.status;
-      console.log(`Component creation status: ${status}`);
-
-      // Check if the task has completed or failed
-      if (status === 'completed' || status === 'failed' || status === 'cancelled') {
-        completed = true;
-
+    console.log(`Waiting for component creation task ${taskId} to complete...`);
+    
+    // Define the operation that will be retried
+    const checkComponentStatus = async (bail: (e: Error) => void): Promise<void> => {
+      try {
+        // Get the latest task status
+        const taskStatus = await this.getComponent(taskId);
+        const status = taskStatus.status;
+        
+        console.log(`Component creation status: ${status}`);
+        
+        // Check if the task has reached a terminal state
         if (status === 'completed') {
-          console.log('Component was created successfully!');
-
-          // Optionally get the task results
-          const component = await this.getComponent(taskId);
-          console.log('Current task status:', component.status);
-        } else {
-          console.error(`Component creation ${status}.`);
-
+          console.log('✅ Component was created successfully!');
+          return;
+        } else if (status === 'failed' || status === 'cancelled') {
+          console.error(`❌ Component creation ${status}.`);
+          
           // Get logs to understand what went wrong
-          const logs = await this.getComponentLogs(taskId);
-          console.error('Task logs:', logs);
+          try {
+            const logs = await this.getComponentLogs(taskId);
+            console.error('Task logs:', logs);
+          } catch (logError) {
+            console.error('Failed to retrieve task logs:', logError);
+          }
+          
+          // Use bail to immediately exit the retry loop for terminal failure states
+          bail(new Error(`Component creation ${status} for task ${taskId}`));
+          return; // This line won't be reached after bail, but added for clarity
         }
+        
+        // If still processing or open, throw error to trigger retry
+        throw new Error(`Component creation still in progress (status: ${status})`);
+      } catch (error) {
+        // For errors that indicate a problem with the API call itself,
+        // we might want to handle them differently (e.g., network errors)
+        if (error instanceof Error && error.message.includes('Failed to retrieve')) {
+          console.warn(`API error while checking component status: ${error.message}`);
+        }
+        
+        // Re-throw the error to trigger retry
+        throw error;
+      }
+    };
+    
+    const maxRetries = 10; // Maximum number of retries (increased from 20)
+    
+    try {
+      await retry(checkComponentStatus, {
+        retries: maxRetries,
+        minTimeout: 5000, // Start with 5 seconds between retries (up from 5)
+        maxTimeout: 5000, // Maximum 5 seconds between retries
+        factor: 1.5, // Exponential backoff factor
+        onRetry: (error: Error, attempt: number) => {
+          console.log(`[RETRY ${attempt}/${maxRetries}] 🔄 Task: ${taskId} | Reason: ${error.message}`);
+        }
+      });
+      
+      // If we get here, the component was created successfully
+      console.log(`Task ${taskId} completed successfully`);
+    } catch (error) {
+      // Handle terminal errors after max retries
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (errorMessage.includes('failed') || errorMessage.includes('cancelled')) {
+        console.error(`Component creation failed or was cancelled: ${errorMessage}`);
+        throw new Error(`Component creation failed: ${errorMessage}`);
+      } else {
+        console.error(`Failed to check component status after ${maxRetries} retries: ${errorMessage}`);
+        throw new Error(`Component creation timed out: ${errorMessage}`);
       }
     }
   }

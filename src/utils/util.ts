@@ -40,58 +40,58 @@ export function sleep(ms: number): Promise<void> {
 /**
  * Result interface for retry operations
  */
-export interface RetryOperationResult<T> {
-  success: boolean;
-  result: T | null;
-  message?: string;
-}
+// export interface RetryOperationResult<T> {
+//   success: boolean;
+//   result: T | null;
+//   message?: string;
+// }
 
-/**
- * Generic retry operation utility that can be used across different parts of the application
- *
- * This function will attempt to execute the provided operation function multiple times until
- * it either succeeds, hits the maximum number of retries, or encounters an unhandled error.
- *
- * @param operation - Function that performs the actual operation and returns a RetryOperationResult
- * @param maxRetries - Maximum number of retry attempts (defaults to 5)
- * @param retryDelayMs - Delay between retry attempts in milliseconds (defaults to 3000ms)
- * @param resourceIdentifier - Description of the resource being operated on (for logging)
- * @returns The result of the operation if successful, or null if all retries failed
- * @throws Error if an unhandled exception occurs during the operation
- */
-export async function retryOperation<T>(
-  operation: () => Promise<RetryOperationResult<T>>,
-  maxRetries: number = 5,
-  retryDelayMs: number = 3000,
-  resourceIdentifier: string
-): Promise<T | null> {
-  let retryCount = 0;
+// /**
+//  * Generic retry operation utility that can be used across different parts of the application
+//  *
+//  * This function will attempt to execute the provided operation function multiple times until
+//  * it either succeeds, hits the maximum number of retries, or encounters an unhandled error.
+//  *
+//  * @param operation - Function that performs the actual operation and returns a RetryOperationResult
+//  * @param maxRetries - Maximum number of retry attempts (defaults to 5)
+//  * @param retryDelayMs - Delay between retry attempts in milliseconds (defaults to 3000ms)
+//  * @param resourceIdentifier - Description of the resource being operated on (for logging)
+//  * @returns The result of the operation if successful, or null if all retries failed
+//  * @throws Error if an unhandled exception occurs during the operation
+//  */
+// export async function retryOperation<T>(
+//   operation: () => Promise<RetryOperationResult<T>>,
+//   maxRetries: number = 5,
+//   retryDelayMs: number = 3000,
+//   resourceIdentifier: string
+// ): Promise<T | null> {
+//   let retryCount = 0;
 
-  while (retryCount <= maxRetries) {
-    try {
-      const { success, result, message } = await operation();
+//   while (retryCount <= maxRetries) {
+//     try {
+//       const { success, result, message } = await operation();
 
-      if (success) {
-        const itemCount = Array.isArray(result) ? result.length : 1;
-        console.log(`Successfully found ${itemCount} matching resources for ${resourceIdentifier}`);
-        return result;
-      }
+//       if (success) {
+//         const itemCount = Array.isArray(result) ? result.length : 1;
+//         console.log(`Successfully found ${itemCount} matching resources for ${resourceIdentifier}`);
+//         return result;
+//       }
 
-      if (retryCount >= maxRetries) {
-        console.log(`Max retries (${maxRetries}) reached: ${message}`);
-        return null;
-      }
+//       if (retryCount >= maxRetries) {
+//         console.log(`Max retries (${maxRetries}) reached: ${message}`);
+//         return null;
+//       }
 
-      retryCount++;
-      console.log(`${message}. Retrying (${retryCount}/${maxRetries})...`);
-      await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-    } catch (error) {
-      throw new Error(`Failed to retrieve resource for ${resourceIdentifier}: ${error}`);
-    }
-  }
+//       retryCount++;
+//       console.log(`${message}. Retrying (${retryCount}/${maxRetries})...`);
+//       await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+//     } catch (error) {
+//       throw new Error(`Failed to retrieve resource for ${resourceIdentifier}: ${error}`);
+//     }
+//   }
 
-  return null;
-}
+//   return null;
+// }
 
 /**
  * Extracts content from text using a regular expression

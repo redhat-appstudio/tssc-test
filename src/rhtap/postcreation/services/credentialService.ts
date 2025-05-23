@@ -30,7 +30,7 @@ export class CredentialService {
    * @returns The Cosign public key as a string
    */
   public async getCosignPublicKey(): Promise<string> {
-    return await this.kubeClient.getCosignPublicKey();
+    return base64Encode(await this.kubeClient.getCosignPublicKey());
   }
 
   /**

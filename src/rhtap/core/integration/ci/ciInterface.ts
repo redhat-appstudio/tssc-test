@@ -1,3 +1,4 @@
+import { IntegrationSecret } from '../../integrationSecret';
 import { PullRequest } from '../git/models';
 import { Pipeline, PipelineStatus } from './pipeline';
 
@@ -21,7 +22,7 @@ export enum EventType {
   // MERGE_REQUEST="Merge_Request"
 }
 
-export interface CI {
+export interface CI extends IntegrationSecret {
   //TODO: it should wait for all pipeines to finish triggered from both source and gitops repos
   waitForAllPipelinesToFinish(): Promise<void>;
   getCIType(): CIType;
@@ -40,7 +41,7 @@ export interface CI {
   ): Promise<Pipeline | null>;
   waitForPipelineToFinish(pipeline: Pipeline): Promise<PipelineStatus>;
   getPipelineStatus(): Promise<PipelineStatus>;
-  getPipelineLogs(): Promise<string>;
+  getPipelineLogs(pipeline: Pipeline): Promise<string>;
   getPipelineResults(): Promise<string>;
 
   getWebhookUrl(): Promise<string>;

@@ -1,11 +1,10 @@
 import { TestItem } from '../../playwright/testItem';
 import { ArgoCD, Environment } from '../../rhtap/core/integration/cd/argocd';
-import { CI, CIType } from '../../rhtap/core/integration/ci';
+import { CI, PipelineStatus } from '../../rhtap/core/integration/ci';
 import { EventType } from '../../rhtap/core/integration/ci';
-import { PipelineHandler } from '../../rhtap/core/integration/ci';
 import { Git } from '../../rhtap/core/integration/git';
-import { PullRequest } from '../../rhtap/core/integration/git';
 import { expect } from '@playwright/test';
+import { expectPipelineSuccess } from './assertionHelpers';
 
 /**
  * Promotes an application to a specific environment using a pull request workflow
@@ -36,7 +35,7 @@ export async function promoteToEnvironmentWithPR(
   image: string
 ): Promise<void> {
   console.log(`Promoting application to ${environment} environment with pull request...`);
-
+  const ciType = ci.getCIType();
   try {
     // Step 1: Check if target environment's application exists
     const application = await cd.getApplication(environment);
@@ -49,18 +48,19 @@ export async function promoteToEnvironmentWithPR(
     console.log(`Created promotion PR #${pr.pullNumber} in ${git.getGitOpsRepoName()} repository`);
 
     // Step 3: Wait for pipeline triggered by the promotion PR to complete
-    const pipeline = await PipelineHandler.getPipelineFromPullRequest(
-      pr,
-      ci,
-      EventType.PULL_REQUEST
-    );
+    // return ci.getPipeline(pullRequest, PipelineStatus.RUNNING, eventType);
+    const pipeline = await ci.getPipeline(pr, PipelineStatus.RUNNING, EventType.PULL_REQUEST);
     if (!pipeline) {
       throw new Error('No pipeline was triggered by the promotion PR');
     }
     console.log(`Pipeline ${pipeline.getDisplayName()} was triggered by the promotion PR`);
+
     const pipelineStatus = await ci.waitForPipelineToFinish(pipeline);
     console.log(`Pipeline completed with status: ${pipelineStatus}`);
-    expect(pipeline.isSuccessful()).toBe(true);
+    await expectPipelineSuccess(pipeline, ci);
+    console.log(
+      `${ciType} pipeline ${pipeline.getDisplayName()} was successful. Merging pull request #${pr.pullNumber}...`
+    );
 
     // Step 4: Merge the PR when pipeline was successful
     const mergedPR = await git.mergePullRequest(pr);
@@ -166,91 +166,56 @@ export function getTestItemFromEnv(): TestItem {
  * @throws Error - If any step in the process fails
  */
 export async function handleSourceRepoCodeChanges(git: Git, ci: CI): Promise<void> {
+  console.log('Starting to make changes to source repo code and build application image through pipelines...');
   const ciType = ci.getCIType();
-  console.log(`Handling source repo code changes for ${ciType}...`);
+  const gitType = git.getGitType();
 
   try {
-    // Step 1: Make changes to the source repo based on CI type
-    if (ciType === CIType.JENKINS) {//TODO: this if block should be removed
-      // For Jenkins: Commit directly to the main branch
-      console.log('Jenkins CI detected, committing changes directly to main branch...');
-      const commitSha = await git.createSampleCommitOnSourceRepo();
-      console.log(`Created commit with SHA: ${commitSha}`);
-
-      // Create a pull request object for pipeline reference only
-      // Note: This is not an actual PR, just a reference object with the commit SHA
-      const commitRef = new PullRequest(0, commitSha, git.getSourceRepoName());
-
-      // Get the pipeline triggered by the commit
-      console.log(`Getting Jenkins pipeline for commit: ${commitSha}`);
-      const pipeline = await PipelineHandler.getPipelineFromPullRequest(commitRef, ci, EventType.PULL_REQUEST);
-      expect(pipeline).not.toBeNull();
-
-      // console.log(`Waiting for Jenkins pipeline ${pipeline.getDisplayName()} to finish...`);
-      if (!pipeline) {
-        console.warn('No Jenkins pipeline was triggered by the commit');
-        return;
-      }
-      const pipelineStatus = await ci.waitForPipelineToFinish(pipeline);
-      console.log(`Jenkins pipeline completed with status: ${pipelineStatus}`);
-      expect(pipelineStatus).toBe('success');
-    } else if (ciType === CIType.TEKTON) {
-      // For Tekton: Follow PR-based workflow
-      console.log('Tekton CI detected, creating a pull request on source repo...');
+      console.log(`Creating a pull request on source repo on ${gitType} repository ...`);
       // Step 1: Create a PR which triggers a pipeline
       const pullRequest = await git.createSamplePullRequestOnSourceRepo();
-      console.log(`Created PR #${pullRequest.pullNumber} with SHA: ${pullRequest.sha}`);
+      console.log(`Created PR ${pullRequest.url} with SHA: ${pullRequest.sha}`);
 
       // Step 2: Get the pipeline triggered by the PR
-      console.log('Getting Tekton pipeline for PR event...');
-      
-      const pipeline = await PipelineHandler.getPipelineFromPullRequest(
-        pullRequest,
-        ci,
-        EventType.PULL_REQUEST
-      );
-
+      console.log(`Getting ${ciType} pipeline for Open PR event...`);
+      const pipeline = await ci.getPipeline(pullRequest, PipelineStatus.RUNNING, EventType.PULL_REQUEST);
       if (!pipeline) {
-        console.warn('No Tekton pipeline was triggered by the pull request');
+        console.warn(`No ${ciType} pipeline was triggered by the pull request #${pullRequest.pullNumber}`);
         throw new Error('Expected a pipeline to be triggered but none was found');
       }
 
       // Step 3: Wait for the PR pipeline to complete
-      console.log(`Waiting for Tekton PR pipeline ${pipeline.getDisplayName()} to finish...`);
+      console.log(`Waiting for ${ciType} pipeline ${pipeline.getDisplayName()} to finish...`);
       const pipelineStatus = await ci.waitForPipelineToFinish(pipeline);
-      console.log(`Tekton PR pipeline completed with status: ${pipelineStatus}`);
+      console.log(`${ciType} pipeline completed with status: ${pipelineStatus}`);
 
       // Step 4: If PR pipeline is successful, merge it and wait for the push pipeline
-      expect(pipeline.isSuccessful()).toBe(true);
+      // Import the expectPipelineSuccess helper instead of using expect directly
+      await expectPipelineSuccess(pipeline, ci);
       console.log(
-        `Tekton PR pipeline was successful. Merging pull request #${pullRequest.pullNumber}...`
+        `${ciType} pipeline ${pipeline.getDisplayName()} was successful. Merging pull request #${pullRequest.pullNumber}...`
       );
 
       // TODO: Uncomment the following line when mergePullRequest is implemented
       const mergedPR = await git.mergePullRequest(pullRequest);
 
       // Step 5: Wait for the push pipeline triggered by the merge
-      console.log('Getting push pipeline...');
-      const pushPipeline = await PipelineHandler.getPipelineFromPullRequest(
-        mergedPR,
-        ci,
-        EventType.PUSH
-      );
+      console.log(`Getting on-push pipeline for Merged PR #${mergedPR.pullNumber}...`);
+      const pushPipeline = await ci.getPipeline(mergedPR, PipelineStatus.RUNNING, EventType.PUSH);
 
-      if (pushPipeline) {
-        console.log(`Waiting for push pipeline ${pushPipeline.getDisplayName()} to finish...`);
-        const pushStatus = await ci.waitForPipelineToFinish(pushPipeline);
-        console.log(`Push pipeline completed with status: ${pushStatus}`);
-
-        if (!pushPipeline.isSuccessful()) {
-          console.warn(`Push pipeline failed with status: ${pushPipeline.status}`);
-        }
-      } else {
-        console.warn('No push pipeline was triggered after merging the PR');
+      if (!pushPipeline) {
+        console.warn(`No push pipeline was triggered after merging the PR #${mergedPR.pullNumber}`);
+        throw new Error('Expected a push pipeline to be triggered but none was found');
       }
-    } else {
-      console.log(`Unsupported CI type: ${ciType}, skipping code changes workflow`);
-    }
+
+      console.log(`Waiting for on-push pipeline ${pushPipeline.getDisplayName()} to finish...`);
+      const pushStatus = await ci.waitForPipelineToFinish(pushPipeline);
+      console.log(`On-push pipeline completed with status: ${pushStatus}`);
+
+      await expectPipelineSuccess(pipeline, ci);
+      console.log(
+        `On-push pipeline ${pushPipeline.getDisplayName()} was successful. Merging pull request #${pullRequest.pullNumber}...`
+      );
   } catch (error) {
     console.error(
       `Error handling source repo code changes: ${error instanceof Error ? error.message : String(error)}`

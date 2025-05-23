@@ -12,6 +12,20 @@ import {
 } from '../templates/templateFactory';
 
 export class GithubProvider extends BaseGitProvider {
+  public addVariableOnSourceRepo(name: string, value: string): Promise<void> {
+    if ( name === 'GITHUB_TOKEN' && value === this.getToken()) {
+      console.log('GITHUB_TOKEN is already set in the source repo');
+      return Promise.resolve();
+    }
+    throw new Error('Method not implemented.');
+  }
+  public addVariableOnGitOpsRepo(name: string, value: string): Promise<void> {
+    if ( name === 'GITHUB_TOKEN' && value === this.getToken()) {
+      console.log('GITHUB_TOKEN is already set in the gitops repo');
+      return Promise.resolve();
+    }
+    throw new Error('Method not implemented.');
+  }
   private githubClient!: GithubClient;
   private template!: ITemplate;
   private repoOwner: string;
@@ -99,7 +113,7 @@ export class GithubProvider extends BaseGitProvider {
   /**
    * Creates a sample pull request with modifications based on template type in the source repository
    *
-   * @returns {Promise<PullRequest>} - Returns a PullRequest object with pull number and commit SHA
+   * @returns {Promise<PullRequest>} - Returns a PullRequest object with pull number, commit SHA, and URL
    */
   public override async createSamplePullRequestOnSourceRepo(): Promise<PullRequest> {
     const newBranchName = 'test-branch-' + Date.now();
@@ -130,8 +144,11 @@ export class GithubProvider extends BaseGitProvider {
 
     // Construct repository name for GitHub
     const repository = `${this.sourceRepoName}`;
+    
+    // Construct the pull request URL
+    const prUrl = `https://${this.getHost()}/${this.repoOwner}/${this.sourceRepoName}/pull/${prNumber}`;
 
-    return new PullRequest(prNumber, commitSha, repository);
+    return new PullRequest(prNumber, commitSha, repository, false, undefined, prUrl);
   }
 
   /**
@@ -240,7 +257,11 @@ export class GithubProvider extends BaseGitProvider {
       const { prNumber, commitSha } = result;
 
       console.log(`Successfully created promotion PR #${prNumber} for ${environment} environment`);
-      return new PullRequest(prNumber, commitSha, this.gitOpsRepoName);
+      
+      // Construct the pull request URL
+      const prUrl = `https://${this.getHost()}/${this.repoOwner}/${this.gitOpsRepoName}/pull/${prNumber}`;
+      
+      return new PullRequest(prNumber, commitSha, this.gitOpsRepoName, false, undefined, prUrl);
     } catch (error: any) {
       console.error(`Error creating promotion PR for ${environment}: ${error.message}`);
       throw error;
@@ -286,7 +307,8 @@ export class GithubProvider extends BaseGitProvider {
         mergeResponse.sha, // Use the merge commit SHA
         pullRequest.repository,
         true, // Mark as merged
-        new Date().toISOString() // Set merge timestamp
+        new Date().toISOString(), // Set merge timestamp
+        pullRequest.url // Preserve the original URL
       );
 
       return mergedPR;

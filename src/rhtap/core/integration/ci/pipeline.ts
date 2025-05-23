@@ -15,17 +15,18 @@ export enum PipelineStatus {
  * Enhanced Pipeline class that can represent different CI pipeline types (Tekton, Jenkins, etc.)
  */
 export class Pipeline {
+
   constructor(
-    // Common properties for all pipeline types
+    // // Common properties for all pipeline types
     public readonly id: string, // Unique identifier for the pipeline
     public readonly ciType: CIType, // The CI system this pipeline belongs to
-    public readonly repositoryName: string, // Name of the repository
+    public readonly repositoryName: string, // Name of the repository that this pipeline is associated with
 
     // Status information
     public status: PipelineStatus, // Current status of the pipeline (running, success, failed, etc.)
 
     // Optional properties that may be CI-specific
-    public name?: string, // Pipeline name (available in Tekton)
+    public name?: string, // Pipeline name
     public buildNumber?: number, // Build number (used in Jenkins)
     public jobName?: string, // Job name (used in Jenkins)
     public url?: string, // URL to view the pipeline in the CI system
@@ -131,6 +132,38 @@ export class Pipeline {
       undefined, // No name for Jenkins
       buildNumber,
       jobName,
+      url,
+      logs,
+      results,
+      undefined, // Start time not provided
+      undefined, // End time not provided
+      sha
+    );
+  }
+
+  /**
+   * Factory method to create a GitLab CI pipeline
+   */
+  public static createGitLabPipeline(
+    pipelineId: number,
+    status: PipelineStatus,
+    repositoryName: string,
+    logs: string = '',
+    results: string = '',
+    url?: string,
+    sha?: string
+  ): Pipeline {
+    // For GitLab, use pipeline ID as the unique identifier
+    const id = pipelineId.toString();
+
+    return new Pipeline(
+      id,
+      CIType.GITLABCI,
+      repositoryName,
+      status,
+      `Pipeline #${pipelineId}`, // Name for GitLab pipeline
+      pipelineId, // Use pipeline ID as build number
+      undefined, // No job name for GitLab
       url,
       logs,
       results,
