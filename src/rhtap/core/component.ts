@@ -44,6 +44,7 @@ export class Component {
     name: string,
     testItem: TestItem,
     imageName: string,
+    createComponent: boolean,
   ): Promise<Component> {
     const component = new Component(name);
 
@@ -75,16 +76,18 @@ export class Component {
         component.git
       );
 
-      // Store response from createComponent call
-      const response = await component.developerHub.createComponent(componentOptions);
-      if (!response || !response.id) {
-        throw new Error('Failed to create component: No valid response or component ID received');
-      }
+      if (createComponent) {
+        // Store response from createComponent call
+        const response = await component.developerHub.createComponent(componentOptions);
+        if (!response || !response.id) {
+          throw new Error('Failed to create component: No valid response or component ID received');
+        }
 
-      component.id = response.id;
-      console.log(
-        `Component creation started. Component Name: ${component.name}, ID: ${component.id}`
-      );
+        component.id = response.id;
+        console.log(
+          `Component creation started. Component Name: ${component.name}, ID: ${component.id}`
+        );
+      }
 
       component.isCreated = true;
       return component;
@@ -229,6 +232,10 @@ export class Component {
       throw new Error('Component has not been created yet.');
     }
     return this.developerHub.getComponentStatus(this.id);
+  }
+
+  public getDeveloperhubUrl(): string {
+    return this.developerHub.getUrl();
   }
 
   public getKubeClient(): KubeClient {
