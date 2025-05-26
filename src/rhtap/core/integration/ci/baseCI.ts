@@ -50,6 +50,7 @@ export abstract class BaseCI implements CI {
    * @param timeoutMs Optional timeout in milliseconds
    * @returns A promise that resolves to the final status of the pipeline
    */
+  //TODO: needs one more parameter to specify the final status to wait for
   public async waitForPipelineToFinish(
     pipeline: Pipeline,
     timeoutMs: number = 600000
@@ -88,7 +89,7 @@ export abstract class BaseCI implements CI {
         maxTimeout: 5000, // Keep consistent timing
         factor: 1, // No backoff
         onRetry: (error: Error, attempt: number) => {
-          console.log(`[RETRY ${attempt}] Pipeline: ${pipeline.getDisplayName()} | Status: ${status} | Reason: ${error.message}`);
+          console.log(`[RETRY ${attempt}] 🔄 Pipeline: ${pipeline.getDisplayName()} | Status: ${status} | Reason: ${error.message}`);
         }
       });
 
