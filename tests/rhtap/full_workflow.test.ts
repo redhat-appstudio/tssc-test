@@ -43,7 +43,7 @@ test.describe('RHTAP Complete Component Workflow', () => {
       console.log(`Creating component: ${componentName}`);
 
       // Create the component directly in the test
-      component = await Component.new(componentName, testItem, imageName);
+      component = await Component.new(componentName, testItem, imageName, true);
 
       // Wait for the component to be created
       await component.waitUntilComponentIsCompleted();
