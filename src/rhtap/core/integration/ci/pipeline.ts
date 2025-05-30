@@ -15,7 +15,6 @@ export enum PipelineStatus {
  * Enhanced Pipeline class that can represent different CI pipeline types (Tekton, Jenkins, etc.)
  */
 export class Pipeline {
-
   constructor(
     // // Common properties for all pipeline types
     public readonly id: string, // Unique identifier for the pipeline

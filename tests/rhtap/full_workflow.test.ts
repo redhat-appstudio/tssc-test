@@ -18,7 +18,7 @@ import { expect } from '@playwright/test';
 const test = createBasicFixture();
 
 /**
- * A complete test scenario for RHTAP workflow:
+ * A complete test scenario for TSSC workflow:
  *
  * This test suite follows a full component lifecycle through:
  * 1. Component creation and verification
@@ -27,7 +27,7 @@ const test = createBasicFixture();
  * 4. Verification of deployments in all environments
  * 5. SBOM validation in Trustification server
  */
-test.describe('RHTAP Complete Component Workflow', () => {
+test.describe('TSSC Complete Component Workflow', () => {
   // Shared variables for test steps
   let component: Component;
   let cd: ArgoCD;
@@ -61,7 +61,7 @@ test.describe('RHTAP Complete Component Workflow', () => {
       // Execute post-creation actions
       const postCreateAction = new ComponentPostCreateAction(component);
       await postCreateAction.execute();
-      console.log('Post-creation actions executed successfully!');
+      console.log('✅ Post-creation actions executed successfully!');
 
       // Wait for all initial pipelines to finish
       await ci.waitForAllPipelinesToFinish();

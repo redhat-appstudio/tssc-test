@@ -487,7 +487,7 @@ export class JenkinsClient {
   public async getBuildLog(
     jobName: string,
     buildNumber: number,
-    folderName?: string,
+    folderName?: string
   ): Promise<string> {
     try {
       const path = folderName

@@ -1,5 +1,8 @@
 import { Component } from '../../../core/component';
-import { ContentModifications, ContentModificationsContainer } from '../../../modification/contentModification';
+import {
+  ContentModifications,
+  ContentModificationsContainer,
+} from '../../../modification/contentModification';
 import JenkinsfileModifier from '../../../modification/jenkinsfile';
 import { RhtapEnvModifier } from '../../../modification/rhtap-env';
 import { BaseCommand } from './baseCommand';
@@ -7,8 +10,7 @@ import { BaseCommand } from './baseCommand';
 /**
  * Command to apply modifications to GitOps repository
  */
-export class ApplyGitOpsRepoModificationsCommand extends BaseCommand {
-
+export class JenkinsfileAndEnvModificationsOnGitopsRepoCommand extends BaseCommand {
   constructor(component: Component) {
     super(component);
   }

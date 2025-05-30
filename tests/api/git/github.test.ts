@@ -40,10 +40,10 @@ test.describe('TektonClient Integration Tests', () => {
     */
   });
 
-  test('Should extract image from deployment-patch.yaml', async () => {
+  test.only('Should extract image from deployment-patch.yaml', async () => {
     const repoOwner = 'xjiangorg';
-    const gitOpsRepoName = 'go-udqvvune-gitops';
-    const filePath = `components/go-udqvvune/overlays/development/deployment-patch.yaml`;
+    const gitOpsRepoName = 'nodejs-nojcsoue-gitops';
+    const filePath = `components/nodejs-nojcsoue/overlays/development/deployment-patch.yaml`;
 
     const imagePattern = /(?:^|\s+)-\s+image:(?:\s+(.+)$)?|(^\s+.+$)/gm;
 
@@ -93,7 +93,7 @@ test.describe('TektonClient Integration Tests', () => {
   });
 
   // test configWebhook
-  test.only('Should configure webhook for GitHub repository', async () => {
+  test('Should configure webhook for GitHub repository', async () => {
     const repoOwner = 'xjiangorg';
     const repoName = 'nodejs-ufflmxra';
     const webhookUrl =

@@ -18,10 +18,10 @@ export class TektonClient {
   public async getPipelineRunByCommitSha(
     namespace: string,
     eventType: string,
-    commitSha: string,
-    maxRetries: number = 5,
-    retryDelayMs: number = 3000
+    commitSha: string
   ): Promise<PipelineRunKind | null> {
+    const maxRetries: number = 5;
+    const retryDelayMs: number = 3000;
     try {
       return await retry(
         async () => {
@@ -69,11 +69,11 @@ export class TektonClient {
 
   /**
    * Get a PipelineRun by its name with retry functionality
-   * 
+   *
    * This method retrieves a specific PipelineRun resource by name. It implements
    * retry logic to handle potential network issues or timing-related problems
    * when accessing the Kubernetes API.
-   * 
+   *
    * @param namespace - The Kubernetes namespace where the PipelineRun exists
    * @param name - The name of the PipelineRun to retrieve
    * @param maxRetries - Maximum number of retry attempts if resource isn't found (defaults to 5)
@@ -82,7 +82,7 @@ export class TektonClient {
    */
   public async getPipelineRunByName(
     namespace: string,
-    name: string,
+    name: string
   ): Promise<PipelineRunKind | null> {
     const maxRetries: number = 5;
     const retryDelayMs: number = 3000;
@@ -96,15 +96,15 @@ export class TektonClient {
             namespace,
             { name }
           );
-          
+
           const pipelineRun = await this.kubeClient.getResource<PipelineRunKind>(options);
-          
+
           if (!pipelineRun) {
             throw new Error(`No PipelineRun found with name ${name} in namespace ${namespace}`);
           }
-          
+
           console.log(`Found Tekton PipelineRun: ${name} in namespace ${namespace}`);
-          
+
           return pipelineRun;
         },
         {
@@ -118,7 +118,9 @@ export class TektonClient {
         }
       );
     } catch (error: unknown) {
-      console.error(`Failed to get pipeline run ${name} after retries: ${(error as Error).message}`);
+      console.error(
+        `Failed to get pipeline run ${name} after retries: ${(error as Error).message}`
+      );
       return null;
     }
   }
@@ -141,9 +143,9 @@ export class TektonClient {
    */
   public async getPipelineRunsByGitRepository(
     namespace: string,
-    gitRepository: string,
+    gitRepository: string
   ): Promise<PipelineRunKind[]> {
-    const maxRetries: number = 5;
+    const maxRetries: number = 2;
     const retryDelayMs: number = 5000;
 
     try {
@@ -207,10 +209,7 @@ export class TektonClient {
    * @param pipelineRunName The name of the PipelineRun
    * @returns A Promise that resolves to the aggregated logs as a string or an empty string if not found
    */
-  public async getPipelineRunLogs(
-    namespace: string,
-    pipelineRunName: string
-  ): Promise<string> {
+  public async getPipelineRunLogs(namespace: string, pipelineRunName: string): Promise<string> {
     try {
       console.log(`Retrieving logs for PipelineRun: ${pipelineRunName} in namespace: ${namespace}`);
 

@@ -1,17 +1,20 @@
 import retry from 'async-retry';
-import axios, { AxiosError, AxiosResponse } from 'axios';
-
-// Define interfaces for SBOM search response
-interface SBOMSearchResponse {
-  result: SBOMResult[];
-  total?: number;
-}
+import axios, { AxiosError } from 'axios';
 
 export interface SBOMResult {
   id: string;
+  document_id: string;
+  labels?: {
+    type: string;
+  };
+  published: string;
   name: string;
-  // Add other SBOM properties as needed
-  [key: string]: unknown;
+  number_of_packages?: number;
+  sha256: string;
+  sha384?: string;
+  sha512?: string;
+  size?: number;
+  ingested?: string;
 }
 
 export class TPAClient {
@@ -68,23 +71,37 @@ export class TPAClient {
     // Define the operation to retry
     const operation = async (): Promise<SBOMResult[]> => {
       try {
-        const searchUrl = `${this.bombasticApiUrl}/api/v1/sbom/search`;
-
-        const response: AxiosResponse<SBOMSearchResponse> = await axios.get(searchUrl, {
+        const searchUrl = `${this.bombasticApiUrl}/api/v2/sbom`;
+        console.log(`token: ${this.token}`);
+        console.log(`Searching for SBOM with name: ${name} at ${searchUrl}`);
+        const response = await axios.get(searchUrl, {
           headers: {
             Authorization: `Bearer ${this.token}`,
             Accept: '*/*',
           },
           params: {
-            q: name,
+            q: `${name}`,
           },
         });
 
-        if (response.status === 200 && Array.isArray(response.data.result)) {
+        if (response.status === 200 && response.data.total > 0) {
           console.log(
-            `SBOM search for '${name}' successful. Found ${response.data.result.length} result(s).`
+            `SBOM search for '${name}' successful. Found ${response.data.total} result(s).`
           );
-          return response.data.result;
+          // Return the results, ensuring they match the SBOMResult interface
+          return response.data.items.map((result: any) => ({
+            id: result.id,
+            document_id: result.document_id,
+            labels: result.labels || { type: 'unknown' }, // Default to 'unknown' if labels are not present
+            published: result.published,
+            name: result.name,
+            number_of_packages: result.number_of_packages,
+            sha256: result.sha256,
+            sha384: result.sha384,
+            sha512: result.sha512,
+            size: result.size,
+            ingested: result.ingested,
+          })) as SBOMResult[];
         }
 
         return [];

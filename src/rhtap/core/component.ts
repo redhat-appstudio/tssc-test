@@ -5,7 +5,7 @@ import { DEFAULT_APP_NAMESPACE } from '../../constants';
 import { TestItem } from '../../playwright/testItem';
 import { ArgoCD } from '../core/integration/cd/argocd';
 import { CI, CIFactory } from '../core/integration/ci';
-import { Git, GithubProvider, GitlabProvider, GitType } from '../core/integration/git';
+import { Git, GitType, GithubProvider, GitlabProvider } from '../core/integration/git';
 import { createGit } from '../core/integration/git';
 import { BitbucketProvider } from '../core/integration/git';
 import { ImageRegistry, createRegistry } from '../core/integration/registry';
@@ -40,11 +40,7 @@ export class Component {
    * @param workspace Optional workspace name for Bitbucket.
    * @param project Optional project name for Bitbucket.
    */
-  public static async new(
-    name: string,
-    testItem: TestItem,
-    imageName: string,
-  ): Promise<Component> {
+  public static async new(name: string, testItem: TestItem, imageName: string): Promise<Component> {
     const component = new Component(name);
 
     try {
@@ -56,12 +52,16 @@ export class Component {
         component.name,
         component.kubeClient
       );
-      component.registry = await createRegistry(testItem.getregistryType(), imageName, component.kubeClient);
+      component.registry = await createRegistry(
+        testItem.getregistryType(),
+        imageName,
+        component.kubeClient
+      );
       component.git = await createGit(
         component.kubeClient,
         testItem.getGitType(),
         component.name,
-        testItem.getTemplate(),
+        testItem.getTemplate()
       );
 
       component.cd = new ArgoCD(component.name, component.kubeClient);

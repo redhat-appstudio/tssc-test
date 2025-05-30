@@ -1,3 +1,4 @@
+import { loadFromEnv } from '../../../../utils/util';
 import { KubeClient } from './../../../../../src/api/ocp/kubeClient';
 import { CI, CIType } from './ciInterface';
 import { GitHubActionsCI } from './providers/githubActionsCI';
@@ -25,7 +26,9 @@ export class CIFactory {
   }
 
   private async createGitHubActionsCI(componentName: string, kubeClient: KubeClient): Promise<CI> {
-    return new GitHubActionsCI(componentName, kubeClient);
+    const githubActionsCI = new GitHubActionsCI(componentName, kubeClient);
+    await githubActionsCI.initialize();
+    return githubActionsCI;
   }
 
   private async createGitLabCI(componentName: string, kubeClient: KubeClient): Promise<CI> {
@@ -47,7 +50,14 @@ export class CIFactory {
           return await this.createTektonCI(componentName, kubeClient);
 
         case CIType.GITHUB_ACTIONS:
-          return await this.createGitHubActionsCI(componentName, kubeClient);
+          const github_org = loadFromEnv('GITHUB_ORGANIZATION');
+          const githubAction = (await this.createGitHubActionsCI(
+            componentName,
+            kubeClient
+          )) as GitHubActionsCI;
+          githubAction.setRepoOwner(github_org);
+          githubAction.initialize();
+          return githubAction;
 
         case CIType.GITLABCI:
           return await this.createGitLabCI(componentName, kubeClient);

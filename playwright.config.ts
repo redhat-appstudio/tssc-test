@@ -11,7 +11,7 @@ import { CIType } from './src/rhtap/core/integration/ci';
 const testPlanPath = process.env.TESTPLAN_PATH || path.resolve(process.cwd(), 'testplan.json');
 const testPlanData = JSON.parse(readFileSync(testPlanPath, 'utf-8'));
 const templates = testPlanData.templates || [];
-const rhtap = testPlanData.rhtap || {};
+const tssc = testPlanData.tssc || {};
 
 // Create a project for each template
 const projects = templates.map(template => ({
@@ -19,11 +19,11 @@ const projects = templates.map(template => ({
   use: {
     testItem: new TestItem(
       template as TemplateType,
-      rhtap.registry as ImageRegistryType,
-      rhtap.git as GitType,
-      rhtap.ci as CIType,
-      rhtap.tpa || '',
-      rhtap.acs || ''
+      tssc.registry as ImageRegistryType,
+      tssc.git as GitType,
+      tssc.ci as CIType,
+      tssc.tpa || '',
+      tssc.acs || ''
     )
   },
 }));

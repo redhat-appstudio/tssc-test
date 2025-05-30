@@ -1,11 +1,11 @@
 import { Component } from '../../core/component';
-import { PostCreateActionStrategy } from './postCreateActionStrategy';
 import { AddJenkinsSecretsCommand } from './commands/addJenkinsSecretsCommand';
-import { ApplyGitOpsRepoModificationsCommand } from './commands/applyGitOpsRepoModificationsCommand';
-import { ApplySourceRepoModificationsCommand } from './commands/applySourceRepoModificationsCommand';
-import { CreateWebhookCommand } from './commands/createWebhookCommand';
 import { CreateJenkinsFolderCommand } from './commands/createJenkinsFolderCommand';
 import { CreateJenkinsJobsCommand } from './commands/createJenkinsJobsCommand';
+import { CreateWebhookCommand } from './commands/createWebhookCommand';
+import { JenkinsfileAndEnvModificationsOnGitopsRepoCommand } from './commands/jenkinsfileAndEnvModificationsOnGitopsRepoCommand';
+import { JenkinsfileAndEnvModificationsOnSourceRepoCommand } from './commands/jenkinsfileAndEnvModificationsOnSourceRepoCommand';
+import { PostCreateActionStrategy } from './postCreateActionStrategy';
 
 /**
  * Jenkins-specific implementation of post-creation action strategy
@@ -26,8 +26,8 @@ export class JenkinsPostCreateActionStrategy implements PostCreateActionStrategy
       // Create command instances
       const commands = [
         new CreateJenkinsFolderCommand(component),
-        new ApplySourceRepoModificationsCommand(component),
-        new ApplyGitOpsRepoModificationsCommand(component),
+        new JenkinsfileAndEnvModificationsOnSourceRepoCommand(component),
+        new JenkinsfileAndEnvModificationsOnGitopsRepoCommand(component),
         new AddJenkinsSecretsCommand(component),
         new CreateJenkinsJobsCommand(component),
         new CreateWebhookCommand(component),

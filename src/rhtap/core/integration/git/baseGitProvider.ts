@@ -15,11 +15,7 @@ export abstract class BaseGitProvider implements Git {
   protected secret?: Record<string, string>;
   protected kubeClient: KubeClient;
 
-  constructor(
-    componentName: string,
-    type: GitType,
-    kubeClient: KubeClient
-  ) {
+  constructor(componentName: string, type: GitType, kubeClient: KubeClient) {
     this.gitType = type;
     this.componentName = componentName;
     // Default initialization for source and gitops repo names
@@ -152,8 +148,4 @@ export abstract class BaseGitProvider implements Git {
    * @returns The repository owner identifier appropriate for the Git provider
    */
   public abstract getRepoOwner(): string;
-
-  public abstract addVariableOnSourceRepo(name: string, value: string): Promise<void>;
-
-  public abstract addVariableOnGitOpsRepo(name: string, value: string): Promise<void>;
 }

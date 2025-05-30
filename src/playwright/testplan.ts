@@ -6,7 +6,7 @@ import { TestItem } from './testItem';
 
 export class TestPlan {
   templates: string[];
-  rhtap: {
+  tssc: {
     git: GitType;
     ci: CIType;
     registry: ImageRegistryType;
@@ -17,12 +17,12 @@ export class TestPlan {
 
   constructor(data: any) {
     this.templates = data.templates || [];
-    this.rhtap = {
-      git: data.rhtap?.git || '',
-      ci: data.rhtap?.ci || '',
-      registry: data.rhtap?.registry || '',
-      tpa: data.rhtap?.tpa || '',
-      acs: data.rhtap?.acs || '',
+    this.tssc = {
+      git: data.tssc?.git || '',
+      ci: data.tssc?.ci || '',
+      registry: data.tssc?.registry || '',
+      tpa: data.tssc?.tpa || '',
+      acs: data.tssc?.acs || '',
     };
     this.tests = data.tests || [];
   }
@@ -38,11 +38,11 @@ export class TestPlan {
     return this.templates.map((template: string) => {
       return new TestItem(
         template as unknown as TemplateType,
-        this.rhtap.registry,
-        this.rhtap.git,
-        this.rhtap.ci,
-        this.rhtap.tpa,
-        this.rhtap.acs
+        this.tssc.registry,
+        this.tssc.git,
+        this.tssc.ci,
+        this.tssc.tpa,
+        this.tssc.acs
       );
     });
   }

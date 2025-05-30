@@ -2,11 +2,7 @@ import { CredentialType } from '../../../../api/ci/jenkinsClient';
 import { Component } from '../../../core/component';
 import { JenkinsCI } from '../../../core/integration/ci';
 import { GitType } from '../../../core/integration/git';
-import {
-  BitbucketProvider,
-  GithubProvider,
-  GitlabProvider,
-} from '../../../core/integration/git';
+import { BitbucketProvider, GithubProvider, GitlabProvider } from '../../../core/integration/git';
 import { Credential } from '../Credentials';
 import { BaseCommand } from './baseCommand';
 

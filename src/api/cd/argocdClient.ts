@@ -1,8 +1,8 @@
 import { KubeClient } from '../../api/ocp/kubeClient';
 import { V1ObjectMeta } from '@kubernetes/client-node';
+import retry from 'async-retry';
 import { exec as execCallback } from 'child_process';
 import { promisify } from 'util';
-import retry from 'async-retry';
 
 // Promisified exec function
 const exec = promisify(execCallback);
@@ -421,15 +421,15 @@ export class ArgoCDClient {
    * Triggers and monitors a synchronization operation for an ArgoCD application using the ArgoCD CLI.
    * This implementation is inspired by TektonCI's waitForAllPipelinesToFinish, providing robust retry
    * logic to not only start the sync but also wait for it to complete successfully.
-   * 
+   *
    * @param applicationName The name of the ArgoCD application to sync
    * @param namespace The namespace where the ArgoCD instance is running
    * @param timeoutMs Optional timeout in milliseconds (default: 10 minutes)
    * @returns Promise<boolean> True if sync completed successfully, false otherwise
    */
   public async syncApplication(
-    applicationName: string, 
-    namespace: string, 
+    applicationName: string,
+    namespace: string,
     timeoutMs: number = 4 * 60 * 1000
   ): Promise<boolean> {
     if (!applicationName || !namespace) {
@@ -437,7 +437,9 @@ export class ArgoCDClient {
       return false;
     }
 
-    console.log(`Starting sync process for application ${applicationName} in namespace ${namespace}...`);
+    console.log(
+      `Starting sync process for application ${applicationName} in namespace ${namespace}...`
+    );
     const startTime = Date.now();
 
     try {
@@ -467,12 +469,14 @@ export class ArgoCDClient {
           }
         },
         {
-          retries: maxRetries, 
+          retries: maxRetries,
           minTimeout: 2000, // Start with 2 seconds between retries
           factor: 2,
           onRetry: (error: Error, attempt: number) => {
-            console.log(`[LOGIN-RETRY ${attempt}/${maxRetries}] 🔄 Application: ${applicationName} | Status: Retrying login | Reason: ${error.message}`);
-          }
+            console.log(
+              `[LOGIN-RETRY ${attempt}/${maxRetries}] 🔄 Application: ${applicationName} | Status: Retrying login | Reason: ${error.message}`
+            );
+          },
         }
       );
 
@@ -492,62 +496,78 @@ export class ArgoCDClient {
         const monitorSyncProcess = async (bail: (e: Error) => void): Promise<boolean> => {
           // Check if we've exceeded the timeout
           if (Date.now() - startTime > timeoutMs) {
-            const message = `Timeout reached after ${Math.round((timeoutMs) / 1000 / 60)} minutes waiting for application ${applicationName} to sync`;
+            const message = `Timeout reached after ${Math.round(timeoutMs / 1000 / 60)} minutes waiting for application ${applicationName} to sync`;
             console.error(message);
             bail(new Error(message));
             return false;
           }
-          
+
           // Get current application status
           const healthStatus = await this.getApplicationHealth(applicationName, namespace);
           const syncStatus = await this.getApplicationSyncStatus(applicationName, namespace);
-          const operationPhase = await this.getApplicationOperationPhase(applicationName, namespace);
-          
+          const operationPhase = await this.getApplicationOperationPhase(
+            applicationName,
+            namespace
+          );
+
           // Check for success condition - health is Healthy and sync status is Synced
           if (healthStatus === 'Healthy' && syncStatus === 'Synced') {
-            console.log(`✅ Sync completed successfully for application ${applicationName} - Health: ${healthStatus}, Sync: ${syncStatus}`);
+            console.log(
+              `✅ Sync completed successfully for application ${applicationName} - Health: ${healthStatus}, Sync: ${syncStatus}`
+            );
             return true;
           }
-          
+
           // Check for clear failure cases and bail immediately
-          if (healthStatus === 'Degraded' || syncStatus === 'SyncFailed' || operationPhase === 'Failed' || operationPhase === 'Error') {
+          if (
+            healthStatus === 'Degraded' ||
+            syncStatus === 'SyncFailed' ||
+            operationPhase === 'Failed' ||
+            operationPhase === 'Error'
+          ) {
             const errorMessage = `Sync failed for application ${applicationName} - Health: ${healthStatus}, Sync: ${syncStatus}, Operation: ${operationPhase}`;
             console.error(errorMessage);
             bail(new Error(errorMessage));
             return false;
           }
-          
+
           // Still in progress, throw error to trigger retry
           const statusMsg = `Application ${applicationName} - Health: ${healthStatus}, Sync: ${syncStatus}, Operation: ${operationPhase}`;
           console.log(`⏳ ${statusMsg} - continuing to monitor`);
           throw new Error(`Waiting for sync to complete: ${statusMsg}`);
         };
-        
+
         // Monitor the sync process with robust retry logic
         try {
           // Use async-retry to poll until the application sync completes or until we detect a failure
           const maxRetries = Math.floor(timeoutMs / 10000); // Calculate number of retries based on timeout
-          
+
           const result = await retry(monitorSyncProcess, {
             retries: maxRetries,
             factor: 1.5,
-            minTimeout: 5000,  // Start with 5 second intervals
+            minTimeout: 5000, // Start with 5 second intervals
             maxTimeout: 30000, // Maximum 30 seconds between retries
             onRetry: (error: Error, attempt: number) => {
               const elapsed = Math.round((Date.now() - startTime) / 1000);
-              console.log(`[SYNC-MONITOR ${attempt}/${maxRetries}] 🔄 Application: ${applicationName} | Elapsed: ${elapsed}s | Reason: ${error.message}`);
-            }
+              console.log(
+                `[SYNC-MONITOR ${attempt}/${maxRetries}] 🔄 Application: ${applicationName} | Elapsed: ${elapsed}s | Reason: ${error.message}`
+              );
+            },
           });
-          
+
           return result;
         } catch (error: any) {
           // If we exited the retry due to bail() or exceeded retries
           if (error.message.includes('Sync failed')) {
-            console.error(`Sync operation failed for application ${applicationName}: ${error.message}`);
+            console.error(
+              `Sync operation failed for application ${applicationName}: ${error.message}`
+            );
           } else {
-            console.warn(`Sync monitoring ended without success for application ${applicationName}: ${error.message}`);
+            console.warn(
+              `Sync monitoring ended without success for application ${applicationName}: ${error.message}`
+            );
           }
-          
+
           // Get detailed application status to help with debugging
           try {
             console.log(`Fetching detailed status for ${applicationName}:`);
@@ -556,7 +576,7 @@ export class ArgoCDClient {
           } catch (statusError) {
             console.error(`Unable to fetch application status: ${statusError}`);
           }
-          
+
           return false;
         }
       } catch (syncError: any) {

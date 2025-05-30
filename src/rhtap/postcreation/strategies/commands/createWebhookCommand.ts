@@ -13,7 +13,7 @@ export class CreateWebhookCommand extends BaseCommand {
     // Configure webhooks on both repositories
     await Promise.all([
       this.configureWebhookOnSourceRepo(webhookUrl),
-      this.configureWebhookOnGitOpsRepo(webhookUrl)
+      this.configureWebhookOnGitOpsRepo(webhookUrl),
     ]);
 
     this.logComplete('Webhook configuration on git repository');

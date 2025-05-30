@@ -1,4 +1,8 @@
-import { CredentialType, JenkinsBuildTrigger, JenkinsClient } from '../../../src/api/ci/jenkinsClient';
+import {
+  CredentialType,
+  JenkinsBuildTrigger,
+  JenkinsClient,
+} from '../../../src/api/ci/jenkinsClient';
 import { expect, test } from '@playwright/test';
 import * as dotenv from 'dotenv';
 
@@ -9,8 +13,8 @@ dotenv.config();
 const JENKINS_URL =
   process.env.JENKINS_URL ||
   'https://jenkins-jenkins.apps.rosa.rhtap-services.xmdt.p3.openshiftapps.com';
-const JENKINS_USERNAME = "cluster-admin-admin-edit-view";
-const JENKINS_TOKEN = "";
+const JENKINS_USERNAME = 'cluster-admin-admin-edit-view';
+const JENKINS_TOKEN = '';
 
 // Test constants - change these as needed
 const TEST_FOLDER_NAME = 'test-folder-xjiang';
@@ -107,30 +111,43 @@ test.describe('JenkinsClient Integration Tests', () => {
 
   test('Should detect build trigger type', async () => {
     // Get a build with trigger detection
-    const buildInfo = await jenkins.getBuild('b6cybvqqx-dotnet-basic', 1, 'b6cybvqqx-dotnet-basic', true);
-    
+    const buildInfo = await jenkins.getBuild(
+      'b6cybvqqx-dotnet-basic',
+      1,
+      'b6cybvqqx-dotnet-basic',
+      true
+    );
+
     // Verify trigger type is populated
     expect(buildInfo.triggerType).toBeDefined();
-    
+
     // Log the detected trigger type
     console.log('Detected build trigger type:', buildInfo.triggerType);
-    
+
     // Directly use the convenience methods
-    const isPR = await jenkins.isBuildTriggeredByPullRequest('b6cybvqqx-dotnet-basic', 1, 'b6cybvqqx-dotnet-basic');
-    const isPush = await jenkins.isBuildTriggeredByPush('b6cybvqqx-dotnet-basic', 1, 'b6cybvqqx-dotnet-basic');
-    
+    const isPR = await jenkins.isBuildTriggeredByPullRequest(
+      'b6cybvqqx-dotnet-basic',
+      1,
+      'b6cybvqqx-dotnet-basic'
+    );
+    const isPush = await jenkins.isBuildTriggeredByPush(
+      'b6cybvqqx-dotnet-basic',
+      1,
+      'b6cybvqqx-dotnet-basic'
+    );
+
     console.log('Is PR build?', isPR);
     console.log('Is Push build?', isPush);
-    
+
     // We can't make specific assertions about the trigger type in this test
     // as it depends on how the build was actually triggered in Jenkins
     expect([
-      JenkinsBuildTrigger.PUSH, 
-      JenkinsBuildTrigger.PULL_REQUEST, 
+      JenkinsBuildTrigger.PUSH,
+      JenkinsBuildTrigger.PULL_REQUEST,
       JenkinsBuildTrigger.MANUAL,
       JenkinsBuildTrigger.API,
       JenkinsBuildTrigger.SCHEDULED,
-      JenkinsBuildTrigger.UNKNOWN
+      JenkinsBuildTrigger.UNKNOWN,
     ]).toContain(buildInfo.triggerType);
   });
 });
