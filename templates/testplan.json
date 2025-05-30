@@ -1,6 +1,6 @@
 {
   "templates": ["go", "python", "nodejs", "dotnet-basic", "java-quarkus", "java-springboot"],
-  "rhtap": {
+  "tssc": {
     "git": "github",
     "ci": "tekton",
     "registry": "quay.io",

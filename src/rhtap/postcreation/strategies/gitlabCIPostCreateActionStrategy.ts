@@ -1,8 +1,8 @@
 import { Component } from '../../core/component';
 import { GitType } from '../../core/integration/git';
-import { PostCreateActionStrategy } from './postCreateActionStrategy';
-import { AddEnvironmentVariablesCommand } from './commands/AddEnvironmentVariablesCommand';
+import { AddGitlabProjectVariablesCommand } from './commands/addGitlabProjectVariablesCommand';
 import { Command } from './commands/command';
+import { PostCreateActionStrategy } from './postCreateActionStrategy';
 
 /**
  * GitLab-specific implementation of post-creation action strategy
@@ -13,11 +13,12 @@ export class GitlabCIPostCreateActionStrategy implements PostCreateActionStrateg
    * Map of Git provider types to their handler functions
    * This allows for easy extension with new Git providers
    */
-  private readonly gitProviderHandlers: Partial<Record<GitType, (component: Component) => Promise<void>>> = {
-    [GitType.GITLAB]: this.handleGitLabActions.bind(this)
-    // Additional Git providers can be added here as needed
+  private readonly gitProviderHandlers: Partial<
+    Record<GitType, (component: Component) => Promise<void>>
+  > = {
+    [GitType.GITLAB]: this.handleGitLabActions.bind(this),
   };
-  
+
   /**
    * Creates a new instance of GitlabCIPostCreateActionStrategy
    */
@@ -38,13 +39,13 @@ export class GitlabCIPostCreateActionStrategy implements PostCreateActionStrateg
   public async execute(component: Component): Promise<void> {
     const git = component.getGit();
     const gitType = git.getGitType();
-    
+
     const handler = this.gitProviderHandlers[gitType];
-    
+
     if (!handler) {
       throw new Error(`Unsupported Git provider: ${gitType} for GitLab CI`);
     }
-    
+
     await handler(component);
   }
 
@@ -55,28 +56,28 @@ export class GitlabCIPostCreateActionStrategy implements PostCreateActionStrateg
   private async handleGitLabActions(component: Component): Promise<void> {
     const componentName = component.getName();
     console.log(`Executing post-creation actions for component: ${componentName} (GitLab CI)`);
-    
+
     try {
       const commands = this.createCommandsForGitLab(component);
       await this.executeCommands(commands);
       console.log(`GitLab CI post-creation actions completed successfully for ${componentName}`);
     } catch (error) {
       console.error(`Error executing GitLab CI post-creation actions: ${error}`);
-      throw new Error(`GitLab CI post-creation actions failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `GitLab CI post-creation actions failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
   /**
    * Creates commands for GitLab integration
    * This factory method can be extended to support different command sets
-   * 
+   *
    * @param component The component for which commands should be created
    * @returns Array of Command instances suitable for GitLab integration
    */
   private createCommandsForGitLab(component: Component): Command[] {
-    return [
-      new AddEnvironmentVariablesCommand(component)
-    ];
+    return [new AddGitlabProjectVariablesCommand(component)];
   }
 
   /**

@@ -13,7 +13,7 @@ export class GitFactory {
     kubeClient: KubeClient,
     type: GitType,
     componentName: string,
-    templateType: TemplateType,
+    templateType: TemplateType
   ): Promise<Git> {
     try {
       switch (type) {
@@ -55,7 +55,7 @@ export async function createGit(
   kubeClient: KubeClient,
   type: GitType,
   componentName: string,
-  templateType: TemplateType,
+  templateType: TemplateType
 ): Promise<Git> {
   return GitFactory.createGit(kubeClient, type, componentName, templateType);
 }

@@ -1,4 +1,5 @@
 import { GithubClient } from '../../../../../../src/api/git/githubClient';
+import { GitHubClientFactory } from '../../../../../../src/api/git/githubClientFactory';
 import { KubeClient } from '../../../../../../src/api/ocp/kubeClient';
 import { Environment } from '../../cd/argocd';
 import { BaseGitProvider } from '../baseGitProvider';
@@ -10,25 +11,13 @@ import {
   TemplateFactory,
   TemplateType,
 } from '../templates/templateFactory';
+import sodium from 'sodium-native';
 
 export class GithubProvider extends BaseGitProvider {
-  public addVariableOnSourceRepo(name: string, value: string): Promise<void> {
-    if ( name === 'GITHUB_TOKEN' && value === this.getToken()) {
-      console.log('GITHUB_TOKEN is already set in the source repo');
-      return Promise.resolve();
-    }
-    throw new Error('Method not implemented.');
-  }
-  public addVariableOnGitOpsRepo(name: string, value: string): Promise<void> {
-    if ( name === 'GITHUB_TOKEN' && value === this.getToken()) {
-      console.log('GITHUB_TOKEN is already set in the gitops repo');
-      return Promise.resolve();
-    }
-    throw new Error('Method not implemented.');
-  }
   private githubClient!: GithubClient;
   private template!: ITemplate;
   private repoOwner: string;
+  private clientFactory: GitHubClientFactory;
 
   public constructor(
     componentName: string,
@@ -39,6 +28,7 @@ export class GithubProvider extends BaseGitProvider {
     super(componentName, GitType.GITHUB, kubeClient);
     this.repoOwner = repoOwner;
     this.template = TemplateFactory.createTemplate(templateType);
+    this.clientFactory = GitHubClientFactory.getInstance();
   }
 
   public async initialize(): Promise<void> {
@@ -46,6 +36,9 @@ export class GithubProvider extends BaseGitProvider {
     this.githubClient = await this.initGithubClient();
   }
 
+  public getKubeClient(): KubeClient {
+    return this.kubeClient;
+  }
   /**
    * Loads GitHub integration secrets from Kubernetes
    * @returns Promise with the secret data
@@ -57,6 +50,12 @@ export class GithubProvider extends BaseGitProvider {
         'GitHub integration secret not found in the cluster. Please ensure the secret exists.'
       );
     }
+
+    // Register the token with the factory so it can be shared
+    if (secret.token) {
+      this.clientFactory.registerToken(this.componentName, secret.token);
+    }
+
     return secret;
   }
 
@@ -96,9 +95,9 @@ export class GithubProvider extends BaseGitProvider {
 
   private async initGithubClient(): Promise<GithubClient> {
     const githubToken = this.getToken();
-    const githubClient = new GithubClient({
-      token: githubToken,
-    });
+
+    // Get the client from the factory instead of creating a new one
+    const githubClient = this.clientFactory.getClientByToken(githubToken);
     return githubClient;
   }
 
@@ -117,8 +116,8 @@ export class GithubProvider extends BaseGitProvider {
    */
   public override async createSamplePullRequestOnSourceRepo(): Promise<PullRequest> {
     const newBranchName = 'test-branch-' + Date.now();
-    const title = 'Test PR from RHTAP e2e test';
-    const description = 'This PR was created automatically by the RHTAP e2e test';
+    const title = 'Test PR from TSSC e2e test';
+    const description = 'This PR was created automatically by the TSSC e2e test';
     const baseBranch = 'main'; // Default base branch
 
     // Get contentModifications from the template
@@ -144,7 +143,7 @@ export class GithubProvider extends BaseGitProvider {
 
     // Construct repository name for GitHub
     const repository = `${this.sourceRepoName}`;
-    
+
     // Construct the pull request URL
     const prUrl = `https://${this.getHost()}/${this.repoOwner}/${this.sourceRepoName}/pull/${prNumber}`;
 
@@ -152,7 +151,9 @@ export class GithubProvider extends BaseGitProvider {
   }
 
   /**
-   * Creates a sample commit directly to the main branch of the source repository
+   * Creates a sample commit in the source repository
+   *
+   * @returns {Promise<string>} - Returns the commit SHA of the created commit
    */
   public override async createSampleCommitOnSourceRepo(): Promise<string> {
     // Get contentModifications from the template
@@ -161,7 +162,7 @@ export class GithubProvider extends BaseGitProvider {
     }
 
     const contentModifications = this.template.getContentModifications();
-    const commitMessage = 'Test commit from RHTAP e2e test';
+    const commitMessage = 'Test commit from TSSC e2e test';
 
     // Use the common commit method
     return this.commitChangesToRepo(
@@ -257,10 +258,10 @@ export class GithubProvider extends BaseGitProvider {
       const { prNumber, commitSha } = result;
 
       console.log(`Successfully created promotion PR #${prNumber} for ${environment} environment`);
-      
+
       // Construct the pull request URL
       const prUrl = `https://${this.getHost()}/${this.repoOwner}/${this.gitOpsRepoName}/pull/${prNumber}`;
-      
+
       return new PullRequest(prNumber, commitSha, this.gitOpsRepoName, false, undefined, prUrl);
     } catch (error: any) {
       console.error(`Error creating promotion PR for ${environment}: ${error.message}`);
@@ -581,7 +582,7 @@ export class GithubProvider extends BaseGitProvider {
   public getOrganization(): string {
     return this.repoOwner;
   }
-  
+
   /**
    * Gets the owner identifier for the repository
    * For GitHub, this is the organization or user name
@@ -589,5 +590,91 @@ export class GithubProvider extends BaseGitProvider {
    */
   public override getRepoOwner(): string {
     return this.repoOwner;
+  }
+
+  // TODO: change the name of this method to updateVariableOnSourceRepo
+  public async setVariablesOnSourceRepo(variables: Record<string, string>): Promise<void> {
+    for (const [name, value] of Object.entries(variables)) {
+      await this.githubClient.setRepoVariable(this.repoOwner, this.sourceRepoName, name, value);
+    }
+  }
+
+  public async setVariablesOnGitOpsRepo(variables: Record<string, string>): Promise<void> {
+    for (const [name, value] of Object.entries(variables)) {
+      await this.githubClient.setRepoVariable(this.repoOwner, this.gitOpsRepoName, name, value);
+    }
+  }
+
+  /**
+   * Adds or updates secrets in the source GitHub repository for use in GitHub Actions.
+   * @param secrets - An object of secretName: secretValue pairs.
+   */
+  public async setSecretsOnSourceRepo(secrets: Record<string, string>): Promise<void> {
+    // Get the public key for the repository (required for encrypting secrets)
+    const publicKeyResponse = await this.githubClient.getRepoPublicKey(
+      this.repoOwner,
+      this.sourceRepoName
+    );
+
+    if (!publicKeyResponse || !publicKeyResponse.key || !publicKeyResponse.key_id) {
+      throw new Error(`Failed to retrieve public key for repository ${this.sourceRepoName}`);
+    }
+
+    for (const [name, value] of Object.entries(secrets)) {
+      // Encrypt the secret value using the repo's public key
+      const encryptedValue = await this.encryptSecret(publicKeyResponse.key, value);
+
+      // Set or update the secret in the repository
+      await this.githubClient.getOctokit().actions.createOrUpdateRepoSecret({
+        owner: this.repoOwner,
+        repo: this.sourceRepoName,
+        secret_name: name,
+        encrypted_value: encryptedValue,
+        key_id: publicKeyResponse.key_id,
+      });
+
+      console.log(`Secret "${name}" set on repo ${this.repoOwner}/${this.sourceRepoName}`);
+    }
+  }
+
+  public async setSecretsOnGitOpsRepo(secrets: Record<string, string>): Promise<void> {
+    const publicKeyResponse = await this.githubClient.getRepoPublicKey(
+      this.repoOwner,
+      this.gitOpsRepoName
+    );
+
+    if (!publicKeyResponse || !publicKeyResponse.key || !publicKeyResponse.key_id) {
+      throw new Error(`Failed to retrieve public key for repository ${this.gitOpsRepoName}`);
+    }
+
+    for (const [name, value] of Object.entries(secrets)) {
+      // Encrypt the secret value using the repo's public key
+      const encryptedValue = await this.encryptSecret(publicKeyResponse.key, value);
+
+      // Set or update the secret in the repository
+      await this.githubClient.getOctokit().actions.createOrUpdateRepoSecret({
+        owner: this.repoOwner,
+        repo: this.gitOpsRepoName,
+        secret_name: name,
+        encrypted_value: encryptedValue,
+        key_id: publicKeyResponse.key_id,
+      });
+
+      console.log(`Secret "${name}" set on repo ${this.repoOwner}/${this.gitOpsRepoName}`);
+    }
+  }
+
+  /**
+   * Encrypts a secret value using the repository's public key.
+   * @param publicKey - The base64-encoded public key from GitHub.
+   * @param secretValue - The secret value to encrypt.
+   * @returns The encrypted value, base64-encoded.
+   */
+  private async encryptSecret(publicKey: string, secretValue: string): Promise<string> {
+    const keyBuffer = Buffer.from(publicKey, 'base64');
+    const secretBuffer = Buffer.from(secretValue, 'utf8');
+    const encryptedBuffer = Buffer.alloc(secretBuffer.length + sodium.crypto_box_SEALBYTES);
+    sodium.crypto_box_seal(encryptedBuffer, secretBuffer, keyBuffer);
+    return encryptedBuffer.toString('base64');
   }
 }

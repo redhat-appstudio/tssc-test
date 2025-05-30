@@ -230,7 +230,12 @@ export class BitbucketClient {
     workspace: string,
     repoSlug: string,
     webhookUrl: string,
-    events: string[] = ['repo:push', 'pullrequest:created', 'pullrequest:updated', 'pullrequest:fulfilled'],
+    events: string[] = [
+      'repo:push',
+      'pullrequest:created',
+      'pullrequest:updated',
+      'pullrequest:fulfilled',
+    ],
     description: string = 'Webhook configured by RHTAP',
     skip_cert_verification: boolean = true,
     secret_set?: string
@@ -245,7 +250,7 @@ export class BitbucketClient {
         url: webhookUrl,
         active: true,
         events,
-        skip_cert_verification
+        skip_cert_verification,
       };
 
       // Add secret if provided
@@ -282,11 +287,11 @@ export class BitbucketClient {
     try {
       const endpoint = `/repositories/${workspace}/${repoSlug}/pullrequests/${pullRequestId}/merge`;
       const response = await this.client.post(endpoint, options);
-      
+
       if (!response.data || !response.data.merge_commit) {
         throw new Error(`Merge operation didn't return a commit hash for PR #${pullRequestId}`);
       }
-      
+
       return {
         hash: response.data.merge_commit.hash,
         message: response.data.message || `Pull request #${pullRequestId} merged successfully`,

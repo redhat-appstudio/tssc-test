@@ -32,6 +32,8 @@
     "devDependencies": {
         "@backstage/plugin-scaffolder-react": "^1.16.0",
         "@kubernetes/client-node": "^1.2.0",
+        "@octokit/plugin-retry": "^8.0.1",
+        "@octokit/plugin-throttling": "^11.0.1",
         "@octokit/rest": "^22.0.0",
         "@playwright/test": "^1.52.0",
         "@trivago/prettier-plugin-sort-imports": "^5.2.2",

@@ -31,6 +31,8 @@ export class TektonCI extends BaseCI {
    * @param eventType event type to filter by (defaults to PULL_REQUEST for Tekton)
    * @returns Promise<Pipeline | null> A standardized Pipeline object or null if not found
    */
+  //TODO: this method is a bit complex, consider refactoring for clarity.
+  // It should retrieve the pipeline runs for a given pull request based on the event type and commit sha.
   public override async getPipeline(
     pullRequest: PullRequest,
     pipelineStatus: PipelineStatus,
@@ -53,7 +55,9 @@ export class TektonCI extends BaseCI {
 
       // Check if we have any pipeline runs
       if (!allPipelineRuns || allPipelineRuns.length === 0) {
-        console.log(`No pipeline runs found yet for repository: ${gitRepository}. Pipeline may still be launching.`);
+        console.log(
+          `No pipeline runs found yet for repository: ${gitRepository}. Pipeline may still be launching.`
+        );
         // Return null to continue the retry process
         return null;
       }
@@ -62,15 +66,19 @@ export class TektonCI extends BaseCI {
       const filteredPipelineRuns = allPipelineRuns.filter(pipelineRun => {
         const annotations = pipelineRun.metadata?.annotations || {};
         const onEvent = annotations['pipelinesascode.tekton.dev/on-event'] || '';
+        const commitSha = pipelineRun.metadata?.labels?.['pipelinesascode.tekton.dev/sha'] || '';
         return (
           onEvent.includes(effectiveEventType) &&
-          this.mapTektonStatusToPipelineStatus(pipelineRun) === pipelineStatus
+          this.mapTektonStatusToPipelineStatus(pipelineRun) === pipelineStatus &&
+          commitSha === pullRequest.sha
         );
       });
 
       // If no matching pipeline runs are found, return null and trigger retry
       if (filteredPipelineRuns.length === 0) {
-        console.log(`No matching pipeline runs found for event: ${effectiveEventType} with status: ${pipelineStatus}`);
+        console.log(
+          `No matching pipeline runs found for event: ${effectiveEventType} with status: ${pipelineStatus}`
+        );
         // Return null to trigger retry rather than throwing an error
         return null;
       }
@@ -126,30 +134,39 @@ export class TektonCI extends BaseCI {
     const maxRetries = 10;
     try {
       // Retry logic similar to waitForAllPipelinesToFinish
-      const result = await retry(async (): Promise<Pipeline> => {
-        const pipeline = await findPipelineOperation();
-        
-        // If no pipeline is found, throw an error to trigger retry
-        if (!pipeline) {
-          throw new Error(`Waiting for pipeline runs for repository: ${gitRepository}, event: ${effectiveEventType}, status: ${pipelineStatus}`);
+      const result = await retry(
+        async (): Promise<Pipeline> => {
+          const pipeline = await findPipelineOperation();
+
+          // If no pipeline is found, throw an error to trigger retry
+          if (!pipeline) {
+            throw new Error(
+              `Waiting for pipeline runs for repository: ${gitRepository}, event: ${effectiveEventType}, status: ${pipelineStatus}`
+            );
+          }
+
+          return pipeline;
+        },
+        {
+          retries: maxRetries,
+          minTimeout: 5000,
+          maxTimeout: 15000,
+          factor: 1.5,
+          onRetry: (error: Error, attemptNumber) => {
+            // Log retry but don't show the full error stack trace
+            console.log(
+              `[TEKTON-RETRY ${attemptNumber}/${maxRetries}] 🔄 Repository: ${gitRepository} | Status: ${pipelineStatus} | Reason: ${error.message}`
+            );
+          },
         }
-        
-        return pipeline;
-      }, {
-        retries: maxRetries,
-        minTimeout: 5000,
-        maxTimeout: 15000,
-        factor: 1.5,
-        onRetry: (error: Error, attemptNumber) => {
-          // Log retry but don't show the full error stack trace
-          console.log(`[TEKTON-RETRY ${attemptNumber}/${maxRetries}] 🔄 Repository: ${gitRepository} | Status: ${pipelineStatus} | Reason: ${error.message}`);
-        }
-      });
-      
+      );
+
       return result;
     } catch (error: any) {
       // Log a clean message without the full stack trace
-      console.log(`No matching pipeline found after ${maxRetries} retries for repository: ${gitRepository}, event: ${effectiveEventType}, status: ${pipelineStatus}`);
+      console.log(
+        `No matching pipeline found after ${maxRetries} retries for repository: ${gitRepository}, event: ${effectiveEventType}, status: ${pipelineStatus}`
+      );
       return null;
     }
   }
@@ -199,7 +216,10 @@ export class TektonCI extends BaseCI {
       const maxAttempts = 3;
 
       while (!pipelineRun && attempts < maxAttempts) {
-        pipelineRun = await this.tektonClient.getPipelineRunByName(TektonCI.CI_NAMESPACE, pipeline.name);
+        pipelineRun = await this.tektonClient.getPipelineRunByName(
+          TektonCI.CI_NAMESPACE,
+          pipeline.name
+        );
 
         if (!pipelineRun) {
           attempts++;
@@ -269,9 +289,9 @@ export class TektonCI extends BaseCI {
    * @throws Error if unable to check pipeline status after maximum retries
    */
   public override async waitForAllPipelinesToFinish(): Promise<void> {
-    console.log(`Waiting for all pipelines to finish for component: ${this.componentName}`);
+    console.log(`Waiting for all PipelineRuns to finish for component: ${this.componentName}`);
     const sourceRepoName = this.componentName;
-    
+
     try {
       // Define the operation to check for running pipelines that will be retried
       const checkPipelines = async (): Promise<void> => {
@@ -299,13 +319,15 @@ export class TektonCI extends BaseCI {
               return false;
             }) || [];
 
-          console.log(`Found ${runningPipelineRuns.length} running pipeline run(s) for ${sourceRepoName}`);
+          console.log(
+            `Found ${runningPipelineRuns.length} running pipeline run(s) for ${sourceRepoName}`
+          );
 
           // If there are running pipelines, throw an error to trigger retry
           if (runningPipelineRuns.length > 0) {
             throw new Error(`Waiting for ${runningPipelineRuns.length} pipeline(s) to complete`);
           }
-          
+
           // All pipelines are complete, return successfully
           console.log('All pipelines have finished processing.');
           return;
@@ -319,7 +341,7 @@ export class TektonCI extends BaseCI {
           throw error;
         }
       };
-      
+
       const maxRetries = 20; // Maximum number of retries
       await retry(checkPipelines, {
         retries: maxRetries, // Maximum 20 retries
@@ -327,12 +349,16 @@ export class TektonCI extends BaseCI {
         maxTimeout: 30000, // Maximum timeout between retries
         factor: 1.5, // Exponential backoff factor
         onRetry: (error: Error, attempt: number) => {
-          console.log(`[TEKTON-RETRY ${attempt}/${maxRetries}] 🔄 Repository: ${sourceRepoName} | Status: Waiting | Reason: ${error.message}`);
-        }
+          console.log(
+            `[TEKTON-RETRY ${attempt}/${maxRetries}] 🔄 Repository: ${sourceRepoName} | Status: Waiting | Reason: ${error.message}`
+          );
+        },
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Failed to wait for all pipelines to complete for repository ${sourceRepoName} after multiple retries: ${errorMessage}`);
+      console.error(
+        `Failed to wait for all pipelines to complete for repository ${sourceRepoName} after multiple retries: ${errorMessage}`
+      );
       // Return without throwing to make error handling easier for callers
       // This is a change from the original implementation which threw an error
       console.log('Continuing despite pipeline completion check failures');
@@ -348,19 +374,18 @@ export class TektonCI extends BaseCI {
   }
 
   public override async getIntegrationSecret(): Promise<Record<string, string>> {
-    throw new Error('Tekton does not support integration secrets in the same way as other CI systems.');
+    throw new Error(
+      'Tekton does not support integration secrets in the same way as other CI systems.'
+    );
   }
 
-  public async getPipelineLogs(pipeline: Pipeline): Promise<string> {
+  public override async getPipelineLogs(pipeline: Pipeline): Promise<string> {
     if (!pipeline.name) {
       throw new Error('Pipeline name is required for Tekton pipelines');
     }
 
     try {
-      const logs = await this.tektonClient.getPipelineRunLogs(
-        TektonCI.CI_NAMESPACE,
-        pipeline.name,
-      );
+      const logs = await this.tektonClient.getPipelineRunLogs(TektonCI.CI_NAMESPACE, pipeline.name);
       if (!logs) {
         throw new Error(`No logs found for pipeline: ${pipeline.name}`);
       }
@@ -370,5 +395,4 @@ export class TektonCI extends BaseCI {
       throw new Error(`Failed to get pipeline logs: ${error}`);
     }
   }
-
 }

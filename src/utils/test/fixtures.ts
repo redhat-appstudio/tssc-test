@@ -2,7 +2,7 @@ import { TestItem } from '../../playwright/testItem';
 import { test as base } from '@playwright/test';
 
 /**
- * Type definition for the RHTAP test fixtures
+ * Type definition for the TSSC test fixtures
  */
 export type RhtapTestFixture = {
   testItem: TestItem;
@@ -24,7 +24,7 @@ export function getDynamicTestItem(testInfo: any): TestItem {
 }
 
 /**
- * Creates a basic RHTAP test fixture with the TestItem
+ * Creates a basic TSSC test fixture with the TestItem
  */
 export const createBasicFixture = () => {
   return base.extend<RhtapTestFixture>({

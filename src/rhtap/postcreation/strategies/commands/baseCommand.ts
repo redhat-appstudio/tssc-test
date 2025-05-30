@@ -3,6 +3,7 @@ import { Component } from '../../../core/component';
 import { ACS } from '../../../core/integration/acs';
 import { CI } from '../../../core/integration/ci';
 import { Git } from '../../../core/integration/git';
+import { ImageRegistry } from '../../../core/integration/registry';
 import { TAS } from '../../../core/integration/tas';
 import { TPA } from '../../../core/integration/tpa';
 import { CredentialService } from '../../services/credentialService';
@@ -22,6 +23,7 @@ export abstract class BaseCommand implements Command {
   protected acs!: ACS;
   protected tpa!: TPA;
   protected credentialService: CredentialService;
+  protected imageRegistry: ImageRegistry;
 
   constructor(component: Component) {
     this.component = component;
@@ -29,6 +31,7 @@ export abstract class BaseCommand implements Command {
     this.git = component.getGit();
     this.folderName = component.getName();
     this.kubeClient = component.getKubeClient();
+    this.imageRegistry = component.getRegistry();
 
     this.credentialService = CredentialService.getInstance(this.kubeClient);
   }

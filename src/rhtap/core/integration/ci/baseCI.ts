@@ -7,8 +7,6 @@ import retry from 'async-retry';
  * Base class for all CI implementations with common functionality
  */
 export abstract class BaseCI implements CI {
-
-
   constructor(
     public readonly ciType: CIType,
     public readonly kubeClient: KubeClient
@@ -31,7 +29,7 @@ export abstract class BaseCI implements CI {
     throw new Error('Method not implemented.');
   }
   public abstract getPipelineLogs(pipeline: Pipeline): Promise<string>;
-  
+
   public getPipelineResults(): Promise<string> {
     throw new Error('Method not implemented.');
   }
@@ -77,7 +75,9 @@ export abstract class BaseCI implements CI {
 
         // If pipeline is not yet complete, throw error to trigger retry
         if (!pipeline.isCompleted()) {
-          throw new Error(`Pipeline ${pipeline.getDisplayName()} not yet completed, status: ${status}`);
+          throw new Error(
+            `Pipeline ${pipeline.getDisplayName()} not yet completed, status: ${status}`
+          );
         }
 
         return status;
@@ -89,8 +89,10 @@ export abstract class BaseCI implements CI {
         maxTimeout: 5000, // Keep consistent timing
         factor: 1, // No backoff
         onRetry: (error: Error, attempt: number) => {
-          console.log(`[RETRY ${attempt}] 🔄 Pipeline: ${pipeline.getDisplayName()} | Status: ${status} | Reason: ${error.message}`);
-        }
+          console.log(
+            `[RETRY ${attempt}] 🔄 Pipeline: ${pipeline.getDisplayName()} | Status: ${status} | Reason: ${error.message}`
+          );
+        },
       });
 
       return status;
@@ -99,7 +101,9 @@ export abstract class BaseCI implements CI {
       if (errorMessage === 'Timeout reached') {
         return PipelineStatus.UNKNOWN;
       }
-      console.error(`Error while waiting for pipeline ${pipeline.getDisplayName()}: ${errorMessage}`);
+      console.error(
+        `Error while waiting for pipeline ${pipeline.getDisplayName()}: ${errorMessage}`
+      );
       //TODO: Print out pipeline logs if available
       // This is a placeholder for actual log retrieval logic
       return status;

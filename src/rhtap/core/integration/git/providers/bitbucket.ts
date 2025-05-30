@@ -17,7 +17,6 @@ import { KubeClient } from './../../../../../../src/api/ocp/kubeClient';
  * This class implements the Git interface for Bitbucket repositories.
  */
 export class BitbucketProvider extends BaseGitProvider {
-
   private workspace: string;
   private project: string;
   private bitbucketClient!: BitbucketClient;
@@ -62,13 +61,13 @@ export class BitbucketProvider extends BaseGitProvider {
   private async initBitbucketClient(): Promise<BitbucketClient> {
     const username = this.getUsername();
     const appPassword = this.getAppPassword();
-    
+
     // Using the default baseUrl from BitbucketClient for Bitbucket Cloud
     const bitbucketClient = new BitbucketClient({
       username: username,
       appPassword: appPassword,
     });
-    
+
     return bitbucketClient;
   }
 
@@ -112,7 +111,7 @@ export class BitbucketProvider extends BaseGitProvider {
 
   /**
    * Creates a sample pull request in the specified repository
-   * 
+   *
    * @param newBranchName - The name of the branch to create
    * @param contentModifications - Files to modify
    * @param title - Title of the pull request
@@ -135,28 +134,28 @@ export class BitbucketProvider extends BaseGitProvider {
       console.log(`Title: ${title}`);
       console.log(`Description: ${description}`);
       console.log(`Base Branch: ${baseBranch}`);
-      
+
       // First create a branch using the Bitbucket API's refs endpoint
       // Get the latest commit on the base branch to use as the starting point
       const branchInfo = await this.bitbucketClient.get(
         `/repositories/${this.workspace}/${repository}/refs/branches/${baseBranch}`
       );
-      
+
       if (!branchInfo || !branchInfo.target || !branchInfo.target.hash) {
         throw new Error(`Could not find base branch ${baseBranch} or its commit hash`);
       }
-      
+
       // Create a new branch using the API
       await this.bitbucketClient.post(
         `/repositories/${this.workspace}/${repository}/refs/branches`,
         {
           name: newBranchName,
           target: {
-            hash: branchInfo.target.hash
-          }
+            hash: branchInfo.target.hash,
+          },
         }
       );
-      
+
       console.log(`Created new branch ${newBranchName} from ${baseBranch}`);
 
       // Commit the changes to the new branch using our common method
@@ -174,7 +173,7 @@ export class BitbucketProvider extends BaseGitProvider {
         source: { branch: { name: newBranchName } },
         destination: { branch: { name: baseBranch } },
         description: description,
-        close_source_branch: true
+        close_source_branch: true,
       };
 
       const prResult = await this.bitbucketClient.createPullRequest(
@@ -184,11 +183,9 @@ export class BitbucketProvider extends BaseGitProvider {
       );
 
       // Get the latest commit on the branch
-      const commits = await this.bitbucketClient.getCommits(
-        this.workspace,
-        repository,
-        { include: newBranchName }
-      );
+      const commits = await this.bitbucketClient.getCommits(this.workspace, repository, {
+        include: newBranchName,
+      });
 
       if (!commits || !commits.values || commits.values.length === 0) {
         throw new Error(`No commits found on branch ${newBranchName}`);
@@ -196,13 +193,13 @@ export class BitbucketProvider extends BaseGitProvider {
 
       const commitSha = commits.values[0].hash;
       const prNumber = prResult.id;
-      
+
       // Construct the pull request URL
       const prUrl = `https://${this.getHost()}/${this.workspace}/${repository}/pull-requests/${prNumber}`;
 
       console.log(`Successfully created pull request #${prNumber} with commit SHA: ${commitSha}`);
       console.log(`Pull request URL: ${prUrl}`);
-      
+
       return new PullRequest(prNumber, commitSha, repository, false, undefined, prUrl);
     } catch (error: any) {
       console.error(`Error creating sample pull request: ${error.message}`);
@@ -217,8 +214,8 @@ export class BitbucketProvider extends BaseGitProvider {
    */
   public override async createSamplePullRequestOnSourceRepo(): Promise<PullRequest> {
     const newBranchName = 'test-branch-' + Date.now();
-    const title = 'Test PR from RHTAP e2e test';
-    const description = 'This PR was created automatically by the RHTAP e2e test';
+    const title = 'Test PR from TSSC e2e test';
+    const description = 'This PR was created automatically by the TSSC e2e test';
     const baseBranch = 'main'; // Default base branch
 
     try {
@@ -232,28 +229,28 @@ export class BitbucketProvider extends BaseGitProvider {
       console.log(`Creating a sample pull request in Bitbucket with the following parameters:`);
       console.log(`New Branch Name: ${newBranchName}`);
       console.log(`Source Repository: ${this.sourceRepoName}`);
-      
+
       // First create a branch using the Bitbucket API's refs endpoint
       // Get the latest commit on the base branch to use as the starting point
       const branchInfo = await this.bitbucketClient.get(
         `/repositories/${this.workspace}/${this.sourceRepoName}/refs/branches/${baseBranch}`
       );
-      
+
       if (!branchInfo || !branchInfo.target || !branchInfo.target.hash) {
         throw new Error(`Could not find base branch ${baseBranch} or its commit hash`);
       }
-      
+
       // Create a new branch using the API
       await this.bitbucketClient.post(
         `/repositories/${this.workspace}/${this.sourceRepoName}/refs/branches`,
         {
           name: newBranchName,
           target: {
-            hash: branchInfo.target.hash
-          }
+            hash: branchInfo.target.hash,
+          },
         }
       );
-      
+
       console.log(`Created new branch ${newBranchName} from ${baseBranch}`);
 
       // Commit the changes to the new branch
@@ -264,7 +261,7 @@ export class BitbucketProvider extends BaseGitProvider {
           try {
             // Determine the content to upload
             let fileContent = newContent;
-            
+
             try {
               // Try to get existing content if the file exists
               const existingContent = await this.bitbucketClient.getFileContent(
@@ -273,7 +270,7 @@ export class BitbucketProvider extends BaseGitProvider {
                 filePath,
                 newBranchName
               );
-              
+
               // If we get here, the file exists, apply the modification
               if (existingContent && oldContent) {
                 // Simple replacement; in a real implementation you might want a more sophisticated diff algorithm
@@ -283,25 +280,25 @@ export class BitbucketProvider extends BaseGitProvider {
               // File probably doesn't exist, we'll create it with the new content
               console.log(`File ${filePath} not found, will create it`);
             }
-            
+
             // Upload the file via the src endpoint
             // In Bitbucket API we can't easily do atomic multi-file commits through the REST API
             // We'll do individual file updates
             const endpoint = `/repositories/${this.workspace}/${this.sourceRepoName}/src`;
-            
+
             // FormData would be ideal but for simplicity we're using URL encoded format
             const commitData = {
               branch: newBranchName,
               message: `Update ${filePath}`,
-              [filePath]: fileContent
+              [filePath]: fileContent,
             };
-            
+
             await this.bitbucketClient.post(endpoint, commitData, {
               headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-              }
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
             });
-            
+
             console.log(`Updated file ${filePath} on branch ${newBranchName}`);
           } catch (error: any) {
             console.error(`Error updating file ${filePath}: ${error.message}`);
@@ -316,7 +313,7 @@ export class BitbucketProvider extends BaseGitProvider {
         source: { branch: { name: newBranchName } },
         destination: { branch: { name: baseBranch } },
         description: description,
-        close_source_branch: true
+        close_source_branch: true,
       };
 
       const prResult = await this.bitbucketClient.createPullRequest(
@@ -326,21 +323,19 @@ export class BitbucketProvider extends BaseGitProvider {
       );
 
       // Get the latest commit on the branch
-      const commits = await this.bitbucketClient.getCommits(
-        this.workspace,
-        this.sourceRepoName,
-        { include: newBranchName }
-      );
+      const commits = await this.bitbucketClient.getCommits(this.workspace, this.sourceRepoName, {
+        include: newBranchName,
+      });
 
       const commitSha = commits.values[0]?.hash || 'unknown-commit-sha';
       const prNumber = prResult.id;
-      
+
       // Construct the pull request URL
       const prUrl = `https://${this.getHost()}/${this.workspace}/${this.sourceRepoName}/pull-requests/${prNumber}`;
 
       console.log(`Successfully created pull request #${prNumber} with commit SHA: ${commitSha}`);
       console.log(`Pull request URL: ${prUrl}`);
-      
+
       return new PullRequest(prNumber, commitSha, this.sourceRepoName, false, undefined, prUrl);
     } catch (error: any) {
       console.error(`Error creating sample pull request: ${error.message}`);
@@ -379,7 +374,7 @@ export class BitbucketProvider extends BaseGitProvider {
 
       // Create an object to hold the files for the /src endpoint
       const files: Record<string, string> = {};
-      
+
       // Process each file modification
       for (const [filePath, modifications] of Object.entries(contentModifications)) {
         for (const { oldContent, newContent } of modifications) {
@@ -394,13 +389,15 @@ export class BitbucketProvider extends BaseGitProvider {
                 filePath,
                 branch
               );
-              
+
               // If we have old content and it exists in the file, replace it with new content
               if (typeof fileContent === 'string' && fileContent.includes(oldContent)) {
                 fileContent = fileContent.replace(oldContent, newContent);
               } else {
                 // Can't find the old content or the response format is unexpected
-                console.log(`Could not find old content in ${filePath}, using new content directly`);
+                console.log(
+                  `Could not find old content in ${filePath}, using new content directly`
+                );
                 fileContent = newContent;
               }
             } catch (error) {
@@ -408,47 +405,44 @@ export class BitbucketProvider extends BaseGitProvider {
               console.log(`Error getting file ${filePath}, using new content directly: ${error}`);
               fileContent = newContent;
             }
-            
+
             // Add to the files object for committing
             files[filePath] = fileContent;
-            
           } catch (error: any) {
             console.error(`Error modifying file ${filePath}: ${error.message}`);
             throw error;
           }
         }
       }
-      
+
       // In Bitbucket REST API, we use the /src endpoint to commit files
       const endpoint = `/repositories/${this.workspace}/${repo}/src`;
-      
+
       // Setup the commit data
       const formData: Record<string, any> = {
         branch: branch,
         message: commitMessage,
-        ...files
+        ...files,
       };
-      
+
       // Make the commit via the API
       await this.bitbucketClient.post(endpoint, formData, {
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
       });
-      
+
       // Get the latest commit SHA for the branch
-      const commits = await this.bitbucketClient.getCommits(
-        this.workspace,
-        repo,
-        { include: branch }
-      );
-      
+      const commits = await this.bitbucketClient.getCommits(this.workspace, repo, {
+        include: branch,
+      });
+
       if (!commits || !commits.values || commits.values.length === 0) {
         throw new Error(`Failed to retrieve commits after changes`);
       }
-      
+
       const commitSha = commits.values[0].hash;
-      
+
       console.log(
         `Successfully committed all changes to branch '${branch}' with SHA: ${commitSha}`
       );
@@ -471,11 +465,9 @@ export class BitbucketProvider extends BaseGitProvider {
         `Getting latest commit SHA for source repo: ${this.sourceRepoName}, branch: ${branch}`
       );
 
-      const commits = await this.bitbucketClient.getCommits(
-        this.workspace,
-        this.sourceRepoName,
-        { include: branch }
-      );
+      const commits = await this.bitbucketClient.getCommits(this.workspace, this.sourceRepoName, {
+        include: branch,
+      });
 
       if (!commits || !commits.values || commits.values.length === 0) {
         throw new Error(`No commits found for branch ${branch}`);
@@ -503,11 +495,9 @@ export class BitbucketProvider extends BaseGitProvider {
         `Getting latest commit SHA for GitOps repo: ${this.gitOpsRepoName}, branch: ${branch}`
       );
 
-      const commits = await this.bitbucketClient.getCommits(
-        this.workspace,
-        this.gitOpsRepoName,
-        { include: branch }
-      );
+      const commits = await this.bitbucketClient.getCommits(this.workspace, this.gitOpsRepoName, {
+        include: branch,
+      });
 
       if (!commits || !commits.values || commits.values.length === 0) {
         throw new Error(`No commits found for branch ${branch}`);
@@ -632,8 +622,8 @@ export class BitbucketProvider extends BaseGitProvider {
         pullRequest.pullNumber,
         {
           close_source_branch: true,
-          message: 'Merged via RHTAP e2e test',
-          merge_strategy: 'merge_commit'
+          message: 'Merged via TSSC e2e test',
+          merge_strategy: 'merge_commit',
         }
       );
 
@@ -674,7 +664,7 @@ export class BitbucketProvider extends BaseGitProvider {
     }
 
     const contentModifications = this.template.getContentModifications();
-    const commitMessage = 'Test commit from RHTAP e2e test';
+    const commitMessage = 'Test commit from TSSC e2e test';
 
     // Use the common commit method
     return this.commitChangesToRepo(
@@ -757,22 +747,22 @@ export class BitbucketProvider extends BaseGitProvider {
       const branchInfo = await this.bitbucketClient.get(
         `/repositories/${this.workspace}/${this.gitOpsRepoName}/refs/branches/${baseBranch}`
       );
-      
+
       if (!branchInfo || !branchInfo.target || !branchInfo.target.hash) {
         throw new Error(`Could not find base branch ${baseBranch} or its commit hash`);
       }
-      
+
       // Create a new branch using the API
       await this.bitbucketClient.post(
         `/repositories/${this.workspace}/${this.gitOpsRepoName}/refs/branches`,
         {
           name: newBranchName,
           target: {
-            hash: branchInfo.target.hash
-          }
+            hash: branchInfo.target.hash,
+          },
         }
       );
-      
+
       console.log(`Created new branch ${newBranchName} from ${baseBranch}`);
 
       // Commit the changes to the new branch
@@ -790,7 +780,7 @@ export class BitbucketProvider extends BaseGitProvider {
         source: { branch: { name: newBranchName } },
         destination: { branch: { name: baseBranch } },
         description: description,
-        close_source_branch: true
+        close_source_branch: true,
       };
 
       const prResult = await this.bitbucketClient.createPullRequest(
@@ -800,21 +790,19 @@ export class BitbucketProvider extends BaseGitProvider {
       );
 
       // Get the latest commit on the branch
-      const commits = await this.bitbucketClient.getCommits(
-        this.workspace,
-        this.gitOpsRepoName,
-        { include: newBranchName }
-      );
+      const commits = await this.bitbucketClient.getCommits(this.workspace, this.gitOpsRepoName, {
+        include: newBranchName,
+      });
 
       const commitSha = commits.values[0]?.hash || 'unknown-commit-sha';
       const prNumber = prResult.id;
-      
+
       // Construct the pull request URL
       const prUrl = `https://${this.getHost()}/${this.workspace}/${this.gitOpsRepoName}/pull-requests/${prNumber}`;
 
       console.log(`Successfully created promotion PR #${prNumber} for ${environment} environment`);
       console.log(`Pull request URL: ${prUrl}`);
-      
+
       return new PullRequest(prNumber, commitSha, this.gitOpsRepoName, false, undefined, prUrl);
     } catch (error: any) {
       console.error(`Error creating promotion PR for ${environment}: ${error.message}`);
@@ -830,7 +818,7 @@ export class BitbucketProvider extends BaseGitProvider {
   public override async extractApplicationImage(environment: Environment): Promise<string> {
     const filePath = `components/${this.componentName}/overlays/${environment}/deployment-patch.yaml`;
     console.log(`Extracting application image from file: ${filePath}`);
-    
+
     try {
       // Get the file content
       const fileContent = await this.bitbucketClient.getFileContent(
@@ -839,25 +827,25 @@ export class BitbucketProvider extends BaseGitProvider {
         filePath,
         'main'
       );
-      
+
       if (!fileContent) {
         throw new Error(`No content found in file: ${filePath}`);
       }
-      
+
       // Convert to string if needed
       const content = typeof fileContent === 'string' ? fileContent : JSON.stringify(fileContent);
-      
+
       // Use a regex pattern to find the image value
       const imagePattern = /(?:^|\s+)-\s+image:(?:\s+(.+)$)?|(^\s+.+$)/gm;
       const matches = content.match(imagePattern);
-      
+
       if (!matches || matches.length === 0) {
         throw new Error(`No image value found in file: ${filePath}`);
       }
-      
+
       // Process the matches to extract the actual image URL
       let imageValue = '';
-      
+
       // Check if we have a direct match with '- image: value'
       for (let i = 0; i < matches.length; i++) {
         const match = matches[i];
@@ -875,11 +863,11 @@ export class BitbucketProvider extends BaseGitProvider {
           }
         }
       }
-      
+
       if (!imageValue) {
         throw new Error(`Could not parse image value from matches in file: ${filePath}`);
       }
-      
+
       console.log(`Extracted image from ${filePath}: ${imageValue}`);
       return imageValue;
     } catch (error: any) {
@@ -895,26 +883,30 @@ export class BitbucketProvider extends BaseGitProvider {
    */
   public override async configWebhookOnSourceRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(`Configuring webhook for source repo ${this.workspace}/${this.sourceRepoName} with ${webhookUrl}`);
+      console.log(
+        `Configuring webhook for source repo ${this.workspace}/${this.sourceRepoName} with ${webhookUrl}`
+      );
 
       const events = [
         'pullrequest:created',
         'pullrequest:updated',
         'pullrequest:approved',
         'pullrequest:fulfilled',
-        'repo:push'
+        'repo:push',
       ];
-      
+
       // Create the webhook via our dedicated method
       const response = await this.bitbucketClient.configWebhook(
         this.workspace,
         this.sourceRepoName,
         webhookUrl,
         events,
-        'RHTAP Integration Webhook'
+        'TSSC Integration Webhook'
       );
-      
-      console.log(`Successfully configured webhook for source repo ${this.workspace}/${this.sourceRepoName} with ID: ${response.uuid}`);
+
+      console.log(
+        `Successfully configured webhook for source repo ${this.workspace}/${this.sourceRepoName} with ID: ${response.uuid}`
+      );
     } catch (error: any) {
       console.error(`Failed to configure webhook for source repo: ${error.message}`);
       throw error;
@@ -928,26 +920,30 @@ export class BitbucketProvider extends BaseGitProvider {
    */
   public override async configWebhookOnGitOpsRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(`Configuring webhook for GitOps repo ${this.workspace}/${this.gitOpsRepoName} at ${webhookUrl}`);
+      console.log(
+        `Configuring webhook for GitOps repo ${this.workspace}/${this.gitOpsRepoName} at ${webhookUrl}`
+      );
 
       const events = [
-        'pullrequest:created', 
+        'pullrequest:created',
         'pullrequest:updated',
         'pullrequest:approved',
         'pullrequest:fulfilled',
-        'repo:push'
+        'repo:push',
       ];
-      
+
       // Create the webhook via our dedicated method
       const response = await this.bitbucketClient.configWebhook(
         this.workspace,
         this.gitOpsRepoName,
         webhookUrl,
         events,
-        'RHTAP GitOps Integration Webhook'
+        'TSSC GitOps Integration Webhook'
       );
 
-      console.log(`Successfully configured webhook for GitOps repo ${this.workspace}/${this.gitOpsRepoName} with ID: ${response.uuid}`);
+      console.log(
+        `Successfully configured webhook for GitOps repo ${this.workspace}/${this.gitOpsRepoName} with ID: ${response.uuid}`
+      );
     } catch (error: any) {
       console.error(`Failed to configure webhook for GitOps repo: ${error.message}`);
       throw error;
@@ -960,7 +956,7 @@ export class BitbucketProvider extends BaseGitProvider {
   public override getSourceRepoUrl(): string {
     return `https://${this.getHost()}/${this.workspace}/${this.sourceRepoName}`;
   }
-  
+
   /**
    * Gets the owner identifier for the repository
    * For Bitbucket, this is the workspace name
@@ -968,18 +964,5 @@ export class BitbucketProvider extends BaseGitProvider {
    */
   public override getRepoOwner(): string {
     return this.getWorkspace();
-  }
-
-  public addVariableOnSourceRepo(name: string, value: string): Promise<void> {
-    if (name === 'GIT_USERNAME' && value) {
-      return Promise.resolve();
-    }
-    throw new Error('Method not implemented.');
-  }
-  public addVariableOnGitOpsRepo(name: string, value: string): Promise<void> {
-    if (name === 'GIT_USERNAME' && value) {
-      return Promise.resolve();
-    }
-    throw new Error('Method not implemented.');
   }
 }

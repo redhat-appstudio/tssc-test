@@ -6,7 +6,7 @@ import { BaseCI } from '../baseCI';
 import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
 import retry from 'async-retry';
 
-export class GitLabCI extends BaseCI{
+export class GitLabCI extends BaseCI {
   private componentName: string;
   private secret!: Record<string, string>;
   private baseUrl: string = '';
@@ -45,7 +45,7 @@ export class GitLabCI extends BaseCI{
     const gitlabToken = this.getToken();
     const hostname = this.getHost();
     this.baseUrl = `https://${hostname}`;
-     // Initialize the GitLabCI client with the base URL and token
+    // Initialize the GitLabCI client with the base URL and token
     const gitlabCIClient = new GitLabCIClient({
       token: gitlabToken,
       baseUrl: this.baseUrl,
@@ -67,8 +67,6 @@ export class GitLabCI extends BaseCI{
     return this.secret.host;
   }
 
-
-
   public getGroup(): string {
     if (!this.secret?.group) {
       throw new Error('GitLab group not found in the secret. Please ensure the group is provided.');
@@ -80,7 +78,7 @@ export class GitLabCI extends BaseCI{
     pullRequest: PullRequest,
     pipelineStatus: PipelineStatus,
     eventType?: EventType
-  ): Promise<Pipeline | null> {    
+  ): Promise<Pipeline | null> {
     try {
       // Convert our standardized status to GitLab status strings to filter pipelines
       // the Mapping needs to be updated according GitLab status names
@@ -89,54 +87,58 @@ export class GitLabCI extends BaseCI{
         [PipelineStatus.FAILURE]: 'failed',
         [PipelineStatus.RUNNING]: 'running',
         [PipelineStatus.PENDING]: 'pending',
-        [PipelineStatus.UNKNOWN]: null  // No direct mapping, will fetch all statuses
+        [PipelineStatus.UNKNOWN]: null, // No direct mapping, will fetch all statuses
       };
-      
+
       // Get GitLab status filter or null if no direct mapping
       const gitlabStatus = gitlabStatusMap[pipelineStatus];
-      
+
       // Fetch pipelines for the repository and commit SHA
       let pipelines = await this.gitlabCIClient.getPipelines(
         `${this.getGroup()}/${pullRequest.repository}`,
         pullRequest.sha,
         gitlabStatus === null ? undefined : gitlabStatus
       );
-      
+
       if (!pipelines || pipelines.length === 0) {
-        console.log(`No pipelines found for repository ${pullRequest.repository} with SHA ${pullRequest.sha}`);
+        console.log(
+          `No pipelines found for repository ${pullRequest.repository} with SHA ${pullRequest.sha}`
+        );
         return null;
       }
-      
+
       // Filter pipelines by the requested event type if provided, the event type maps the GitLab pipeline source property
       if (eventType === EventType.PULL_REQUEST || eventType === EventType.PUSH) {
         pipelines.map(pipeline => {
           console.log(`Pipeline ID: ${pipeline.id}, Source: ${pipeline.source}`);
         });
-        pipelines = pipelines.filter(pipeline => pipeline.source === "push"); // This is a workaround for GitLabCI, When Open a PR or Merge Request, the pipeline source is "push"
-        
+        pipelines = pipelines.filter(pipeline => pipeline.source === 'push'); // This is a workaround for GitLabCI, When Open a PR or Merge Request, the pipeline source is "push"
+
         // Check if pipelines array is empty after filtering
         if (pipelines.length === 0) {
-          console.log(`No pipelines found for repository ${pullRequest.repository} with SHA ${pullRequest.sha} after filtering by event type`);
+          console.log(
+            `No pipelines found for repository ${pullRequest.repository} with SHA ${pullRequest.sha} after filtering by event type`
+          );
           return null;
         }
       }
-      
+
       // Find the most recent pipeline by updated_at timestamp
-      pipelines.sort((a, b) => 
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      );
-      
+      pipelines.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
       const latestPipeline = pipelines[0];
       //TODO: for debugging purpose, remove it later
       console.log(`Latest pipeline ID: ${latestPipeline.id}, Source: ${latestPipeline.source}`);
       const mappedStatus = this.gitlabCIClient.mapPipelineStatus(latestPipeline.status);
-      
+
       // Only return pipelines that match the requested status if it's not UNKNOWN
       if (pipelineStatus !== PipelineStatus.UNKNOWN && mappedStatus !== pipelineStatus) {
-        console.log(`Latest pipeline status ${mappedStatus} doesn't match requested status ${pipelineStatus}`);
+        console.log(
+          `Latest pipeline status ${mappedStatus} doesn't match requested status ${pipelineStatus}`
+        );
         return null;
       }
-      
+
       // Convert GitLab pipeline to our standardized Pipeline object
       return Pipeline.createGitLabPipeline(
         latestPipeline.id,
@@ -160,20 +162,20 @@ export class GitLabCI extends BaseCI{
     if (!pipeline) {
       throw new Error('Pipeline is not defined');
     }
-    
+
     try {
       // Get the latest pipeline status from GitLab
       const pipelineId = parseInt(pipeline.id, 10);
       if (isNaN(pipelineId)) {
         throw new Error(`Invalid pipeline ID: ${pipeline.id}`);
       }
-      
+
       // Get updated pipeline information from GitLab
       const gitlabPipeline = await this.gitlabCIClient.getPipelineById(
-        `${this.getGroup()}/${pipeline.repositoryName}`, 
+        `${this.getGroup()}/${pipeline.repositoryName}`,
         pipelineId
       );
-      
+
       // Handle completed states according to GitLab's definition
       // success, failed, canceled, and skipped represent a completed state
       const gitlabStatus = gitlabPipeline.status.toLowerCase();
@@ -186,7 +188,7 @@ export class GitLabCI extends BaseCI{
         // This ensures consistency with the waitForAllPipelinesToFinish method
         return PipelineStatus.FAILURE;
       }
-      
+
       // For all other statuses, use the standard mapping
       const mappedStatus = this.gitlabCIClient.mapPipelineStatus(gitlabStatus);
       return mappedStatus;
@@ -198,14 +200,18 @@ export class GitLabCI extends BaseCI{
 
   public override async waitForAllPipelinesToFinish(): Promise<void> {
     try {
-      console.log(`Waiting for all GitLab CI pipelines for component ${this.componentName} to finish...`);
+      console.log(
+        `Waiting for all GitLab CI pipelines for component ${this.componentName} to finish...`
+      );
       const maxAttempts = 20;
       const pollIntervalMs = 5000; // Poll every 5 seconds
 
       // Define the operation to check for running pipelines
       const checkPipelines = async (): Promise<boolean> => {
         // Get all pipelines for the component repository
-        const allPipelines =await this.gitlabCIClient.getAllPipelines(`${this.getGroup()}/${this.sourceRepoName}`);
+        const allPipelines = await this.gitlabCIClient.getAllPipelines(
+          `${this.getGroup()}/${this.sourceRepoName}`
+        );
 
         if (!allPipelines || allPipelines.length === 0) {
           console.log(`No pipelines found for component ${this.componentName}`);
@@ -215,17 +221,23 @@ export class GitLabCI extends BaseCI{
         // the following is the status of pipelines:
         // created, waiting_for_resource, preparing, pending, running, success, failed, canceled, skipped, manual, scheduled.
         // so we think that "success", "failed", "canceled", and "skipped" represent a completed state for the pipeline.
-        const allIncompletePipelines = allPipelines.filter(pipeline =>
-          pipeline.status !== 'success' && pipeline.status !== 'failed' && pipeline.status !== 'canceled' && pipeline.status !== 'skipped'
+        const allIncompletePipelines = allPipelines.filter(
+          pipeline =>
+            pipeline.status !== 'success' &&
+            pipeline.status !== 'failed' &&
+            pipeline.status !== 'canceled' &&
+            pipeline.status !== 'skipped'
         );
-        
+
         if (allIncompletePipelines.length === 0) {
           console.log(`No running or pending pipelines found for component ${this.componentName}`);
           return true;
         }
-        
-        console.log(`Found ${allIncompletePipelines.length} active pipelines for component ${this.componentName}`);
-        
+
+        console.log(
+          `Found ${allIncompletePipelines.length} active pipelines for component ${this.componentName}`
+        );
+
         // If there are incomplete pipelines, throw an error to trigger retry
         throw new Error(`Waiting for ${allIncompletePipelines.length} pipeline(s) to complete`);
       };
@@ -236,11 +248,15 @@ export class GitLabCI extends BaseCI{
           retries: maxAttempts,
           minTimeout: pollIntervalMs,
           onRetry: (error: Error, attemptNumber: number) => {
-            console.log(`[GITLAB-CI-RETRY ${attemptNumber}/${maxAttempts}] 🔄 Component: ${this.componentName} | Status: Waiting | Reason: ${error.message}`);
-          }
+            console.log(
+              `[GITLAB-CI-RETRY ${attemptNumber}/${maxAttempts}] 🔄 Component: ${this.componentName} | Status: Waiting | Reason: ${error.message}`
+            );
+          },
         });
 
-        console.log(`All GitLab CI pipelines for component ${this.componentName} have finished processing.`);
+        console.log(
+          `All GitLab CI pipelines for component ${this.componentName} have finished processing.`
+        );
       } catch (error: any) {
         console.log(
           `Timeout reached. Some pipeline(s) still running after ${maxAttempts} attempts.`

@@ -1,5 +1,5 @@
-import { Gitlab } from '@gitbeaker/rest';
 import { ContentModifications } from '../../rhtap/modification/contentModification';
+import { Gitlab } from '@gitbeaker/rest';
 
 /**
  * Interface definitions for GitLab API responses
@@ -133,7 +133,13 @@ export class GitLabClient {
     content: string,
     commitMessage: string
   ): Promise<any> {
-    return await this.client.RepositoryFiles.create(projectId, filePath, branch, content, commitMessage);
+    return await this.client.RepositoryFiles.create(
+      projectId,
+      filePath,
+      branch,
+      content,
+      commitMessage
+    );
   }
 
   /**
@@ -146,7 +152,13 @@ export class GitLabClient {
     content: string,
     commitMessage: string
   ): Promise<any> {
-    return await this.client.RepositoryFiles.edit(projectId, filePath, branch, content, commitMessage);
+    return await this.client.RepositoryFiles.edit(
+      projectId,
+      filePath,
+      branch,
+      content,
+      commitMessage
+    );
   }
 
   /**
@@ -157,11 +169,7 @@ export class GitLabClient {
    * @param options Additional webhook configuration options including token and event triggers
    * @returns The created webhook object
    */
-  async configWebhook(
-    owner: string,
-    repo: string,
-    webhookUrl: string,
-  ): Promise<any> {
+  async configWebhook(owner: string, repo: string, webhookUrl: string): Promise<any> {
     const project = await this.client.Projects.show(`${owner}/${repo}`);
 
     if (!project) {
@@ -177,7 +185,7 @@ export class GitLabClient {
       push_events: true,
       mergeRequestsEvents: true,
       tagPushEvents: true,
-      enableSslVerification: false
+      enableSslVerification: false,
     };
 
     return await this.client.ProjectHooks.add(projectId, webhookUrl, hookOptions);
@@ -252,7 +260,7 @@ export class GitLabClient {
       // targetOwner is not used in implementation but kept for API consistency
       const baseBranch = baseBranchOrTitle;
       const newBranchName = newBranchNameOrOptions;
-      
+
       try {
         // Find the project ID for the repository using direct path lookup (more efficient)
         let projectId;
@@ -268,51 +276,50 @@ export class GitLabClient {
         console.log(`Created new branch '${newBranchName}' from '${baseBranch}'`);
 
         // Process all file modifications in one batch
-        const fileModifications: { 
+        const fileModifications: {
           action: 'create' | 'update';
           filePath: string;
-          content: string; 
+          content: string;
         }[] = [];
-        
+
         // First, collect all file modifications
         for (const [filePath, modifications] of Object.entries(contentModifications)) {
           try {
             let fileContent: string;
-            
+
             // Try to get existing file content first
             try {
               const fileData = await this.client.RepositoryFiles.show(
-                projectId, 
-                filePath, 
+                projectId,
+                filePath,
                 baseBranch
               );
               fileContent = Buffer.from(fileData.content, 'base64').toString('utf-8');
-              
+
               // Apply each modification in sequence
               for (const { oldContent, newContent } of modifications) {
                 fileContent = fileContent.replace(oldContent, newContent);
               }
-              
+
               fileModifications.push({
                 action: 'update',
                 filePath,
-                content: fileContent
+                content: fileContent,
               });
-              
             } catch (error: any) {
               if (error.message && error.message.includes('not found')) {
                 // File doesn't exist yet, start with empty content
                 fileContent = '';
-                
+
                 // Apply each modification in sequence (for new files)
                 for (const { oldContent, newContent } of modifications) {
                   fileContent = fileContent.replace(oldContent, newContent);
                 }
-                
+
                 fileModifications.push({
                   action: 'create',
                   filePath,
-                  content: fileContent
+                  content: fileContent,
                 });
               } else {
                 throw error;
@@ -323,14 +330,14 @@ export class GitLabClient {
             throw error;
           }
         }
-        
+
         // Now batch commit all changes
         const commitActions = fileModifications.map(mod => ({
           action: mod.action,
           filePath: mod.filePath,
-          content: mod.content
+          content: mod.content,
         }));
-        
+
         // Commit all changes at once using the Commits API
         await this.client.Commits.create(
           projectId,
@@ -338,7 +345,7 @@ export class GitLabClient {
           title, // Using MR title as commit message
           commitActions
         );
-        
+
         console.log(`Committed ${commitActions.length} file changes to branch ${newBranchName}`);
 
         // Create merge request from new branch to base branch
@@ -349,7 +356,7 @@ export class GitLabClient {
           title,
           {
             description: description,
-            removeSourceBranch: true
+            removeSourceBranch: true,
           }
         );
 
@@ -363,18 +370,18 @@ export class GitLabClient {
         console.error(`Error creating merge request: ${error.message}`);
         throw error;
       }
-    } 
+    }
     // Called with the project ID format (second signature)
     else {
       const projectId = ownerOrProjectId;
       const sourceBranch = repoOrSourceBranch;
       const targetBranch = targetOwnerOrTargetBranch;
       const title = baseBranchOrTitle;
-      const options = newBranchNameOrOptions as { description?: string } || {};
-      
+      const options = (newBranchNameOrOptions as { description?: string }) || {};
+
       try {
         let sourceBranchExists = false;
-        
+
         // Check if source branch already exists
         try {
           await this.client.Branches.show(projectId, sourceBranch);
@@ -385,7 +392,7 @@ export class GitLabClient {
             // Branch doesn't exist, need to create it
             console.log(`Source branch '${sourceBranch}' doesn't exist, will create it`);
             sourceBranchExists = false;
-            
+
             // Create the branch from target branch
             await this.client.Branches.create(projectId, sourceBranch, targetBranch);
             console.log(`Created new branch '${sourceBranch}' from '${targetBranch}'`);
@@ -393,32 +400,32 @@ export class GitLabClient {
             throw error;
           }
         }
-        
+
         // Handle content modifications if provided
         if (contentModifications) {
           console.log(`Processing file modifications for merge request in project ${projectId}`);
-          
+
           // Process all file modifications in one batch
-          const fileModifications: { 
+          const fileModifications: {
             action: 'create' | 'update';
             filePath: string;
-            content: string; 
+            content: string;
           }[] = [];
-          
+
           // First, collect all file modifications
           for (const [filePath, modifications] of Object.entries(contentModifications)) {
             try {
               let fileContent: string;
               let fileAction: 'create' | 'update' = 'update';
-              
+
               // Try to get existing file content first - use target branch as reference
               // for new branches or source branch for existing branches
               const refBranch = sourceBranchExists ? sourceBranch : targetBranch;
-              
+
               try {
                 const fileData = await this.client.RepositoryFiles.show(
-                  projectId, 
-                  filePath, 
+                  projectId,
+                  filePath,
                   refBranch
                 );
                 fileContent = Buffer.from(fileData.content, 'base64').toString('utf-8');
@@ -431,29 +438,30 @@ export class GitLabClient {
                   throw error;
                 }
               }
-              
+
               // Apply each modification in sequence
               for (const { oldContent, newContent } of modifications) {
                 fileContent = fileContent.replace(oldContent, newContent);
               }
-              
+
               // Add this file to the actions array
               fileModifications.push({
                 action: fileAction,
                 filePath: filePath,
-                content: fileContent
+                content: fileContent,
               });
-              
             } catch (error: any) {
               console.error(`Error preparing file modification for ${filePath}: ${error.message}`);
               throw error;
             }
           }
-          
+
           // Create a commit with all file modifications in a single batch
           if (fileModifications.length > 0) {
-            console.log(`Committing ${fileModifications.length} file changes to branch ${sourceBranch}`);
-            
+            console.log(
+              `Committing ${fileModifications.length} file changes to branch ${sourceBranch}`
+            );
+
             // Use the GitLab API to commit all files in a single batch
             await this.client.Commits.create(
               projectId,
@@ -468,13 +476,13 @@ export class GitLabClient {
 
         // Create merge request
         const mergeRequest = await this.client.MergeRequests.create(
-          projectId, 
-          sourceBranch, 
-          targetBranch, 
-          title, 
+          projectId,
+          sourceBranch,
+          targetBranch,
+          title,
           options
         );
-        
+
         return mergeRequest as GitLabMergeRequest;
       } catch (error: any) {
         console.error(`Error creating merge request: ${error.message}`);
@@ -496,11 +504,7 @@ export class GitLabClient {
     branch: string = 'main'
   ): Promise<{ content: string; encoding: string }> {
     try {
-      const fileContent = await this.client.RepositoryFiles.show(
-        projectId,
-        filePath,
-        branch
-      );
+      const fileContent = await this.client.RepositoryFiles.show(projectId, filePath, branch);
 
       if (!fileContent || !fileContent.content) {
         throw new Error(`Could not retrieve content for file: ${filePath}`);
@@ -508,7 +512,7 @@ export class GitLabClient {
 
       return {
         content: fileContent.content,
-        encoding: fileContent.encoding || 'base64'
+        encoding: fileContent.encoding || 'base64',
       };
     } catch (error: any) {
       console.error(`Error getting file content from ${filePath}: ${error.message}`);
@@ -544,11 +548,7 @@ export class GitLabClient {
       console.log(`Searching for pattern ${searchPattern} in file ${filePath} (${branch} branch)`);
 
       // Get the file content
-      const fileContent = await this.client.RepositoryFiles.show(
-        projectId,
-        filePath,
-        branch
-      );
+      const fileContent = await this.client.RepositoryFiles.show(projectId, filePath, branch);
 
       if (!fileContent || !fileContent.content) {
         console.log(`Could not retrieve content for file: ${filePath}`);
@@ -593,60 +593,64 @@ export class GitLabClient {
   ): Promise<{ id: string; sha: string; mergeCommitSha: string }> {
     try {
       console.log(`Merging merge request #${mergeRequestId} in project ${projectId}`);
-      
+
       // Convert options if provided
       let mergeOptions = {};
       if (options) {
         if (options.shouldRemoveSourceBranch) {
-          mergeOptions = { ...mergeOptions, should_remove_source_branch: options.shouldRemoveSourceBranch };
+          mergeOptions = {
+            ...mergeOptions,
+            should_remove_source_branch: options.shouldRemoveSourceBranch,
+          };
         }
         if (options.mergeCommitMessage) {
           mergeOptions = { ...mergeOptions, merge_commit_message: options.mergeCommitMessage };
         }
       }
-      
+
       // Use GitLab API to accept the merge request (correct method is accept, not merge)
-      const response = await this.client.MergeRequests.accept(projectId, mergeRequestId, mergeOptions);
+      const response = await this.client.MergeRequests.accept(
+        projectId,
+        mergeRequestId,
+        mergeOptions
+      );
 
       console.log(`Successfully merged merge request #${mergeRequestId}`);
-      
-      // For debugging, log the structure of the response
-      console.log(`Merge response data: ${JSON.stringify({
-        id: response.id,
-        iid: response.iid,
-        sha: response.sha,
-        merge_commit_sha: response.merge_commit_sha
-      }, null, 2)}`);
-      
+
       // If merge_commit_sha is not available, we need to fetch it separately
       let mergeCommitSha = response.merge_commit_sha;
-      
+
       if (!mergeCommitSha) {
-        console.log(`merge_commit_sha not found in merge response, fetching merge request details to get it`);
+        console.log(
+          `merge_commit_sha not found in merge response, fetching merge request details to get it`
+        );
         try {
           // Fetch the merge request details after merging to get the merge commit SHA
-          const mergeRequestDetails = await this.client.MergeRequests.show(projectId, mergeRequestId);
+          const mergeRequestDetails = await this.client.MergeRequests.show(
+            projectId,
+            mergeRequestId
+          );
           mergeCommitSha = mergeRequestDetails.merge_commit_sha;
           console.log(`Fetched merge commit SHA: ${mergeCommitSha}`);
         } catch (detailsError) {
           console.error(`Failed to fetch merge request details: ${detailsError}`);
         }
       }
-      
+
       // If we still don't have a merge commit SHA, fall back to the regular SHA
       if (!mergeCommitSha) {
         console.warn(`Could not obtain merge_commit_sha, falling back to commit SHA`);
         mergeCommitSha = response.sha;
       }
-      
+
       return {
         id: String(response.id || mergeRequestId),
         sha: String(response.sha || ''),
-        mergeCommitSha: String(mergeCommitSha || '')
+        mergeCommitSha: String(mergeCommitSha || ''),
       };
     } catch (error: any) {
       console.error(`Failed to merge merge request #${mergeRequestId}: ${error.message}`);
-      throw new Error("Failed to merge Merge Request. Check below error");
+      throw new Error('Failed to merge Merge Request. Check below error');
     }
   }
 
@@ -666,29 +670,35 @@ export class GitLabClient {
   ): Promise<{ id: string }> {
     try {
       console.log(`Creating direct commit to branch ${branch} with ${actions.length} file actions`);
-      
+
       // Convert file_path to filePath as required by the GitLab API
       const formattedActions = actions.map(action => ({
         action: action.action,
         filePath: action.file_path, // Map file_path to filePath
-        content: action.content
+        content: action.content,
       }));
-      
+
       const response = await this.client.Commits.create(
         projectId,
         branch,
         commitMessage,
         formattedActions
       );
-      
-      console.log(`Successfully created commit: ${JSON.stringify({
-        id: response.id,
-        short_id: response.short_id,
-        title: response.title
-      }, null, 2)}`);
-      
+
+      console.log(
+        `Successfully created commit: ${JSON.stringify(
+          {
+            id: response.id,
+            short_id: response.short_id,
+            title: response.title,
+          },
+          null,
+          2
+        )}`
+      );
+
       return {
-        id: response.id
+        id: response.id,
       };
     } catch (error: any) {
       console.error(`Failed to create commit on branch ${branch}: ${error.message}`);
@@ -705,7 +715,10 @@ export class GitLabClient {
       console.log(`Environment variable '${key}' set successfully in ${projectId} in gitlab.com.`);
       return response;
     } catch (error) {
-      console.error(`Error setting environment variable '${key}' in ${projectId} in gitlab.com:`, error);
+      console.error(
+        `Error setting environment variable '${key}' in ${projectId} in gitlab.com:`,
+        error
+      );
       throw error;
     }
   }

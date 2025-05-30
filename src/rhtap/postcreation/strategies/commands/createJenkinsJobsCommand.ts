@@ -13,9 +13,7 @@ export class CreateJenkinsJobsCommand extends BaseCommand {
       { name: this.git.getGitOpsRepoName(), url: this.git.getGitOpsRepoUrl() },
     ];
     const jenkinsCI = this.ci as JenkinsCI;
-    await Promise.all(
-      jobs.map(job => jenkinsCI.createJob(job.name, this.folderName, job.url))
-    );
+    await Promise.all(jobs.map(job => jenkinsCI.createJob(job.name, this.folderName, job.url)));
 
     this.logComplete('Jenkins jobs creation');
   }

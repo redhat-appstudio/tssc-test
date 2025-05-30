@@ -1,4 +1,4 @@
-# RHTAP E2E Testing Framework and Tests
+# TSSC E2E Testing Framework and Tests
 
 ## Overview
 
@@ -81,7 +81,7 @@ npm test -- tests/rhtap/golang.test.ts
 ```
 
 ```
-# Run all RHTAP tests
+# Run all TSSC tests
 npm run test:rhtap
 
 # Run specific test file

@@ -106,15 +106,4 @@ export interface Git extends IntegrationSecret {
   getHost(): string;
 
   getRepoOwner(): string;
-
-  /**
-   * Adds an environment variable to the source repository
-   * - GitLab:
-   *   - Adds Project variable to the GitLab repository
-   * @param name The name of the environment variable
-   * @param value The value of the environment variable
-   */
-  addVariableOnSourceRepo(name: string, value: string): Promise<void>;
-
-  addVariableOnGitOpsRepo(name: string, value: string): Promise<void>;
 }

@@ -1,13 +1,22 @@
 import { Component } from '../../../core/component';
-import { ContentModifications, ContentModificationsContainer } from '../../../modification/contentModification';
+import {
+  ContentModifications,
+  ContentModificationsContainer,
+} from '../../../modification/contentModification';
 import { JenkinsfileModifier } from '../../../modification/jenkinsfile';
 import { RhtapEnvModifier } from '../../../modification/rhtap-env';
 import { BaseCommand } from './baseCommand';
 
 /**
  * Command to apply modifications to source repository
+ *
+ * This command applies necessary modifications to the source code repository:
+ * 1. Updates the Jenkinsfile with required configuration changes
+ * 2. Updates TSSC environment files with integration endpoints and credentials
+ *
+ * Part of the post-creation workflow for setting up Jenkins pipeline requirements.
  */
-export class ApplySourceRepoModificationsCommand extends BaseCommand {
+export class JenkinsfileAndEnvModificationsOnSourceRepoCommand extends BaseCommand {
   constructor(component: Component) {
     super(component);
   }

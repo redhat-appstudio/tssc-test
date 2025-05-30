@@ -1,20 +1,20 @@
-import { GitLabClient, GitLabClientOptions } from "../git/gitlabClient";
-import { PipelineStatus } from "../../rhtap/core/integration/ci/ciInterface";
+import { PipelineStatus } from '../../rhtap/core/integration/ci/ciInterface';
+import { GitLabClient, GitLabClientOptions } from '../git/gitlabClient';
 import retry from 'async-retry';
 
 // Define GitLab pipeline statuses and their mapping to our standardized statuses
 const GITLAB_STATUS_MAPPING: Record<string, PipelineStatus> = {
-  'success': PipelineStatus.SUCCESS,
-  'failed': PipelineStatus.FAILURE,
-  'running': PipelineStatus.RUNNING,
-  'pending': PipelineStatus.PENDING,
-  'created': PipelineStatus.PENDING,
-  'canceled': PipelineStatus.FAILURE,
-  'skipped': PipelineStatus.FAILURE, // Changed from UNKNOWN to FAILURE to mark it as completed
-  'manual': PipelineStatus.PENDING,
-  'scheduled': PipelineStatus.PENDING,
-  'waiting_for_resource': PipelineStatus.PENDING,
-  'preparing': PipelineStatus.PENDING
+  success: PipelineStatus.SUCCESS,
+  failed: PipelineStatus.FAILURE,
+  running: PipelineStatus.RUNNING,
+  pending: PipelineStatus.PENDING,
+  created: PipelineStatus.PENDING,
+  canceled: PipelineStatus.FAILURE,
+  skipped: PipelineStatus.FAILURE, // Changed from UNKNOWN to FAILURE to mark it as completed
+  manual: PipelineStatus.PENDING,
+  scheduled: PipelineStatus.PENDING,
+  waiting_for_resource: PipelineStatus.PENDING,
+  preparing: PipelineStatus.PENDING,
 };
 
 // Interface to represent GitLab pipeline data
@@ -30,7 +30,7 @@ export interface GitLabPipeline {
   project_id: number;
 }
 
-export class GitLabCIClient{
+export class GitLabCIClient {
   private gitlabClient: GitLabClient;
 
   /**
@@ -72,32 +72,42 @@ export class GitLabCIClient{
       params.status = status;
     }
     try {
-      return await retry(async (_, attempt) => {
-        try {
-          const pipelines = await this.gitlabClient.getClient().Pipelines.all(projectPath, params) || [];
-          
-          // If we got an empty array and we still have retries left, throw an error to trigger retry
-          if (pipelines.length === 0) {
-            console.log(`Got empty pipelines array on attempt ${attempt}, will retry if attempts remain`);
-            throw new Error('Empty pipelines array received');
+      return await retry(
+        async (_, attempt) => {
+          try {
+            const pipelines =
+              (await this.gitlabClient.getClient().Pipelines.all(projectPath, params)) || [];
+
+            // If we got an empty array and we still have retries left, throw an error to trigger retry
+            if (pipelines.length === 0) {
+              console.log(
+                `Got empty pipelines array on attempt ${attempt}, will retry if attempts remain`
+              );
+              throw new Error('Empty pipelines array received');
+            }
+
+            return pipelines as GitLabPipeline[];
+          } catch (error) {
+            // Throw error to trigger retry mechanism
+            throw error;
           }
-          
-          return pipelines as GitLabPipeline[];
-        } catch (error) {
-          // Throw error to trigger retry mechanism
-          throw error;
+        },
+        {
+          retries: 5, // Retry 5 times
+          minTimeout: 5000, // Start with a 5 second delay
+          maxTimeout: 15000, // Maximum timeout between retries
+          onRetry: (error: Error, attempt: number) => {
+            console.log(
+              `[GITLAB-RETRY ${attempt}/5] 🔄 Project: ${projectPath} | Status: Failed | Reason: ${error.message}`
+            );
+          },
         }
-      }, {
-        retries: 5, // Retry 5 times
-        minTimeout: 5000, // Start with a 5 second delay
-        maxTimeout: 15000, // Maximum timeout between retries
-        onRetry: (error: Error, attempt: number) => {
-          console.log(`[GITLAB-RETRY ${attempt}/5] 🔄 Project: ${projectPath} | Status: Failed | Reason: ${error.message}`);
-        }
-      });
+      );
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Failed to get GitLab pipelines for project ${projectPath} after multiple retries: ${errorMessage}`);
+      console.error(
+        `Failed to get GitLab pipelines for project ${projectPath} after multiple retries: ${errorMessage}`
+      );
       // Return empty array instead of throwing to make error handling easier for callers
       return [];
     }
@@ -117,15 +127,15 @@ export class GitLabCIClient{
    * @param pipelineId The ID of the pipeline to retrieve
    * @returns A promise that resolves to a GitLab pipeline
    */
-  public async getPipelineById(
-    projectPath: string,
-    pipelineId: number
-  ): Promise<GitLabPipeline> {
+  public async getPipelineById(projectPath: string, pipelineId: number): Promise<GitLabPipeline> {
     try {
       const pipeline = await this.gitlabClient.getClient().Pipelines.show(projectPath, pipelineId);
       return pipeline as GitLabPipeline;
     } catch (error) {
-      console.error(`Failed to get GitLab pipeline ${pipelineId} for project ${projectPath}:`, error);
+      console.error(
+        `Failed to get GitLab pipeline ${pipelineId} for project ${projectPath}:`,
+        error
+      );
       throw error;
     }
   }
@@ -140,11 +150,11 @@ export class GitLabCIClient{
   //   try {
   //     // Access the raw REST API client to make a direct request for job logs
   //     const gitlab = this.gitlabClient.getClient();
-      
+
   //     // GitLab API endpoint for job traces is GET /projects/:id/jobs/:job_id/trace
   //     const encodedProjectPath = encodeURIComponent(projectPath);
   //     const url = `projects/${encodedProjectPath}/jobs/${jobId}/trace`;
-      
+
   //     // Make the request using the underlying requester
   //     const jobTrace = await gitlab.request.get(url);
   //     return jobTrace as string;

@@ -1,20 +1,71 @@
 import { ContentModifications } from '../../rhtap/modification/contentModification';
+import { retry } from '@octokit/plugin-retry';
+import { throttling } from '@octokit/plugin-throttling';
 import { Octokit } from '@octokit/rest';
 import { Buffer } from 'buffer';
+
+// Add retry and throttling plugins to Octokit
+const EnhancedOctokit = Octokit.plugin(retry, throttling);
 
 export interface GithubClientOptions {
   token: string;
   baseUrl?: string;
+  retryOptions?: {
+    retries?: number;
+    doNotRetry?: string[];
+  };
+  throttleOptions?: {
+    maxRetries?: number;
+  };
 }
 
 export class GithubClient {
   private octokit: Octokit;
 
   constructor(options: GithubClientOptions) {
-    this.octokit = new Octokit({
+    this.octokit = new EnhancedOctokit({
       auth: options.token,
       baseUrl: options.baseUrl || 'https://api.github.com',
+      retry: {
+        doNotRetry: options.retryOptions?.doNotRetry || ['404'],
+        retries: options.retryOptions?.retries || 2,
+        retryAfter: 3, // Seconds to wait between retries
+      },
+      throttle: {
+        onRateLimit: (retryAfter, requestOptions, octokit, retryCount) => {
+          octokit.log.warn(
+            `Request quota exhausted for request ${requestOptions.method} ${requestOptions.url}`
+          );
+
+          if (retryCount < (options.throttleOptions?.maxRetries || 2)) {
+            // Retry on rate limit errors
+            octokit.log.info(`Retrying after ${retryAfter} seconds!`);
+            return true;
+          }
+          return false;
+        },
+        onSecondaryRateLimit: (retryAfter, requestOptions, octokit, retryCount) => {
+          octokit.log.warn(
+            `SecondaryRateLimit detected for request ${requestOptions.method} ${requestOptions.url}`
+          );
+
+          if (retryCount < (options.throttleOptions?.maxRetries || 2)) {
+            // Retry on secondary rate limits
+            octokit.log.info(`Retrying after ${retryAfter} seconds!`);
+            return true;
+          }
+          return false;
+        },
+      },
     });
+    // this.octokit = new Octokit({
+    //   auth: options.token,
+    //   baseUrl: options.baseUrl || 'https://api.github.com',
+    // });
+  }
+
+  public getOctokit(): Octokit {
+    return this.octokit;
   }
 
   // Repository methods
@@ -561,6 +612,146 @@ export class GithubClient {
       console.log(`Webhook configured successfully for ${repoOwner}/${repoName}`);
     } catch (error) {
       console.error(`Failed to configure webhook for ${repoOwner}/${repoName}: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Sets or updates repository variables in GitHub Actions.
+   * @param owner - The GitHub organization or user.
+   * @param repo - The repository name.
+   * @param variables - An object of variableName: variableValue pairs.
+   * @returns An object summarizing created, updated, and failed variables.
+   */
+  public async setRepoVariables(
+    owner: string,
+    repo: string,
+    variables: Record<string, string>
+  ): Promise<{ created: string[]; updated: string[]; failed: string[] }> {
+    console.group(`Setting repo variables for ${owner}/${repo}`);
+    const created: string[] = [];
+    const updated: string[] = [];
+    const failed: string[] = [];
+
+    // Fetch all existing variables (with pagination)
+    let existingVariables: Record<string, string> = {};
+    let page = 1;
+    try {
+      while (true) {
+        const response = await this.octokit.actions.listRepoVariables({
+          owner,
+          repo,
+          per_page: 100,
+          page,
+        });
+        for (const v of response.data.variables) {
+          existingVariables[v.name] = v.value;
+        }
+        if (response.data.total_count <= page * 100) break;
+        page++;
+      }
+    } catch (error) {
+      console.error(`Error listing variables: ${error}`);
+      console.groupEnd();
+      throw error;
+    }
+
+    for (const [name, value] of Object.entries(variables)) {
+      try {
+        if (name in existingVariables) {
+          if (existingVariables[name] === value) {
+            console.log(`Variable "${name}" already set to desired value, skipping.`);
+            continue;
+          }
+          // Update existing variable
+          await this.octokit.actions.updateRepoVariable({
+            owner,
+            repo,
+            name,
+            value,
+          });
+          updated.push(name);
+          console.log(`Updated variable: ${name}`);
+        } else {
+          // Create new variable
+          await this.octokit.actions.createRepoVariable({
+            owner,
+            repo,
+            name,
+            value,
+          });
+          created.push(name);
+          console.log(`Created variable: ${name}`);
+        }
+      } catch (error) {
+        failed.push(name);
+        console.error(`Error setting variable "${name}": ${error}`);
+      }
+    }
+    console.groupEnd();
+    return { created, updated, failed };
+  }
+
+  /**
+   * Sets or updates a single repository variable in GitHub Actions.
+   * @param owner - The GitHub organization or user.
+   * @param repo - The repository name.
+   * @param name - The variable name.
+   * @param value - The variable value.
+   * @returns A string indicating if the variable was 'created' or 'updated'.
+   * @throws Error if the operation fails.
+   */
+  public async setRepoVariable(
+    owner: string,
+    repo: string,
+    name: string,
+    value: string
+  ): Promise<'created' | 'updated'> {
+    console.log(`Setting repo variable "${name}" for ${owner}/${repo}`);
+
+    try {
+      // Get all existing variables first (only one API call)
+      const existingVariables: Record<string, string> = {};
+      const response = await this.octokit.actions.listRepoVariables({
+        owner,
+        repo,
+        per_page: 100,
+      });
+
+      // Build a map of existing variables
+      for (const v of response.data.variables) {
+        existingVariables[v.name] = v.value;
+      }
+
+      // Check if our variable exists and has the same value
+      if (name in existingVariables) {
+        if (existingVariables[name] === value) {
+          console.log(`Variable "${name}" already set to desired value, skipping.`);
+          return 'updated'; // Return updated even though no change was made
+        }
+
+        // Update existing variable
+        await this.octokit.actions.updateRepoVariable({
+          owner,
+          repo,
+          name,
+          value,
+        });
+        console.log(`Updated variable: ${name}`);
+        return 'updated';
+      } else {
+        // Create new variable
+        await this.octokit.actions.createRepoVariable({
+          owner,
+          repo,
+          name,
+          value,
+        });
+        console.log(`Created variable: ${name}`);
+        return 'created';
+      }
+    } catch (error) {
+      console.error(`Error setting variable "${name}": ${error}`);
       throw error;
     }
   }

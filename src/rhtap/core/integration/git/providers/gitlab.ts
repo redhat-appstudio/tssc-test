@@ -17,16 +17,11 @@ import {
  * This class implements the Git interface for GitLab repositories.
  */
 export class GitlabProvider extends BaseGitProvider {
-
   private gitlabClient!: GitLabClient;
   private template!: ITemplate;
   private baseUrl: string = '';
 
-  constructor(
-    componentName: string,
-    templateType: TemplateType,
-    kubeClient: KubeClient
-  ) {
+  constructor(componentName: string, templateType: TemplateType, kubeClient: KubeClient) {
     super(componentName, GitType.GITLAB, kubeClient);
     this.template = TemplateFactory.createTemplate(templateType);
     // Initialization happens when initialize() is called explicitly by GitFactory
@@ -144,18 +139,16 @@ export class GitlabProvider extends BaseGitProvider {
       // Find the GitOps project ID using direct path lookup (more efficient)
       let projectId;
       try {
-        const project = await this.gitlabClient.getProject(`${this.getGroup()}/${this.gitOpsRepoName}`);
+        const project = await this.gitlabClient.getProject(
+          `${this.getGroup()}/${this.gitOpsRepoName}`
+        );
         projectId = project.id;
       } catch (error) {
         throw new Error(`GitOps project ${this.getGroup()}/${this.gitOpsRepoName} not found`);
       }
 
       // Get the current content of the deployment patch file
-      const fileContent = await this.gitlabClient.getFileContent(
-        projectId,
-        filePath,
-        branch
-      );
+      const fileContent = await this.gitlabClient.getFileContent(projectId, filePath, branch);
 
       if (!fileContent || !fileContent.content) {
         throw new Error(`Could not retrieve content for file: ${filePath}`);
@@ -237,7 +230,9 @@ export class GitlabProvider extends BaseGitProvider {
       // Find the project ID for the repository using direct path lookup (more efficient)
       let projectId;
       try {
-        const project = await this.gitlabClient.getProject(`${this.getGroup()}/${pullRequest.repository}`);
+        const project = await this.gitlabClient.getProject(
+          `${this.getGroup()}/${pullRequest.repository}`
+        );
         projectId = project.id;
       } catch (error) {
         throw new Error(`Project ${this.getGroup()}/${pullRequest.repository} not found`);
@@ -303,18 +298,16 @@ export class GitlabProvider extends BaseGitProvider {
       // Find the GitOps project ID using direct path lookup (more efficient)
       let projectId;
       try {
-        const project = await this.gitlabClient.getProject(`${this.getGroup()}/${this.gitOpsRepoName}`);
+        const project = await this.gitlabClient.getProject(
+          `${this.getGroup()}/${this.gitOpsRepoName}`
+        );
         projectId = project.id;
       } catch (error) {
         throw new Error(`GitOps project ${this.getGroup()}/${this.gitOpsRepoName} not found`);
       }
 
       // Get the current content of the deployment patch file
-      const fileContent = await this.gitlabClient.getFileContent(
-        projectId,
-        filePath,
-        baseBranch
-      );
+      const fileContent = await this.gitlabClient.getFileContent(projectId, filePath, baseBranch);
 
       if (!fileContent || !fileContent.content) {
         throw new Error(`Could not retrieve content for file: ${filePath}`);
@@ -389,12 +382,14 @@ export class GitlabProvider extends BaseGitProvider {
 
     const filePath = `components/${this.componentName}/overlays/${environment}/deployment-patch.yaml`;
     console.log(`Extracting application image from file: ${filePath}`);
-    
+
     try {
       // Find the GitOps project ID using direct path lookup (more efficient)
       let projectId;
       try {
-        const project = await this.gitlabClient.getProject(`${this.getGroup()}/${this.gitOpsRepoName}`);
+        const project = await this.gitlabClient.getProject(
+          `${this.getGroup()}/${this.gitOpsRepoName}`
+        );
         projectId = project.id;
       } catch (error) {
         throw new Error(`GitOps project ${this.getGroup()}/${this.gitOpsRepoName} not found`);
@@ -456,8 +451,8 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public override async createSamplePullRequestOnSourceRepo(): Promise<PullRequest> {
     const newBranchName = 'test-branch-' + Date.now();
-    const title = 'Test MR from RHTAP e2e test';
-    const description = 'This MR was created automatically by the RHTAP e2e test';
+    const title = 'Test MR from TSSC e2e test';
+    const description = 'This MR was created automatically by the TSSC e2e test';
     const baseBranch = 'main'; // Default base branch
 
     try {
@@ -507,7 +502,7 @@ export class GitlabProvider extends BaseGitProvider {
     }
 
     const contentModifications = this.template.getContentModifications();
-    const commitMessage = 'Test commit from RHTAP e2e test';
+    const commitMessage = 'Test commit from TSSC e2e test';
 
     // Use the common commit method
     return this.commitChangesToRepo(
@@ -585,7 +580,7 @@ export class GitlabProvider extends BaseGitProvider {
       if (!commitMessage) {
         throw new Error('Commit message is required');
       }
-      
+
       console.log(`Committing changes directly to ${owner}/${repo} in branch ${branch}`);
 
       // Find the project ID for the repository using direct path lookup (more efficient)
@@ -605,14 +600,10 @@ export class GitlabProvider extends BaseGitProvider {
         try {
           let fileContent: string;
           let fileExists = true;
-          
+
           // Try to get existing file content first
           try {
-            const fileData = await this.gitlabClient.getFileContent(
-              projectId,
-              filePath,
-              branch
-            );
+            const fileData = await this.gitlabClient.getFileContent(projectId, filePath, branch);
             fileContent = Buffer.from(fileData.content, 'base64').toString('utf-8');
           } catch (error: any) {
             if (error.message && error.message.includes('not found')) {
@@ -623,7 +614,7 @@ export class GitlabProvider extends BaseGitProvider {
               throw error;
             }
           }
-          
+
           // Apply each modification in sequence
           for (const { oldContent, newContent } of modifications) {
             if (!fileExists) {
@@ -635,15 +626,17 @@ export class GitlabProvider extends BaseGitProvider {
             } else {
               // For existing files where pattern isn't found, log a warning and skip
               // Don't replace the entire file content when a pattern isn't found
-              console.warn(`Couldn't find match for pattern in ${filePath}, skipping this modification`);
+              console.warn(
+                `Couldn't find match for pattern in ${filePath}, skipping this modification`
+              );
             }
           }
-          
+
           // Add to batch actions using file_path (will be converted to filePath in createCommit)
           fileActions.push({
             action: fileExists ? 'update' : 'create',
             file_path: filePath,
-            content: fileContent
+            content: fileContent,
           });
         } catch (error: any) {
           console.error(`Error preparing file modification for ${filePath}: ${error.message}`);
@@ -653,7 +646,7 @@ export class GitlabProvider extends BaseGitProvider {
 
       // Execute a direct batch commit to the target branch
       console.log(`Committing ${fileActions.length} file changes in a single batch`);
-      
+
       // Make a direct commit to the repository - this is using the internal GitLab APIs through gitlabClient
       const commitResult = await this.gitlabClient.createCommit(
         projectId,
@@ -661,10 +654,10 @@ export class GitlabProvider extends BaseGitProvider {
         commitMessage,
         fileActions
       );
-      
+
       // Get the commit SHA from the result or fetch it
       let commitSha = commitResult?.id;
-      
+
       if (!commitSha) {
         // Fallback: Get the commit SHA from the most recent commit
         const commits = await this.gitlabClient.getCommits(projectId, { ref_name: branch });
@@ -698,10 +691,12 @@ export class GitlabProvider extends BaseGitProvider {
       );
 
       // Find the project ID for the source repository
-            // Find the project ID using direct path lookup (more efficient)
+      // Find the project ID using direct path lookup (more efficient)
       let projectId;
       try {
-        const project = await this.gitlabClient.getProject(`${this.getGroup()}/${this.sourceRepoName}`);
+        const project = await this.gitlabClient.getProject(
+          `${this.getGroup()}/${this.sourceRepoName}`
+        );
         projectId = project.id;
       } catch (error) {
         throw new Error(`Project ${this.getGroup()}/${this.sourceRepoName} not found`);
@@ -739,7 +734,9 @@ export class GitlabProvider extends BaseGitProvider {
       // Find the project ID for the GitOps repository using direct path lookup (more efficient)
       let projectId;
       try {
-        const project = await this.gitlabClient.getProject(`${this.getGroup()}/${this.gitOpsRepoName}`);
+        const project = await this.gitlabClient.getProject(
+          `${this.getGroup()}/${this.gitOpsRepoName}`
+        );
         projectId = project.id;
       } catch (error) {
         throw new Error(`GitOps project ${this.getGroup()}/${this.gitOpsRepoName} not found`);
@@ -768,7 +765,9 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public override async configWebhookOnSourceRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(`Configuring webhook for source repo ${this.getGroup()}/${this.sourceRepoName} with ${webhookUrl}`);
+      console.log(
+        `Configuring webhook for source repo ${this.getGroup()}/${this.sourceRepoName} with ${webhookUrl}`
+      );
 
       // Set up webhook using GitLab client with specific event triggers
       await this.gitlabClient.configWebhook(this.getGroup(), this.sourceRepoName, webhookUrl);
@@ -788,7 +787,9 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public override async configWebhookOnGitOpsRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(`Configuring webhook for GitOps repo ${this.getGroup()}/${this.gitOpsRepoName} with ${webhookUrl}`);
+      console.log(
+        `Configuring webhook for GitOps repo ${this.getGroup()}/${this.gitOpsRepoName} with ${webhookUrl}`
+      );
 
       // Set up webhook using GitLab client with specific event triggers
       await this.gitlabClient.configWebhook(this.getGroup(), this.gitOpsRepoName, webhookUrl);
@@ -827,7 +828,7 @@ export class GitlabProvider extends BaseGitProvider {
   public getTemplateType(): TemplateType {
     return this.template.getType();
   }
-  
+
   /**
    * Gets the owner identifier for the repository
    * For GitLab, this is the group name
@@ -838,42 +839,70 @@ export class GitlabProvider extends BaseGitProvider {
   }
 
   /**
-   * Set an environment variable in the GitLab project's CI/CD settings
-   * @param key Environment variable name
-   * @param value Environment variable value
-   * @param repositoryName The name of the repository (defaults to componentName if not provided)
-   * @returns Promise that resolves when the variable is set
+   * Set multiple environment variables in the GitLab project's CI/CD settings
+   *
+   * @param variables - Object containing variable names as keys and values
+   * @param groupName - Name of the GitLab group containing the repository
+   * @param repositoryName - Name of the repository to set variables for (optional, defaults to component name)
+   * @returns Promise that resolves when all variables are processed
+   * @throws Error if the project cannot be found or if any critical errors occur
    */
-  public async setEnvironmentVariable(
-    key: string, 
-    value: string, 
+  public async setProjectVariables(
+    variables: Record<string, string>,
     groupName: string,
-    repositoryName: string
+    repositoryName?: string
   ): Promise<void> {
-    
+    const repoName = repositoryName || this.componentName;
+    const repoFullPath = `${groupName}/${repoName}`;
+
+    console.log(`Setting project variables for ${repoFullPath}`);
+
     try {
-      // Use the provided repository name or fall back to the component name
-      const repoName = repositoryName || this.componentName;
-      
-      // Get the project ID from the repository name
-      const project = await this.gitlabClient.getProject(`${groupName}/${repoName}`)
+      // Get project first to validate existence
+      const project = await this.getProjectOrThrow(repoFullPath);
 
-      console.log(`Setting environment variable '${key}' for repository ${repoName} (ID: ${project.id})`);
+      // Process variables concurrently
+      const operations = Object.entries(variables).map(async ([key, value]) => {
+        try {
+          console.log(`Setting project variable '${key}' for repository ${repoFullPath}`);
+          await this.gitlabClient.setEnvironmentVariable(project.id, key, value);
+          console.log(`Project variable '${key}' set successfully`);
+        } catch (error) {
+          console.error(`Error setting project variable '${key}': ${error}`);
+          // Don't throw here, just log the error and continue with other variables
+        }
+      });
 
-      // Set the environment variable using the GitLabCIClient
-      await this.gitlabClient.setEnvironmentVariable(project.id, key, value);
-      console.log(`Environment variable '${key}' set successfully for repository ${repoName} (ID: ${project.id})`);
+      // Wait for all operations to complete
+      await Promise.allSettled(operations);
+
+      console.log(`Completed setting project variables for ${repoFullPath}`);
     } catch (error) {
-      const repoName = repositoryName || this.componentName;
-      console.error(`Error setting environment variable '${key}' for repository ${repoName}:`, error);
-      throw error;
+      console.error(`Error accessing project ${repoFullPath}: ${error}`);
+      throw new Error(`Failed to set project variables for ${repoFullPath}: ${error}`);
     }
   }
 
-  public override async addVariableOnSourceRepo(name: string, value: string): Promise<void> {
-    await this.setEnvironmentVariable(name, value, this.getGroup(), this.sourceRepoName);
+  /**
+   * Helper method to get a project by path or throw a standardized error
+   *
+   * @param repoFullPath - Full path to the repository (group/project)
+   * @returns The project object
+   * @throws Error if the project cannot be found
+   */
+  private async getProjectOrThrow(repoFullPath: string): Promise<any> {
+    try {
+      return await this.gitlabClient.getProject(repoFullPath);
+    } catch (error) {
+      throw new Error(`Project ${repoFullPath} not found: ${error}`);
+    }
   }
-  public override async addVariableOnGitOpsRepo(name: string, value: string): Promise<void> {
-    await this.setEnvironmentVariable(name, value, this.getGroup(), this.gitOpsRepoName);
+
+  public async setProjectVariableOnSourceRepo(variables: Record<string, string>): Promise<void> {
+    await this.setProjectVariables(variables, this.getGroup(), this.sourceRepoName);
+  }
+
+  public async setProjectVariableOnGitOpsRepo(variables: Record<string, string>): Promise<void> {
+    await this.setProjectVariables(variables, this.getGroup(), this.gitOpsRepoName);
   }
 }
