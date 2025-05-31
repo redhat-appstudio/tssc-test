@@ -65,12 +65,12 @@ export class TPA implements IntegrationSecret {
         this.secret = await this.loadSecret();
 
         // Initialize TPA client with secrets
-        this.tpaClient = new TPAClient(
-          this.secret.bombastic_api_url,
-          this.secret.oidc_issuer_url,
-          this.secret.oidc_client_id,
-          this.secret.oidc_client_secret
-        );
+        this.tpaClient = new TPAClient({
+          bombasticApiUrl: this.secret.bombastic_api_url,
+          oidcIssuerUrl: this.secret.oidc_issuer_url,
+          oidcClientId: this.secret.oidc_client_id,
+          oidcClientSecret: this.secret.oidc_client_secret
+        });
 
         await this.tpaClient.initAccessToken();
         this.initialized = true;
@@ -102,12 +102,11 @@ export class TPA implements IntegrationSecret {
   }
 
   /**
-   * Searches for SBOM files by name
+   * Searches for SBOM files by name, it doesn't work because of bug https://issues.redhat.com/browse/TC-2564. The alternative is to use searchSBOMBySha256
    * @param name The name to search for
-   * @param retries Number of retries before giving up (default: 10)
    * @returns A promise that resolves to an array of SBOM results
    */
-  public async searchSBOM(name: string, retries = 10): Promise<SBOMResult[]> {
+  public async searchSBOM(name: string): Promise<SBOMResult[]> {
     console.log(`Searching for SBOM with name: ${name}`);
 
     if (!this.initialized) {
@@ -118,11 +117,35 @@ export class TPA implements IntegrationSecret {
     }
 
     try {
-      const results = await this.tpaClient.findSBOMsByName(name, retries);
+      const results = await this.tpaClient.findSBOMsByName(name);
       console.log(`Found ${results.length} SBOM results for: ${name}`);
       return results;
     } catch (error) {
       console.log({ err: error }, `Failed to search for SBOM: ${name}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Searches for SBOM files by SHA256 hash
+   * @param sha256 SHA-256 hash of the SBOM to search for
+   * Searches for SBOM files by SHA-256 hash
+   * @returns A promise that resolves to the SBOM result or null if not found
+   * @throws Error if the TPA client is not initialized or if the search fails
+   */
+  public async searchSBOMBySha256(sha256: string): Promise<SBOMResult | null> {
+    console.log(`Searching for SBOM with SHA: ${sha256}`);
+    if (!this.initialized) {
+      await this.initClient();
+    }
+    if (!this.tpaClient) {
+      throw new Error('TPA client is not initialized');
+    }
+    try {
+      const result = await this.tpaClient.findSBOMBySha256(sha256);
+      return result;
+    } catch (error) {
+      console.log({ err: error }, `Failed to get SBOM by SHA: ${sha256}`);
       throw error;
     }
   }
