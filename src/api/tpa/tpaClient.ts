@@ -1,6 +1,34 @@
 import retry from 'async-retry';
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
 
+/**
+ * Custom error class for TPA API errors
+ */
+export class TPAError extends Error {
+  constructor(
+    message: string,
+    public readonly cause?: Error
+  ) {
+    super(message);
+    this.name = 'TPAError';
+  }
+}
+
+/**
+ * Interface for a component described in an SBOM
+ */
+export interface SBOMComponent {
+  id: string;
+  name: string;
+  group: string | null;
+  version: string;
+  purl: string[];
+  cpe: string[];
+}
+
+/**
+ * Interface for the SBOM result returned by TPA API
+ */
 export interface SBOMResult {
   id: string;
   document_id: string;
@@ -15,27 +43,69 @@ export interface SBOMResult {
   sha512?: string;
   size?: number;
   ingested?: string;
+  described_by?: SBOMComponent[];
 }
 
+/**
+ * Configuration options for TPAClient
+ */
+export interface TPAClientConfig {
+  bombasticApiUrl: string;
+  oidcIssuerUrl: string;
+  oidcClientId: string;
+  oidcClientSecret: string;
+  retryOptions?: {
+    retries: number;
+    factor: number;
+    minTimeout: number;
+    maxTimeout: number;
+    randomize: boolean;
+  };
+}
+
+/**
+ * Client for interacting with the Trusted Package Analysis (TPA) API
+ */
 export class TPAClient {
   private token: string = '';
+  private readonly axiosInstance: AxiosInstance;
+  private readonly retryOptions: Required<TPAClientConfig>['retryOptions'];
 
-  constructor(
-    public readonly bombasticApiUrl: string,
-    public readonly oidcIssuesUrl: string,
-    public readonly oidcclientId: string,
-    public readonly oidcclientSecret: string
-  ) {}
+  /**
+   * Creates a new TPAClient instance
+   *
+   * @param config - Configuration options for the client
+   */
+  constructor(private readonly config: TPAClientConfig) {
+    this.axiosInstance = axios.create({
+      headers: {
+        Accept: '*/*',
+      },
+    });
 
+    this.retryOptions = config.retryOptions ?? {
+      retries: 10,
+      factor: 2,
+      minTimeout: 1000,
+      maxTimeout: 15000,
+      randomize: true,
+    };
+  }
+
+  /**
+   * Initializes or refreshes the access token for API calls
+   *
+   * @throws {TPAError} if token acquisition fails
+   */
   public async initAccessToken(): Promise<void> {
     try {
-      const tokenEndpoint = `${this.oidcIssuesUrl}/protocol/openid-connect/token`;
+      const tokenEndpoint = `${this.config.oidcIssuerUrl}/protocol/openid-connect/token`;
 
-      const response = await axios.post(
+      const response = await this.axiosInstance.post(
         tokenEndpoint,
         {
-          client_id: this.oidcclientId,
-          client_secret: this.oidcclientSecret,
+          client_id: this.config.oidcClientId,
+          client_secret: this.config.oidcClientSecret,
           grant_type: 'client_credentials',
         },
         {
@@ -46,64 +116,119 @@ export class TPAClient {
       );
 
       if (!response.data?.access_token) {
-        throw new Error('Access token not found in response');
+        throw new TPAError('Access token not found in response');
       }
 
       this.token = response.data.access_token;
     } catch (error) {
-      console.error('Error getting TPA token:', error);
-      throw error instanceof Error ? error : new Error(String(error));
+      const message = 'Error getting TPA token';
+      console.error(message, error);
+      throw new TPAError(message, error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   /**
-   * Finds SBOMs by name using the TPA API with retry capability
-   * @param name - The name to search for
-   * @param retries - Number of retries before giving up (default: 3)
-   * @returns A promise that resolves to an array of SBOM results
-   * @throws Error if all retries fail or no token is available
+   * Ensures a valid token is available, obtaining a new one if needed
+   *
+   * @private
    */
-  public async findSBOMsByName(name: string, retries = 10): Promise<SBOMResult[]> {
+  private async ensureTokenAvailable(): Promise<void> {
     if (!this.token) {
       await this.initAccessToken();
     }
+  }
+
+  /**
+   * Makes an authenticated request to the TPA API
+   *
+   * @private
+   * @param config - Axios request configuration
+   * @returns The response data
+   * @throws {TPAError} if the request fails
+   */
+  private async makeAuthenticatedRequest<T>(config: AxiosRequestConfig): Promise<T> {
+    await this.ensureTokenAvailable();
+
+    try {
+      const response = await this.axiosInstance.request<T>({
+        ...config,
+        headers: {
+          ...config.headers,
+          Authorization: `Bearer ${this.token}`,
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const axiosError = error as AxiosError;
+
+        // Handle auth errors - refresh token and throw to allow retry
+        if (axiosError.response?.status === 401) {
+          console.log('Token expired. Refreshing...');
+          await this.initAccessToken();
+          throw axiosError;
+        }
+
+        // For other errors, provide context
+        throw new TPAError(`API request failed: ${axiosError.message}`, axiosError);
+      }
+
+      throw new TPAError(
+        'Unexpected error during API request',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+  }
+
+  /**
+   * Normalizes an SBOM result from the API
+   *
+   * @private
+   * @param result - Raw result from the API
+   * @returns Normalized SBOM result
+   */
+  private normalizeSBOMResult(result: any): SBOMResult {
+    return {
+      ...result,
+      labels: result.labels || { type: 'unknown' },
+      described_by: result.described_by || [],
+    };
+  }
+
+  /**
+   * Finds SBOMs by name using the TPA API with retry capability
+   *
+   * @param name - The name to search for (empty string returns all SBOMs)
+   * @returns A promise that resolves to an array of SBOM results
+   * @throws {TPAError} if all retries fail
+   */
+  public async findSBOMsByName(name: string): Promise<SBOMResult[]> {
+    const searchUrl = `${this.config.bombasticApiUrl}/api/v2/sbom`;
+    console.log(`Searching for SBOM with name: ${name} at ${searchUrl}`);
 
     // Define the operation to retry
     const operation = async (): Promise<SBOMResult[]> => {
       try {
-        const searchUrl = `${this.bombasticApiUrl}/api/v2/sbom`;
-        console.log(`token: ${this.token}`);
-        console.log(`Searching for SBOM with name: ${name} at ${searchUrl}`);
-        const response = await axios.get(searchUrl, {
-          headers: {
-            Authorization: `Bearer ${this.token}`,
-            Accept: '*/*',
-          },
-          params: {
-            q: `${name}`,
-          },
-        });
+        const searchParams = name ? { q: name } : {};
 
-        if (response.status === 200 && response.data.total > 0) {
-          console.log(
-            `SBOM search for '${name}' successful. Found ${response.data.total} result(s).`
-          );
-          // Return the results, ensuring they match the SBOMResult interface
-          return response.data.items.map((result: any) => ({
-            id: result.id,
-            document_id: result.document_id,
-            labels: result.labels || { type: 'unknown' }, // Default to 'unknown' if labels are not present
-            published: result.published,
-            name: result.name,
-            number_of_packages: result.number_of_packages,
-            sha256: result.sha256,
-            sha384: result.sha384,
-            sha512: result.sha512,
-            size: result.size,
-            ingested: result.ingested,
-          })) as SBOMResult[];
+        interface SearchResponse {
+          total: number;
+          items: any[];
         }
 
+        const response = await this.makeAuthenticatedRequest<SearchResponse>({
+          method: 'GET',
+          url: searchUrl,
+          params: searchParams,
+        });
+
+        if (response.total > 0) {
+          console.log(`SBOM search for '${name}' successful. Found ${response.total} result(s).`);
+          return response.items.map(item => this.normalizeSBOMResult(item));
+        }
+
+        console.log(`No SBOMs found for '${name}'.`);
         return [];
       } catch (error) {
         if (axios.isAxiosError(error)) {
@@ -112,45 +237,64 @@ export class TPAClient {
           // Don't retry for 404 (not found) responses - they're expected
           if (axiosError.response?.status === 404) {
             console.log(`No SBOMs found for '${name}'.`);
-            // Returning empty array instead of throwing to avoid retries for not found
             return [];
           }
 
-          // Handle auth errors separately - refresh token and continue
-          if (axiosError.response?.status === 401) {
-            console.log('Token expired. Refreshing...');
-            await this.initAccessToken();
-            throw axiosError;
-          }
-
-          // For server errors (5xx), retry
+          // For server errors (5xx), retry by re-throwing
           if (axiosError.response && axiosError.response.status >= 500) {
             console.error(`Server error (${axiosError.response.status}). Retrying...`);
             throw axiosError;
           }
-
-          // For other error codes, don't retry
-          console.error(`Non-retryable error: ${axiosError.message}`);
-          throw new Error(axiosError.message);
         }
 
-        // For non-Axios errors, abort retries
-        console.error('Unexpected error:', error);
-        throw new Error(error instanceof Error ? error.message : String(error));
+        // Re-throw to allow retry mechanism to work
+        throw error;
       }
     };
 
     try {
-      return await retry(operation, {
-        retries,
-        factor: 2,
-        minTimeout: 1000,
-        maxTimeout: 15000,
-        randomize: true,
-      });
+      return await retry(operation, this.retryOptions);
     } catch (error) {
-      console.error(`All ${retries} attempts to find SBOMs for '${name}' have failed:`, error);
-      throw error instanceof Error ? error : new Error(String(error));
+      const message = `All ${this.retryOptions.retries} attempts to find SBOMs for '${name}' have failed`;
+      console.error(message, error);
+      throw new TPAError(message, error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  /**
+   * Finds all available SBOMs
+   *
+   * @returns A promise that resolves to an array of all SBOM results
+   * @throws {TPAError} if all retries fail
+   */
+  public async findAllSBOMs(): Promise<SBOMResult[]> {
+    console.log('Finding all SBOMs...');
+    const sboms = await this.findSBOMsByName('');
+    console.log(`Found ${sboms.length} SBOM(s).`);
+    return sboms;
+  }
+
+  /**
+   * Finds an SBOM by its SHA256 hash
+   *
+   * @param sha256 - The SHA256 hash to search for
+   * @returns A promise that resolves to the matching SBOM or null if not found
+   * @throws {TPAError} if all retries fail
+   */
+  public async findSBOMBySha256(sha256: string): Promise<SBOMResult | null> {
+    console.log(`Searching for SBOM with SHA256: ${sha256}`);
+    if (!sha256) {
+      throw new TPAError('SHA256 cannot be empty');
+    }
+    const allSBOMs = await this.findAllSBOMs();
+    const sbom = allSBOMs.find(sbom =>
+      sbom.described_by?.some(component => component.version.includes(sha256))
+    );
+
+    if (!sbom) {
+      console.log(`No SBOM found with SHA256: ${sha256}`);
+    }
+
+    return sbom || null;
   }
 }

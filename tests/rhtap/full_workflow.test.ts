@@ -129,11 +129,11 @@ test.describe('TSSC Complete Component Workflow', () => {
 
       // Get TPA instance and search for SBOM
       const tpa = await TPA.initialize(component.getKubeClient());
-      const sbomResults = await tpa.searchSBOM(imageDigest);
+      const sbom = await tpa.searchSBOMBySha256(imageDigest);
 
       // Verify SBOM results exist
-      expect(sbomResults.length).toBeGreaterThan(0);
-      console.log(`SBOM verification successful! Found ${sbomResults.length} results`);
+      expect(sbom).toBeDefined();
+      console.log(`SBOM verification successful! Found SBOM for image: ${imageDigest}`);
     });
   });
 });
