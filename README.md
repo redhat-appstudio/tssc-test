@@ -71,24 +71,18 @@ Running Tests
 Run All Tests
 
 ```
-npm run test:rhtap
+npm run test:tssc
 ```
 
 Run a Specific Test File
 
 ```
-npm test -- tests/rhtap/golang.test.ts
+npm test -- tests/tssc/full_workflow.test.ts
 ```
 
+View Test Report
+
 ```
-# Run all TSSC tests
-npm run test:rhtap
-
-# Run specific test file
-npm test -- tests/rhtap/golang.test.ts
-
-
-# Generate and View HTML Report
 npm run test:report
 ```
 
