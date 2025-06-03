@@ -2,7 +2,7 @@ import { Component } from '../../core/component';
 import { GitType } from '../../core/integration/git';
 import { Command } from './commands/command';
 import { CreateWebhookCommand } from './commands/createWebhookCommand';
-import { PostCreateActionStrategy } from './postCreateActionStrategy';
+import { ComponentActionStrategy } from './componentActionStrategy';
 
 /**
  * Implementation of PostCreateActionStrategy for Tekton CI
@@ -11,7 +11,7 @@ import { PostCreateActionStrategy } from './postCreateActionStrategy';
  * Note: WebHook configuration is only needed for GitLab and Bitbucket providers.
  * GitHub and other providers do not require any post-creation actions.
  */
-export class TektonPostCreateActionStrategy implements PostCreateActionStrategy {
+export class TektonPostCreateActionStrategy implements ComponentActionStrategy {
   /**
    * Map of Git provider types to their handler functions
    * This allows for easy extension with new Git providers

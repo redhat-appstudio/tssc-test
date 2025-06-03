@@ -45,7 +45,7 @@ export class JenkinsfileAndEnvModificationsOnGitopsRepoCommand extends BaseComma
     modificationsContainer.merge(
       RhtapEnvModifier.create()
         .updateTUFMirrorURL(this.tas.getTufMirrorURL())
-        .updateRokorServerURL(this.tas.getRokorServerURL())
+        .updateRokorServerURL(this.tas.getRekorServerURL())
         .updateRoxCentralEndpoint(this.acs.getRoxCentralEndpoint())
         .updateCosignPublicKey(cosignPublicKey)
         .updateImageRegistryUser(this.component.getRegistry().getImageRegistryUser())
