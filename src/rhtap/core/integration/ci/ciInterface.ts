@@ -7,6 +7,7 @@ export enum CIType {
   GITHUB_ACTIONS = 'githubactions',
   GITLABCI = 'gitlabci',
   JENKINS = 'jenkins',
+  AZURE = 'azure',
 }
 
 // event types
