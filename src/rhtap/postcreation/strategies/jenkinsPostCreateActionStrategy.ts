@@ -6,13 +6,13 @@ import { CreateWebhookCommand } from './commands/createWebhookCommand';
 import { JenkinsfileAndEnvModificationsOnGitopsRepoCommand } from './commands/jenkinsfileAndEnvModificationsOnGitopsRepoCommand';
 import { JenkinsfileAndEnvModificationsOnSourceRepoCommand } from './commands/jenkinsfileAndEnvModificationsOnSourceRepoCommand';
 import { TriggerJenkinsJobCommand } from './commands/triggerJenkinsJobCommand';
-import { PostCreateActionStrategy } from './postCreateActionStrategy';
+import { ComponentActionStrategy } from './componentActionStrategy';
 
 /**
  * Jenkins-specific implementation of post-creation action strategy
  * Uses command pattern to organize and execute different actions
  */
-export class JenkinsPostCreateActionStrategy implements PostCreateActionStrategy {
+export class JenkinsPostCreateActionStrategy implements ComponentActionStrategy {
   constructor() {}
 
   /**

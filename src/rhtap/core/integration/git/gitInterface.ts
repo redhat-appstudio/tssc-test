@@ -113,4 +113,6 @@ export interface Git extends IntegrationSecret {
     filePath: string,
     branch: string
   ): Promise<string>;
+
+  getToken(): string;
 }
