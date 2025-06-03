@@ -326,7 +326,7 @@ export class GitHubActionsCI extends BaseCI {
     );
   }
 
-  protected override async checkPipelineStatus(pipeline: Pipeline): Promise<PipelineStatus> {
+  protected override async checkPipelinerunStatus(pipeline: Pipeline): Promise<PipelineStatus> {
     try {
       // For checking pipeline status, we need to fetch the workflow run details by repo owner and commit sha
       if (!pipeline.id || !pipeline.repositoryName) {
@@ -359,7 +359,7 @@ export class GitHubActionsCI extends BaseCI {
     );
   }
 
-  public override async waitForAllPipelinesToFinish(
+  public override async waitForAllPipelineRunsToFinish(
     timeoutMs = 5 * 60 * 1000,
     pollIntervalMs = 5000
   ): Promise<void> {
