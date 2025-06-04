@@ -194,6 +194,31 @@ class NodeJSTemplate extends BaseTemplate {
   }
 }
 
+class QuarkusTemplate extends BaseTemplate {
+  constructor() {
+    super(TemplateType.QUARKUS, {
+      language: 'Java',
+      framework: 'Quarkus',
+    });
+  }
+
+  public getMainFilePath(): string {
+    return 'src/main/java/org/acme/GreetingResource.java';
+  }
+
+  public getContentModifications(): ContentModifications {
+    const mainPath = this.getMainFilePath();
+    return {
+      [mainPath]: [
+        {
+          oldContent: 'Hello RESTEasy',
+          newContent: `Hello RESTEasy - Updated! ${Date.now()} `,
+        },
+      ],
+    };
+  }
+}
+
 /**
  * Factory for creating template instances
  */
@@ -215,6 +240,8 @@ export class TemplateFactory {
         return new PythonTemplate();
       case TemplateType.NODEJS:
         return new NodeJSTemplate();
+      case TemplateType.QUARKUS:
+        return new QuarkusTemplate();
       default:
         throw new Error(`Unsupported template type: ${templateType}`);
     }

@@ -34,7 +34,7 @@ Modify the testplan.json file to match your testing requirements. Below are the 
 ```
 "templates": ["go", "python", "nodejs", "dotnet-basic", "java-quarkus", "java-springboot"],
 "git": ["github", "gitlab", "bitbucket"],
-"ci": ["tekton", "jenkins", "gitlabci", "actions"],
+"ci": ["tekton", "jenkins", "gitlabci", "githubactions"],
 "registry": ["quay", "quay.io", "artifactory", "nexus"],
 "acs": ["local", "remote"],
 "tpa": ["local", "remote"]
