@@ -38,9 +38,9 @@ export class AddGitlabProjectVariablesCommand extends BaseCommand {
 
   private async addGitAuthVariables(): Promise<void> {
     const gitlab = this.git as unknown as GitlabProvider;
-    const password = gitlab.getToken();
     await gitlab.setProjectVariableOnSourceRepo({
-      GITOPS_AUTH_PASSWORD: `fakeUsername:${password}`,
+      GITOPS_AUTH_PASSWORD: gitlab.getToken(),
+      GITOPS_AUTH_USERNAME: `fakeUsername`,
     });
   }
 
