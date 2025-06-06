@@ -1,12 +1,13 @@
 import { Component } from '../../src/rhtap/core/component';
 import { ArgoCD, Environment } from '../../src/rhtap/core/integration/cd/argocd';
-import { CI } from '../../src/rhtap/core/integration/ci';
+import { CI, CIType } from '../../src/rhtap/core/integration/ci';
 import { Git } from '../../src/rhtap/core/integration/git';
 import { TPA } from '../../src/rhtap/core/integration/tpa';
 import { ComponentPostCreateAction } from '../../src/rhtap/postcreation/componentPostCreateAction';
 import {
   handleSourceRepoCodeChanges,
   promoteToEnvironmentWithPR,
+  promoteToEnvironmentWithoutPR,
 } from '../../src/utils/test/common';
 import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { exportTestItem } from '../../src/utils/testItemExporter';
@@ -106,7 +107,11 @@ test.describe('TSSC Complete Workflow', () => {
       expect(image).toBeTruthy();
 
       // Promote to stage environment using PR workflow
-      await promoteToEnvironmentWithPR(git, ci, cd, Environment.STAGE, image);
+      if (ci.getCIType() === CIType.JENKINS) {
+        await promoteToEnvironmentWithoutPR(git, cd, Environment.STAGE, image);
+      } else {
+        await promoteToEnvironmentWithPR(git, ci, cd, Environment.STAGE, image);
+      }
       console.log('Image promoted to stage environment successfully!');
 
       // Additional verification for stage environment could be added here
@@ -118,7 +123,11 @@ test.describe('TSSC Complete Workflow', () => {
       expect(image).toBeTruthy();
 
       // Promote to production environment using PR workflow
-      await promoteToEnvironmentWithPR(git, ci, cd, Environment.PROD, image);
+      if (ci.getCIType() === CIType.JENKINS) {
+        await promoteToEnvironmentWithoutPR(git, cd, Environment.PROD, image);
+      } else {
+        await promoteToEnvironmentWithPR(git, ci, cd, Environment.PROD, image);
+      }
       console.log('Image promoted to production environment successfully!');
 
       // Additional verification for production environment could be added here

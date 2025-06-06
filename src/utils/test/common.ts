@@ -180,7 +180,7 @@ export async function handleSourceRepoCodeChanges(git: Git, ci: CI): Promise<voi
   const ciType = ci.getCIType();
   const gitType = git.getGitType();
 
-  if (ciType === CIType.GITHUB_ACTIONS) {
+  if (ciType === CIType.GITHUB_ACTIONS || ciType === CIType.JENKINS) {
     console.log(`Using GitHub Actions for ${gitType} repository`);
     // For GitHub Actions, we create a direct commit to the main branch
     return fastMovingToBuildApplicationImage(git, ci);

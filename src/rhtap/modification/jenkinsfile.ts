@@ -34,7 +34,6 @@ export class KubernetesAgentModification implements JenkinsfileModification {
 
 /**
  * Concrete implementation for registry credentials configuration
- * @deprecated this is not used anymore
  */
 export class EnableRegistryUserModification implements JenkinsfileModification {
   getModification(): ContentModifications {
@@ -92,6 +91,34 @@ export class EnableCosignPublicKeyModification implements JenkinsfileModificatio
   }
 }
 
+export class EnableTPAVariablesModification implements JenkinsfileModification {
+  getModification(): ContentModifications {
+    return {
+      Jenkinsfile: [
+        {
+          oldContent: "/* TRUSTIFICATION_BOMBASTIC_API_URL = credentials('TRUSTIFICATION_BOMBASTIC_API_URL') */",
+          newContent: "TRUSTIFICATION_BOMBASTIC_API_URL = credentials('TRUSTIFICATION_BOMBASTIC_API_URL')",
+        },
+        {
+          oldContent: "/* TRUSTIFICATION_OIDC_ISSUER_URL = credentials('TRUSTIFICATION_OIDC_ISSUER_URL') */",
+          newContent: "TRUSTIFICATION_OIDC_ISSUER_URL = credentials('TRUSTIFICATION_OIDC_ISSUER_URL')",
+        },
+        {
+          oldContent: "/* TRUSTIFICATION_OIDC_CLIENT_ID = credentials('TRUSTIFICATION_OIDC_CLIENT_ID') */",
+          newContent: "TRUSTIFICATION_OIDC_CLIENT_ID = credentials('TRUSTIFICATION_OIDC_CLIENT_ID')",
+        },
+        {
+          oldContent: "/* TRUSTIFICATION_OIDC_CLIENT_SECRET = credentials('TRUSTIFICATION_OIDC_CLIENT_SECRET') */",
+          newContent: "TRUSTIFICATION_OIDC_CLIENT_SECRET = credentials('TRUSTIFICATION_OIDC_CLIENT_SECRET')",
+        },
+        {
+          oldContent: "/* TRUSTIFICATION_SUPPORTED_CYCLONEDX_VERSION = credentials('TRUSTIFICATION_SUPPORTED_CYCLONEDX_VERSION') */",
+          newContent: "TRUSTIFICATION_SUPPORTED_CYCLONEDX_VERSION = credentials('TRUSTIFICATION_SUPPORTED_CYCLONEDX_VERSION')",
+        },
+      ],
+    };
+  }
+}
 /**
  * Enum of available Jenkinsfile modification types
  */
@@ -101,6 +128,7 @@ export enum JenkinsfileModificationType {
   REGISTRY_PASSWORD = 'REGISTRY_PASSWORD',
   DISABLE_QUAY_CREDENTIALS = 'DISABLE_QUAY_CREDENTIALS',
   ENABLE_COSIGN_PUBLIC_KEY = 'ENABLE_COSIGN_PUBLIC_KEY',
+  ENABLE_TPA_VARIABLES = 'ENABLE_TPA_VARIABLES',
 }
 
 /**
@@ -124,6 +152,8 @@ export class JenkinsfileModificationFactory {
         return new DisableQuayIOCredentialsModification();
       case JenkinsfileModificationType.ENABLE_COSIGN_PUBLIC_KEY:
         return new EnableCosignPublicKeyModification();
+      case JenkinsfileModificationType.ENABLE_TPA_VARIABLES:
+        return new EnableTPAVariablesModification();
       default:
         throw new Error(`Unknown Jenkinsfile modification type: ${type}`);
     }
@@ -185,6 +215,14 @@ export class JenkinsfileModifier {
   enableCosignPublicKey(): JenkinsfileModifier {
     const modification = JenkinsfileModificationFactory.create(
       JenkinsfileModificationType.ENABLE_COSIGN_PUBLIC_KEY
+    ).getModification();
+    this.container.merge(modification);
+    return this;
+  }
+
+  enableTPAVariables(): JenkinsfileModifier {
+    const modification = JenkinsfileModificationFactory.create(
+      JenkinsfileModificationType.ENABLE_TPA_VARIABLES
     ).getModification();
     this.container.merge(modification);
     return this;
