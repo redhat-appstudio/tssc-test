@@ -49,7 +49,6 @@ export class JenkinsfileAndEnvModificationsOnSourceRepoCommand extends BaseComma
 
     modificationsContainer.merge(
       RhtapEnvModifier.create()
-        .enableACS()
         .updateTUFMirrorURL(this.tas.getTufMirrorURL())
         .updateRokorServerURL(this.tas.getRokorServerURL())
         .updateRoxCentralEndpoint(this.acs.getRoxCentralEndpoint())

@@ -1,5 +1,7 @@
 import {
   CredentialType,
+  JenkinsBuild,
+  JenkinsBuildResult,
   JenkinsBuildTrigger,
   JenkinsClient,
 } from '../../../../../../src/api/ci/jenkinsClient';
@@ -114,6 +116,7 @@ export class JenkinsCI extends BaseCI {
   ): Promise<void> {
     try {
       await this.jenkinsClient.createCredential(folderName, key, value, credentialType);
+      console.log(`Credential ${key} added to folder ${folderName}`);
     } catch (error) {
       console.error(`Failed to apply credentials in folder ${folderName}:`, error);
       throw error;
@@ -220,7 +223,6 @@ export class JenkinsCI extends BaseCI {
             jobName,
             buildNumber,
             folderName,
-            true
           );
 
           // Check if the trigger type matches the requested event type
@@ -241,25 +243,11 @@ export class JenkinsCI extends BaseCI {
           }
         }
 
-        // Get build logs for more detailed information
-        let logs = '';
-        try {
-          const logResponse = await this.jenkinsClient.getBuildLog(
-            jobName,
-            buildNumber,
-            folderName
-          );
-          logs = logResponse.text;
-        } catch (error) {
-          console.warn('Could not retrieve build logs:', error);
-        }
-
         // Use the helper method to convert JenkinsBuild to Pipeline
-        return this.jenkinsClient.convertBuildToPipeline(
+        return this.convertBuildToPipeline(
           buildInfo,
           jobName,
           pullRequest.repository,
-          logs,
           commitSha
         );
       } catch (error) {
@@ -317,31 +305,33 @@ export class JenkinsCI extends BaseCI {
     if (!pipeline.jobName || pipeline.buildNumber === undefined) {
       throw new Error('Job name and build number are required for Jenkins pipelines');
     }
-
+  
     const jobName = pipeline.jobName;
+    const folderName = this.componentName;
     const buildNumber = pipeline.buildNumber;
-
+  
     try {
       // Use async-retry to get build status with resilience against transient failures
       const maxRetries = JenkinsCI.MAX_RETRIES;
-
+  
       return await retry(
         async (): Promise<PipelineStatus> => {
           try {
-            const buildInfo = await this.jenkinsClient.getBuild(jobName, buildNumber);
-
+            // Fix: Add the missing folderName parameter
+            const buildInfo = await this.jenkinsClient.getBuild(jobName, buildNumber, folderName);
+  
             if (!buildInfo) {
               console.log(`Build info for ${jobName} #${buildNumber} not found`);
               return PipelineStatus.UNKNOWN;
             }
-
+  
             // Convert the JenkinsBuild to a Pipeline and get its status
-            const convertedPipeline = this.jenkinsClient.convertBuildToPipeline(
+            const convertedPipeline = this.convertBuildToPipeline(
               buildInfo,
               jobName,
               pipeline.repositoryName
             );
-
+  
             return convertedPipeline.status;
           } catch (error) {
             // If there's an error, throw it to trigger retry
@@ -372,83 +362,35 @@ export class JenkinsCI extends BaseCI {
   /**
    * Wait for all Jenkins jobs to finish
    */
-  public override async waitForAllPipelinesToFinish(): Promise<void> {
-    try {
-      // Get all jobs in the component folder
-      const folderName = this.componentName;
+  public override async waitForAllPipelinesToFinish(timeoutMs: number = 600000, pollIntervalMs: number = 5000): Promise<void> {
+    const folderName = this.componentName;
+    const sourceRepoJobName = this.componentName;
+    const gitopsRepoJobName = `${this.componentName}-gitops`;
+    const startTime = Date.now();
 
-      console.log(`Waiting for all Jenkins jobs to finish in folder ${folderName}`);
+    console.log(`Waiting for all Jenkins jobs to finish in folder ${folderName} for both source (${sourceRepoJobName}) and gitops (${gitopsRepoJobName}) repositories`);
 
-      const maxRetries = JenkinsCI.MAX_RETRIES;
+    while (Date.now() - startTime < timeoutMs) {
+        // Check running builds for both source and gitops repositories
+        const [sourceRunningBuilds, gitopsRunningBuilds] = await Promise.all([
+            this.jenkinsClient.getRunningBuilds(sourceRepoJobName, folderName),
+            this.jenkinsClient.getRunningBuilds(gitopsRepoJobName, folderName)
+        ]);
 
-      try {
-        // Use async-retry to get running builds with retries
-        const jobs = await retry(
-          async (): Promise<any[]> => {
-            try {
-              const jobs = await this.jenkinsClient.getRunningBuilds(
-                `${this.componentName}`,
-                folderName
-              );
+        const totalRunningBuilds = sourceRunningBuilds.length + gitopsRunningBuilds.length;
 
-              if (!jobs || jobs.length === 0) {
-                console.log(`No running Jenkins jobs found in folder ${folderName}`);
-                return [];
-              }
-
-              return jobs;
-            } catch (error) {
-              // If there's an error, throw it to trigger retry
-              throw new Error(`Error getting running builds: ${error}`);
-            }
-          },
-          {
-            retries: maxRetries,
-            minTimeout: JenkinsCI.MIN_TIMEOUT,
-            maxTimeout: JenkinsCI.MAX_TIMEOUT,
-            factor: JenkinsCI.BACKOFF_FACTOR,
-            onRetry: (error: Error, attemptNumber) => {
-              console.log(
-                `[JENKINS-RETRY ${attemptNumber}/${maxRetries}] 🔄 Folder: ${folderName} | Status: Waiting | Reason: ${error.message}`
-              );
-            },
-          }
-        );
-
-        console.log(`Found ${jobs.length} Jenkins jobs`);
-
-        // Check all jobs for running builds
-        for (const job of jobs) {
-          if (!job.lastBuild) continue;
-
-          const buildInfo = await this.jenkinsClient.getBuild(job.name, job.lastBuild.number);
-
-          if (buildInfo?.building) {
-            // Create a pipeline object for the running build
-            const pipeline = Pipeline.createJenkinsPipeline(
-              job.name,
-              job.lastBuild.number,
-              PipelineStatus.RUNNING,
-              job.name, // Using job name as repository name
-              '',
-              ''
-            );
-
-            // Wait for this pipeline to finish
-            await this.waitForPipelineToFinish(pipeline);
-          }
+        if (totalRunningBuilds === 0) {
+            console.log(`No running Jenkins builds found in folder ${folderName} for both repositories. Exiting.`);
+            return;
         }
-      } catch (error: any) {
-        // Log error but continue execution
-        console.log(
-          `Could not retrieve Jenkins jobs after ${maxRetries} retries: ${error.message}`
-        );
-      }
-    } catch (error) {
-      console.error('Error waiting for Jenkins builds to finish:', error);
-      // Don't rethrow to make error handling easier for callers, similar to TektonCI
-      console.log('Continuing despite Jenkins job check failures');
+
+        console.log(`Found ${sourceRunningBuilds.length} running builds in source repo (${sourceRepoJobName}) and ${gitopsRunningBuilds.length} running builds in gitops repo (${gitopsRepoJobName}). Total: ${totalRunningBuilds}. Waiting...`);
+        
+        // Wait for the poll interval before checking again
+        await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
     }
+
+    throw new Error(`Timeout waiting for Jenkins pipelines to finish in folder ${folderName} for both source and gitops repositories`);
   }
 
   public override async getWebhookUrl(): Promise<string> {
@@ -500,5 +442,104 @@ export class JenkinsCI extends BaseCI {
       );
       throw new Error(`Failed to get pipeline logs: ${error}`);
     }
+  }
+
+  /**
+   * Trigger a Jenkins pipeline for a specific repository
+   * @param repoName The name of the repository to trigger the pipeline for
+   * @returns 
+   */
+  public async triggerPipeline(
+    repoName: string,
+  ): Promise<Pipeline | null> {
+    if (!this.jenkinsClient) {
+      throw new Error('Jenkins client is not initialized. Please call initialize() first.');
+    }
+
+    try {
+      console.log(`Triggering Jenkins pipeline for job ${repoName}...`);
+      await this.jenkinsClient.build(repoName, this.componentName);
+      const builds = await this.jenkinsClient.getRunningBuilds(
+            repoName,
+            this.componentName
+      );
+      if (builds.length === 0) {
+        console.log(`No builds found for job ${repoName} after triggering.`);
+        return null;
+      }
+      // Get the most recent build
+      const runningBuild = builds[0];
+      const pipeline = this.convertBuildToPipeline(
+        runningBuild,
+        repoName,
+        this.componentName
+      );
+      console.log(`Pipeline triggered successfully for job ${repoName}. Build number: ${pipeline.buildNumber}`);
+      return pipeline;
+
+    } catch (error) {
+      console.error(`Failed to trigger Jenkins pipeline for job ${repoName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Convert a JenkinsBuild to a Pipeline object
+   * This helper method makes it easier to transform a Jenkins build into the standardized Pipeline format
+   *
+   * @param build The Jenkins build to convert
+   * @param repositoryName The name of the repository associated with this build
+   * @param logs Optional build logs
+   * @param sha Optional git commit SHA that triggered this build
+   * @returns A standardized Pipeline object
+   */
+  private convertBuildToPipeline(
+    build: JenkinsBuild,
+    jobName: string,
+    repositoryName: string,
+    logs: string = '',
+    sha?: string
+  ): Pipeline {
+    // Map Jenkins build status to standardized PipelineStatus
+    let status = PipelineStatus.UNKNOWN;
+
+    if (build.building) {
+      status = PipelineStatus.RUNNING;
+    } else if (build.result) {
+      switch (build.result) {
+        case JenkinsBuildResult.SUCCESS:
+          status = PipelineStatus.SUCCESS;
+          break;
+        case JenkinsBuildResult.FAILURE:
+          status = PipelineStatus.FAILURE;
+          break;
+        case JenkinsBuildResult.UNSTABLE:
+          status = PipelineStatus.FAILURE; // Map unstable to failure
+          break;
+        case JenkinsBuildResult.ABORTED:
+          status = PipelineStatus.FAILURE; // Map aborted to failure
+          break;
+        case JenkinsBuildResult.NOT_BUILT:
+          status = PipelineStatus.PENDING;
+          break;
+        default:
+          status = PipelineStatus.UNKNOWN;
+      }
+    }
+
+    // Create a results string from build actions
+    const results = JSON.stringify(build.actions || {});
+
+    // Create and return a Pipeline object
+    return Pipeline.createJenkinsPipeline(
+      jobName,
+      build.number,
+      status,
+      repositoryName,
+      logs,
+      results,
+      build.url,
+      sha
+    );
   }
 }
