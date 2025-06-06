@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-
+import retry from 'async-retry';
 /**
  * Jenkins build result status enum
  */
@@ -78,6 +78,11 @@ interface FolderConfig {
   description?: string;
 }
 
+function parseQueueId(location: string): number {
+  const arr = location.split('/').filter(Boolean);
+  return +arr[arr.length - 1];
+}
+
 export class JenkinsClient {
   private client: AxiosInstance;
 
@@ -93,6 +98,31 @@ export class JenkinsClient {
         Accept: 'application/json',
       },
     });
+  }
+
+  /**
+   * Get information about a job
+   * @param jobPath The path to the job (can include folders, e.g., "folder/job")
+   */
+  public async getJob(jobPath: string): Promise<any> {
+    try {
+      const formattedPath = jobPath
+        .split('/')
+        .map(segment => `job/${encodeURIComponent(segment)}`)
+        .join('/');
+
+      const response = await this.client.get(`${formattedPath}/api/json`, {
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get job:', error);
+      throw error;
+    }
   }
 
   /**
@@ -129,30 +159,7 @@ export class JenkinsClient {
     }
   }
 
-  /**
-   * Get information about a job
-   * @param jobPath The path to the job (can include folders, e.g., "folder/job")
-   */
-  public async getJob(jobPath: string): Promise<any> {
-    try {
-      const formattedPath = jobPath
-        .split('/')
-        .map(segment => `job/${encodeURIComponent(segment)}`)
-        .join('/');
 
-      const response = await this.client.get(`${formattedPath}/api/json`, {
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      return response.data;
-    } catch (error) {
-      console.error('Failed to get job:', error);
-      throw error;
-    }
-  }
 
   /**
    * Create a job in Jenkins using the workflow-job plugin
@@ -175,13 +182,6 @@ export class JenkinsClient {
     try {
       // Determine the path based on whether folderName is provided
       const path = folderName ? `job/${encodeURIComponent(folderName)}/createItem` : 'createItem';
-
-      // // Construct folder-scoped credential ID if requested and folder is provided
-      // let effectiveCredentialId = credentialId;
-      // if (folderName && !credentialId.includes('/')) {
-      //   // Only prepend the folder path if the credential ID doesn't already contain a path
-      //   effectiveCredentialId = `${folderName}/${credentialId}`;
-      // }
 
       const jobConfigXml = `
             <flow-definition plugin="workflow-job@2.40">
@@ -324,7 +324,7 @@ export class JenkinsClient {
     jobName: string,
     folderName?: string,
     parameters?: Record<string, string>
-  ): Promise<any> {
+  ): Promise<number> {
     try {
       // Determine the path based on whether folderName is provided
       const path = folderName
@@ -341,31 +341,15 @@ export class JenkinsClient {
         params: parameters,
       });
 
-      // Check if the response indicates success
-      if (response.status !== 200 && response.status !== 201) {
-        throw new Error(`Failed to trigger job: ${response.statusText}`);
-      }
+      const queueId = parseQueueId(`${response.headers.location}`);
 
-      // Return the response data
-      return {
-        success: true,
-        status: response.status,
-        data: response.data,
-        location: response.headers.location, // Contains the queue item URL
-      };
+      return queueId;
     } catch (error) {
       console.error('Failed to trigger job:', error);
       throw error;
     }
   }
 
-  /**
-   * Get information about a build
-   * @param jobName The name of the job
-   * @param buildNumber The build number
-   * @param folderName Optional folder where the job is located. If not provided, job is assumed to be at root level
-   * @returns JenkinsBuild object with build information
-   */
   /**
    * Get information about a build
    * @param jobName The name of the job
@@ -378,7 +362,6 @@ export class JenkinsClient {
     jobName: string,
     buildNumber: number,
     folderName?: string,
-    includeTriggerInfo: boolean = false
   ): Promise<JenkinsBuild> {
     try {
       // Determine the path based on whether folderName is provided
@@ -386,71 +369,153 @@ export class JenkinsClient {
         ? `job/${encodeURIComponent(folderName)}/job/${encodeURIComponent(jobName)}/${buildNumber}/api/json`
         : `job/${encodeURIComponent(jobName)}/${buildNumber}/api/json`;
 
+      console.log(`Fetching build info for job: ${folderName}/${jobName}, build: ${buildNumber}`);
+
+      // Add query parameter to get more build details
       const response = await this.client.get(path, {
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
         },
+        // Don't throw for 404 so we can handle it gracefully
+        validateStatus: (status) => {
+          return (status >= 200 && status < 300) || status === 404;
+        }
       });
+
+      // Handle 404 specifically - the build doesn't exist
+      if (response.status === 404) {
+        const jobPath = folderName ? `${folderName}/job/${jobName}` : jobName;
+        console.error(`Build #${buildNumber} not found for job: ${jobPath}`);
+        throw new Error(`Build #${buildNumber} not found for job: ${jobPath}`);
+      }
 
       const buildInfo = response.data as JenkinsBuild;
 
-      // Determine trigger type if requested
-      if (includeTriggerInfo) {
-        buildInfo.triggerType = this.determineBuildTrigger(buildInfo);
+      // Extract causes from actions if not directly available
+      if (!buildInfo.causes && buildInfo.actions) {
+        const causesAction = buildInfo.actions.find(action => action.causes);
+        if (causesAction && Array.isArray(causesAction.causes)) {
+          buildInfo.causes = causesAction.causes;
+        }
       }
+
+      // Determine trigger type if requested
+      buildInfo.triggerType = this.determineBuildTrigger(buildInfo);
 
       return buildInfo;
     } catch (error) {
-      console.error('Failed to get build information:', error);
-      throw error;
+      // Log the error but with clearer context
+      const jobPath = folderName ? `${folderName}/job/${jobName}` : jobName;
+      
+      if (axios.isAxiosError(error)) {
+        const axiosError = error;
+        
+        if (axiosError.response?.status === 404) {
+          console.error(`Build #${buildNumber} not found for job: ${jobPath}`);
+          throw new Error(`Build #${buildNumber} not found for job: ${jobPath}`);
+        }
+        
+        if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
+          console.error(`Authentication/Authorization error when accessing build #${buildNumber} for job: ${jobPath}`);
+          throw new Error(`Authentication failed when accessing Jenkins API for build #${buildNumber}`);
+        }
+        
+        console.error(`API request failed for build #${buildNumber} in job ${jobPath}: ${axiosError.message}`, axiosError.response?.data);
+        throw new Error(`Jenkins API request failed: ${axiosError.message}`);
+      }
+      
+      console.error(`Failed to get build information for ${jobPath}#${buildNumber}:`, error);
+      throw new Error(`Failed to get build information: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   /**
-   * Get all currently running builds for a job
+   * Get all currently running builds for a job with retry capability
    * @param jobName The name of the job
    * @param folderName Optional folder where the job is located. If not provided, job is assumed to be at root level
+   * @param maxRetries Maximum number of retries (default: 5)
+   * @param retryDelay Initial delay between retries in ms (default: 2000)
    * @returns Array of running build objects or empty array if none are running
    */
-  public async getRunningBuilds(jobName: string, folderName?: string): Promise<JenkinsBuild[]> {
-    try {
-      // Determine the path based on whether folderName is provided
-      const path = folderName
-        ? `job/${encodeURIComponent(folderName)}/job/${encodeURIComponent(jobName)}/api/json`
-        : `job/${encodeURIComponent(jobName)}/api/json`;
+  public async getRunningBuilds(
+    jobName: string, 
+    folderName?: string,
+    maxRetries: number = 5,
+    retryDelay: number = 2000
+  ): Promise<JenkinsBuild[]> {
+    return retry(async (bail, attempt) => {
+      try {
+        console.log(`Attempt ${attempt}/${maxRetries + 1} to fetch running builds for ${jobName}`);
+        
+        // Determine the path based on whether folderName is provided
+        const path = folderName
+          ? `job/${encodeURIComponent(folderName)}/job/${encodeURIComponent(jobName)}/api/json`
+          : `job/${encodeURIComponent(jobName)}/api/json`;
 
-      // Get job information with build data
-      const response = await this.client.get(path, {
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        params: {
-          tree: 'builds[number,url]', // Request only the build numbers and URLs
-        },
-      });
+        // Get job information with build data
+        const response = await this.client.get(path, {
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          params: {
+            tree: 'builds[number,url]', // Request only the build numbers and URLs
+          },
+        });
 
-      const runningBuilds = [];
+        // if builds = 0, throw error to continue the loop
+        if (!response.data.builds || response.data.builds.length === 0) {
+          console.log(`No builds found for job ${jobName} on attempt ${attempt}`);
+          throw new Error('No builds found yet, retrying...');
+        }
 
-      // If job has builds, check each one to see if it's running
-      if (response.data.builds && response.data.builds.length > 0) {
-        for (const build of response.data.builds) {
-          // Get detailed build information
-          const buildDetails = await this.getBuild(jobName, build.number, folderName, false);
+        const runningBuilds = [];
 
-          // If the build is currently running, add it to our results
-          if (buildDetails.building === true) {
-            runningBuilds.push(buildDetails);
+        // If job has builds, check each one to see if it's running
+        if (response.data.builds && response.data.builds.length > 0) {
+          for (const build of response.data.builds) {
+            // Get detailed build information
+            const buildDetails = await this.getBuild(jobName, build.number, folderName);
+
+            // If the build is currently running, add it to our results
+            if (buildDetails.building === true) {
+              runningBuilds.push(buildDetails);
+            }
           }
         }
-      }
 
-      return runningBuilds;
-    } catch (error) {
-      console.error('Failed to get running builds:', error);
-      throw error;
-    }
+        console.log(`Found ${runningBuilds.length} running builds for ${jobName} on attempt ${attempt}`);
+        
+        // If we have running builds or we're on the last attempt, return the results
+        if (runningBuilds.length > 0 || attempt >= maxRetries + 1) {
+          return runningBuilds;
+        }
+        
+        // If we didn't find running builds and we haven't reached max retries,
+        // throw an error to trigger retry
+        throw new Error('No running builds found yet, retrying...');
+      } catch (error) {
+        // Don't retry on specific errors that indicate the job doesn't exist
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          console.error(`Job ${jobName} not found, aborting retries`);
+          bail(error); // This will stop retrying and propagate the error
+          return [];
+        }
+        
+        console.log(`Retry attempt ${attempt}/${maxRetries + 1} failed: ${error instanceof Error ? error.message : String(error)}`);
+        
+        // For other errors, or if no running builds found yet, allow retry
+        throw error;
+      }
+    }, {
+      retries: maxRetries,
+      minTimeout: retryDelay,
+      factor: 1.5, // Exponential backoff factor
+      onRetry: (error, attempt) => {
+        console.log(`Retrying getRunningBuilds (${attempt}/${maxRetries}) after error: ${error}`);
+      }
+    });
   }
 
   /**
@@ -470,7 +535,7 @@ export class JenkinsClient {
       }
 
       // Return the build information
-      return await this.getBuild(jobName, jobInfo.lastBuild.number, folderName, false);
+      return await this.getBuild(jobName, jobInfo.lastBuild.number, folderName);
     } catch (error) {
       console.error('Failed to get latest build:', error);
       throw error;
@@ -533,7 +598,7 @@ export class JenkinsClient {
 
       // Poll until build is complete or timeout
       while (true) {
-        buildInfo = await this.getBuild(jobName, buildNumber, folderName, false);
+        buildInfo = await this.getBuild(jobName, buildNumber, folderName);
 
         // Check if build has completed
         if (!buildInfo.building) {
@@ -592,7 +657,7 @@ export class JenkinsClient {
       // Check each build for the commit SHA
       for (const buildRef of buildsToCheck) {
         console.log(`Checking build #${buildRef.number}`);
-        const buildInfo = await this.getBuild(jobName, buildRef.number, folderName, false);
+        const buildInfo = await this.getBuild(jobName, buildRef.number, folderName);
         let isMatch = false;
 
         // Check if the build has actions containing SCM information
@@ -725,81 +790,6 @@ export class JenkinsClient {
   }
 
   /**
-   * Convert a JenkinsBuild to a Pipeline object
-   * This helper method makes it easier to transform a Jenkins build into the standardized Pipeline format
-   *
-   * @param build The Jenkins build to convert
-   * @param repositoryName The name of the repository associated with this build
-   * @param logs Optional build logs
-   * @param sha Optional git commit SHA that triggered this build
-   * @returns A standardized Pipeline object
-   */
-  public convertBuildToPipeline(
-    build: JenkinsBuild,
-    jobName: string,
-    repositoryName: string,
-    logs: string = '',
-    sha?: string
-  ) {
-    // Import required types
-    const { Pipeline, PipelineStatus } = require('../../../rhtap/core/integration/ci/pipeline');
-
-    // Map Jenkins build status to standardized PipelineStatus
-    let status = PipelineStatus.UNKNOWN;
-
-    if (build.building) {
-      status = PipelineStatus.RUNNING;
-    } else if (build.result) {
-      switch (build.result) {
-        case JenkinsBuildResult.SUCCESS:
-          status = PipelineStatus.SUCCESS;
-          break;
-        case JenkinsBuildResult.FAILURE:
-          status = PipelineStatus.FAILURE;
-          break;
-        case JenkinsBuildResult.UNSTABLE:
-          status = PipelineStatus.FAILURE; // Map unstable to failure
-          break;
-        case JenkinsBuildResult.ABORTED:
-          status = PipelineStatus.FAILURE; // Map aborted to failure
-          break;
-        case JenkinsBuildResult.NOT_BUILT:
-          status = PipelineStatus.PENDING;
-          break;
-        default:
-          status = PipelineStatus.UNKNOWN;
-      }
-    }
-
-    // Create a results string from build actions
-    const results = JSON.stringify(build.actions || {});
-
-    // Create and return a Pipeline object
-    return Pipeline.createJenkinsPipeline(
-      jobName,
-      build.number,
-      status,
-      repositoryName,
-      logs,
-      results,
-      build.url,
-      sha
-    );
-
-    // Create and return a Pipeline object
-    return Pipeline.createJenkinsPipeline(
-      jobName,
-      build.number,
-      status,
-      repositoryName,
-      logs,
-      results,
-      build.url,
-      sha
-    );
-  }
-
-  /**
    * Determines the trigger type of a Jenkins build
    * @param build The Jenkins build object
    * @returns The identified trigger type
@@ -901,7 +891,7 @@ export class JenkinsClient {
     buildNumber: number,
     folderName?: string
   ): Promise<JenkinsBuildTrigger> {
-    const buildInfo = await this.getBuild(jobName, buildNumber, folderName, true);
+    const buildInfo = await this.getBuild(jobName, buildNumber, folderName);
     return buildInfo.triggerType || JenkinsBuildTrigger.UNKNOWN;
   }
 
@@ -935,5 +925,57 @@ export class JenkinsClient {
   ): Promise<boolean> {
     const triggerType = await this.getBuildTriggerType(jobName, buildNumber, folderName);
     return triggerType === JenkinsBuildTrigger.PUSH;
+  }
+
+
+  // public async getBuilds(
+  //   jobName: string,
+  //   folderName?: string,
+  // ): Promise<JenkinsBuild[]> {
+  //   try {
+  //     const path = folderName
+  //       ? `job/${encodeURIComponent(folderName)}/job/${encodeURIComponent(jobName)}/api/json`
+  //       : `job/${encodeURIComponent(jobName)}/api/json`;
+
+  //     const response = await this.client.get(path, {
+  //       headers: {
+  //         Accept: 'application/json',
+  //         'Content-Type': 'application/json',
+  //       }
+  //     });
+  //     // Return only the latest builds
+  //     return response.data as JenkinsBuild[];
+  //   } catch (error) {
+  //     console.error('Failed to get builds:', error);
+  //     throw error;
+  //   }
+  // }
+  public async getBuildsByQueueId(
+    queueId: number,
+    folderName?: string
+  ): Promise<JenkinsBuild | null> {
+    try {
+      // Determine the path based on whether folderName is provided
+      const path = folderName
+        ? `job/${encodeURIComponent(folderName)}/queue/item/${queueId}/api/json`
+        : `queue/item/${queueId}/api/json`;
+
+      const response = await this.client.get(path, {
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      // If the response is empty or not found, return null
+      if (!response.data || Object.keys(response.data).length === 0) {
+        return null;
+      }
+
+      return response.data as JenkinsBuild;
+    } catch (error) {
+      console.error('Failed to get builds by queue ID:', error);
+      throw error;
+    }
   }
 }

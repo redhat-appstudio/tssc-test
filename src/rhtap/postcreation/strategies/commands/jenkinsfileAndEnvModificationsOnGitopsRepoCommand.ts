@@ -38,12 +38,12 @@ export class JenkinsfileAndEnvModificationsOnGitopsRepoCommand extends BaseComma
         .updateKubernetesAgentConfig()
         .enableRegistryPassword()
         .disableQuayCredentials()
+        .enableTPAVariables()
         .getModifications()
     );
 
     modificationsContainer.merge(
       RhtapEnvModifier.create()
-        .enableACS()
         .updateTUFMirrorURL(this.tas.getTufMirrorURL())
         .updateRokorServerURL(this.tas.getRokorServerURL())
         .updateRoxCentralEndpoint(this.acs.getRoxCentralEndpoint())

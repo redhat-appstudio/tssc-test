@@ -17,7 +17,14 @@
   {
     "git": "gitlab",
     "ci": "gitlabci",
-    "registry": "nexus",
+    "registry": "quay.io",
+    "tpa": "remote",
+    "acs": "remote"
+  },
+  {
+    "git": "github",
+    "ci": "jenkins",
+    "registry": "quay.io",
     "tpa": "remote",
     "acs": "remote"
   }],
