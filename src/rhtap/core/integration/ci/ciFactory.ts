@@ -1,6 +1,7 @@
 import { loadFromEnv } from '../../../../utils/util';
 import { KubeClient } from './../../../../../src/api/ocp/kubeClient';
 import { CI, CIType } from './ciInterface';
+import { AzureCI } from './providers/azureCI';
 import { GitHubActionsCI } from './providers/githubActionsCI';
 import { GitLabCI } from './providers/gitlabCI';
 import { JenkinsCI } from './providers/jenkinsCI';
@@ -43,6 +44,12 @@ export class CIFactory {
     return jenkinsCI;
   }
 
+  private async createAzureCI(componentName: string, kubeClient: KubeClient): Promise<CI> {
+    const azureCI = new AzureCI(componentName, kubeClient);
+    await azureCI.initialize();
+    return azureCI;
+  }
+
   public async createCI(type: CIType, componentName: string, kubeClient: KubeClient): Promise<CI> {
     try {
       switch (type) {
@@ -65,6 +72,8 @@ export class CIFactory {
         case CIType.JENKINS:
           return await this.createJenkinsCI(componentName, kubeClient);
 
+        case CIType.AZURE:
+          return await this.createAzureCI(componentName, kubeClient);
         default:
           throw new Error(`Unsupported CI type: ${type}`);
       }

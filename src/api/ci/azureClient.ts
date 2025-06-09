@@ -126,13 +126,13 @@ export class AzureClient {
   constructor(config: AzurePipelinesClientConfig) {
     this.host = config.host;
     this.organization = config.organization;
-    this.project = config.project;
-    this.apiVersion = config.apiVersion || '7.0';
+    //TODO Add env var
+    this.project = 'shared-public';
+    this.apiVersion = config.apiVersion || 'api-version=7.1-preview.2';
 
     const base64Pat = Buffer.from(`:${config.pat}`).toString('base64');
-
     this.client = axios.create({
-      baseURL: `${this.host}/${this.organization}/${this.project}/_apis`,
+      baseURL: `https://${this.host}/${this.organization}/${this.project}/_apis`,
       headers: {
         Authorization: `Basic ${base64Pat}`,
         'Content-Type': 'application/json',
@@ -158,8 +158,9 @@ export class AzureClient {
     );
   }
 
-  private getApiVersion(param: string = 'api-version'): string {
-    return `${param}=${this.apiVersion}`;
+  private getApiVersion(versionOverride?: string): string {
+    const version = versionOverride || this.apiVersion;
+    return `api-version=${version}`;
   }
 
   public async getPipelineDefinition(pipelineId: string): Promise<AzurePipelineDefinition> {
@@ -234,6 +235,11 @@ export class AzureClient {
     options: ListPipelineRunsOptions = {}
   ): Promise<AzurePipelineRun[]> {
     try {
+      const numericPipelineId =
+        typeof pipelineId === 'string' && isNaN(Number(pipelineId))
+          ? (await this.getPipelineDefinition(pipelineId)).id
+          : Number(pipelineId);
+
       const paramMappings: Array<{
         optionKey: keyof ListPipelineRunsOptions;
         apiKey: string;
@@ -267,7 +273,7 @@ export class AzureClient {
         }
       }
 
-      const response = await this.client.get(`pipelines/${pipelineId}/runs`, { params });
+      const response = await this.client.get(`pipelines/${numericPipelineId}/runs`, { params });
       return (response.data.value || []) as AzurePipelineRun[];
     } catch (error) {
       console.error(`Failed to list runs for pipeline ID ${pipelineId}:`, error);
@@ -292,5 +298,62 @@ export class AzureClient {
     }
     const runs = await this.listPipelineRuns(pipelineId, options);
     return runs.length > 0 ? runs[0] : null;
+  }
+
+  public async createPipelineDefinition(
+    pipelineName: string,
+    repositoryId: string,
+    repositoryType: string,
+    yamlFilePath: string,
+    folderPath?: string
+  ): Promise<AzurePipelineDefinition> {
+    try {
+      const payload = {
+        name: pipelineName,
+        folder: folderPath || '\\',
+        configuration: {
+          type: 'yaml',
+          path: yamlFilePath,
+          repository: {
+            id: repositoryId,
+            name: repositoryId,
+            type: repositoryType,
+          },
+        },
+      };
+
+      const response = await this.client.post(`pipelines?${this.apiVersion}`, payload);
+      return response.data as AzurePipelineDefinition;
+    } catch (error) {
+      console.error(`Failed to create pipeline definition '${pipelineName}':`, error);
+      throw error;
+    }
+  }
+
+  public async createVariableGroup(
+    groupName: string,
+    description: string,
+    variables: { [key: string]: { value: string; isSecret: boolean } }
+  ): Promise<void> {
+    try {
+      const payload = {
+        name: groupName,
+        description: description,
+        type: 'Vsts',
+        variables: variables,
+        variableGroupProjectReferences: [
+          { projectReference: { id: this.project, name: this.project }, name: groupName },
+        ],
+      };
+      const response = await this.client.post(
+        `distributedtask/variablegroups?${this.apiVersion}`,
+        payload
+      );
+      //TODO check response
+      console.log(`AzureCI group creation response: ${response.data}`);
+    } catch (error) {
+      console.error(`Failed to create variable group '${groupName}':`, error);
+      throw error;
+    }
   }
 }

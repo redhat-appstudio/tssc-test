@@ -10,9 +10,12 @@ import { KubeClient } from '../../../../../api/ocp/kubeClient';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
 import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
-import { AzureClient } from '../../../../../api/ci/azureClient';
-import { Pipeline } from '../pipeline';
 import retry from 'async-retry';
+
+export interface Variable {
+  key: string;
+  value: string;
+}
 
 export class AzureCI extends BaseCI {
   private azureClient!: AzureClient;
@@ -33,11 +36,11 @@ export class AzureCI extends BaseCI {
     return secret;
   }
 
-  public getbaseUrl(): string {
-    if (!this.secret.baseUrl) {
-      throw new Error('Azure base URL not found in the secret. Please ensure the secret exists.');
+  public getHost(): string {
+    if (!this.secret.host) {
+      throw new Error('Azure host not found in the secret. Please ensure the secret exists.');
     }
-    return this.secret.baseUrl;
+    return this.secret.host;
   }
 
   public getOrganization(): string {
@@ -46,7 +49,7 @@ export class AzureCI extends BaseCI {
         'Azure organization not found in the secret. Please ensure the secret exists.'
       );
     }
-    return this.secret.username;
+    return this.secret.organization;
   }
 
   public getToken(): string {
@@ -60,7 +63,7 @@ export class AzureCI extends BaseCI {
     try {
       await this.loadSecret();
       this.azureClient = new AzureClient({
-        host: this.getbaseUrl(),
+        host: this.getHost(),
         organization: this.getOrganization(),
         project: this.componentName,
         pat: this.getToken(),
@@ -78,6 +81,7 @@ export class AzureCI extends BaseCI {
    */
   public async initialize(): Promise<void> {
     try {
+      await this.loadSecret();
       await this.initAzureClient();
       console.log('Azure client initialized successfully');
     } catch (error) {
@@ -206,19 +210,23 @@ export class AzureCI extends BaseCI {
     // }
   }
 
-  protected async checkPipelineStatus(pipeline: Pipeline): Promise<PipelineStatus> {    
+  protected async checkPipelineStatus(pipeline: Pipeline): Promise<PipelineStatus> {
     const pipelineRun = await this.azureClient.getPipelineRun(pipeline.id, pipeline.name!);
 
     return this.mapAzureStatusToPipelineStatus(pipelineRun);
   }
   public async waitForAllPipelinesToFinish(): Promise<void> {
-
-    await retry(async () => {
+    await retry(
+      async () => {
         const pipelineRuns = await this.azureClient.listPipelineRuns(this.componentName);
 
-        if(pipelineRuns.filter(pipelineRun => 
-          this.mapAzureStatusToPipelineStatus(pipelineRun) == PipelineStatus.PENDING 
-          || this.mapAzureStatusToPipelineStatus(pipelineRun) == PipelineStatus.RUNNING).length === 0) {
+        if (
+          pipelineRuns.filter(
+            pipelineRun =>
+              this.mapAzureStatusToPipelineStatus(pipelineRun) == PipelineStatus.PENDING ||
+              this.mapAzureStatusToPipelineStatus(pipelineRun) == PipelineStatus.RUNNING
+          ).length === 0
+        ) {
           return;
         }
       },
@@ -227,7 +235,7 @@ export class AzureCI extends BaseCI {
         minTimeout: 10000,
         maxTimeout: 30000,
       }
-    )
+    );
   }
 
   public getWebhookUrl(): Promise<string> {
@@ -237,5 +245,53 @@ export class AzureCI extends BaseCI {
   public async getIntegrationSecret(): Promise<Record<string, string>> {
     await this.loadSecret();
     return this.secret;
+  }
+
+  public async createPipeline(
+    pipelineName: string,
+    repoId: string,
+    repoType: string,
+    yamlPath: string
+  ): Promise<unknown> {
+    try {
+      const azureRepoType = repoType.toLowerCase() === 'github' ? 'gitHub' : repoType;
+
+      const pipelineDefinition = await this.azureClient.createPipelineDefinition(
+        pipelineName,
+        repoId,
+        azureRepoType,
+        yamlPath
+      );
+
+      return pipelineDefinition;
+    } catch (error) {
+      console.error(`Failed to create Azure pipeline '${pipelineName}':`, error);
+      throw error;
+    }
+  }
+
+  public async createVariableGroup(
+    groupName: string,
+    variables: Variable[],
+    description?: string
+  ): Promise<void> {
+    const azureVariables: { [key: string]: { value: string; isSecret: boolean } } = {};
+    for (const variable of variables) {
+      azureVariables[variable.key] = {
+        value: variable.value,
+        isSecret: true,
+      };
+    }
+
+    try {
+      await this.azureClient.createVariableGroup(
+        groupName,
+        description || `Variable group for ${groupName}`,
+        azureVariables
+      );
+    } catch (error) {
+      console.error(`Failed to create or update variable group '${groupName}':`, error);
+      throw error;
+    }
   }
 }

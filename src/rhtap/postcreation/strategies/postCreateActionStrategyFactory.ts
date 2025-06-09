@@ -1,4 +1,5 @@
 import { CIType } from '../../core/integration/ci';
+import { AzureCIPostCreateActionStrategy } from './azureCIPostCreateActionStrategy';
 import { GithubActionsPostCreateActionStrategy } from './githubActionsPostCreateActionStrategy';
 import { GitlabCIPostCreateActionStrategy } from './gitlabCIPostCreateActionStrategy';
 import { JenkinsPostCreateActionStrategy } from './jenkinsPostCreateActionStrategy';
@@ -33,6 +34,8 @@ export class PostCreateActionStrategyFactory {
       case CIType.GITLABCI:
         // GitLab CI requires configuring a webhook in the repository
         return new GitlabCIPostCreateActionStrategy();
+      case CIType.AZURE:
+        return new AzureCIPostCreateActionStrategy();
       default:
         throw new Error(`No post-create action strategy available for CI type: ${ciType}`);
     }
