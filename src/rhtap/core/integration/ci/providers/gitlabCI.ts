@@ -198,7 +198,7 @@ export class GitLabCI extends BaseCI {
     }
   }
 
-  public override async waitForAllPipelinesToFinish(): Promise<void> {
+  public override async waitForAllPipelineRunsToFinish(): Promise<void> {
     try {
       console.log(
         `Waiting for all GitLab CI pipelines for component ${this.componentName} to finish...`

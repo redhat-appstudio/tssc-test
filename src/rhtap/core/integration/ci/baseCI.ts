@@ -116,7 +116,7 @@ export abstract class BaseCI implements CI {
    */
   protected abstract checkPipelineStatus(pipeline: Pipeline): Promise<PipelineStatus>;
 
-  public abstract waitForAllPipelinesToFinish(): Promise<void>;
+  public abstract waitForAllPipelineRunsToFinish(): Promise<void>;
 
   public abstract getWebhookUrl(): Promise<string>;
 

@@ -288,7 +288,7 @@ export class TektonCI extends BaseCI {
    * @returns Promise<void> Resolves when all pipelines have reached a terminal state
    * @throws Error if unable to check pipeline status after maximum retries
    */
-  public override async waitForAllPipelinesToFinish(): Promise<void> {
+  public override async waitForAllPipelineRunsToFinish(): Promise<void> {
     console.log(`Waiting for all PipelineRuns to finish for component: ${this.componentName}`);
     const sourceRepoName = this.componentName;
 

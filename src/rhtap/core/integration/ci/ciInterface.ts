@@ -25,7 +25,7 @@ export enum EventType {
 
 export interface CI extends IntegrationSecret {
   //TODO: it should wait for all pipeines to finish triggered from both source and gitops repos
-  waitForAllPipelinesToFinish(): Promise<void>;
+  waitForAllPipelineRunsToFinish(): Promise<void>;
   getCIType(): CIType;
 
   /**

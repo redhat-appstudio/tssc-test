@@ -372,7 +372,7 @@ export class GitHubActionsCI extends BaseCI {
     }
   }
 
-  public override async waitForAllPipelinesToFinish(
+  public override async waitForAllPipelineRunsToFinish(
     timeoutMs = 5 * 60 * 1000,
     pollIntervalMs = 5000
   ): Promise<void> {

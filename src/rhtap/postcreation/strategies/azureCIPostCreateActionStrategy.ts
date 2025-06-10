@@ -1,6 +1,7 @@
 import { Component } from '../../core/component';
 import { AddAzureSecrets } from './commands/addAzureSecrets';
 import { CreateAzurePipelines } from './commands/createAzurePipelines';
+import { ModifyAzureFiles } from './commands/modifyAzureFiles';
 import { PostCreateActionStrategy } from './postCreateActionStrategy';
 
 /**
@@ -16,17 +17,16 @@ export class AzureCIPostCreateActionStrategy implements PostCreateActionStrategy
    */
   public async execute(component: Component): Promise<void> {
     const folderName = component.getName();
-    console.log(`Executing Jenkins post-creation actions for component: ${folderName}`);
+    console.log(`Executing Azure post-creation actions for component: ${folderName}`);
 
     try {
       // Create command instances
       const commands = [
         new AddAzureSecrets(component),
-        // new ModifyAzureFiles(component),
+        new ModifyAzureFiles(component),
         new CreateAzurePipelines(component),
       ];
 
-      // Execute commands sequentially
       for (const command of commands) {
         await command.execute();
       }

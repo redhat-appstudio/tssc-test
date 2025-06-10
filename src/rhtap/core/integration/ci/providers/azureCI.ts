@@ -1,3 +1,4 @@
+import { P } from 'pino';
 import {
   AzureClient,
   AzurePipelineDefinition,
@@ -215,10 +216,15 @@ export class AzureCI extends BaseCI {
 
     return this.mapAzureStatusToPipelineStatus(pipelineRun);
   }
-  public async waitForAllPipelinesToFinish(): Promise<void> {
+  public async waitForAllPipelineRunsToFinish(): Promise<void> {
     await retry(
       async () => {
-        const pipelineRuns = await this.azureClient.listPipelineRuns(this.componentName);
+        console.log(`Waiting for all pipelines to finish for component: ${this.componentName}`);
+        const pipelineId = await this.azureClient.getPipelineIdByName(this.componentName);
+        if (!pipelineId) {
+          return;
+        }
+        const pipelineRuns = await this.azureClient.listPipelineRuns(pipelineId);
 
         if (
           pipelineRuns.filter(

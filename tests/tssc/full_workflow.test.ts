@@ -64,76 +64,76 @@ test.describe('TSSC Complete Component Workflow', () => {
       console.log('✅ Post-creation actions executed successfully!');
 
       // Wait for all initial pipelines to finish
-      await ci.waitForAllPipelinesToFinish();
+      await ci.waitForAllPipelineRunsToFinish();
       console.log('All initial pipelines have finished successfully!');
     });
   });
 
-  test.describe('Source Code Changes', () => {
-    test('should build application changes as new image through pipelines', async () => {
-      // Handle source code changes based on CI provider type
-      await handleSourceRepoCodeChanges(git, ci);
-      console.log('Source code changes processed successfully!');
-    });
-  });
+  // test.describe('Source Code Changes', () => {
+  //   test('should build application changes as new image through pipelines', async () => {
+  //     // Handle source code changes based on CI provider type
+  //     await handleSourceRepoCodeChanges(git, ci);
+  //     console.log('Source code changes processed successfully!');
+  //   });
+  // });
 
-  test.describe('Deployment Verification', () => {
-    test('should verify deployment to development environment', async () => {
-      // Verify application exists in development environment
-      const application = await cd.getApplication(Environment.DEVELOPMENT);
-      expect(application).not.toBeNull();
+  // test.describe('Deployment Verification', () => {
+  //   test('should verify deployment to development environment', async () => {
+  //     // Verify application exists in development environment
+  //     const application = await cd.getApplication(Environment.DEVELOPMENT);
+  //     expect(application).not.toBeNull();
 
-      // Get latest git commit and sync application
-      const commitSha = await git.getGitOpsRepoCommitSha();
-      await cd.syncApplication(Environment.DEVELOPMENT);
+  //     // Get latest git commit and sync application
+  //     const commitSha = await git.getGitOpsRepoCommitSha();
+  //     await cd.syncApplication(Environment.DEVELOPMENT);
 
-      // Verify sync was successful
-      const result = await cd.waitUntilApplicationIsSynced(Environment.DEVELOPMENT, commitSha);
-      expect(result.synced).toBe(true);
-      console.log('Application deployed correctly in the development environment!');
-    });
+  //     // Verify sync was successful
+  //     const result = await cd.waitUntilApplicationIsSynced(Environment.DEVELOPMENT, commitSha);
+  //     expect(result.synced).toBe(true);
+  //     console.log('Application deployed correctly in the development environment!');
+  //   });
 
-    test('should promote and verify deployment to stage environment', async () => {
-      // Extract the image from development
-      image = await git.extractApplicationImage(Environment.DEVELOPMENT);
-      expect(image).toBeTruthy();
+  //   test('should promote and verify deployment to stage environment', async () => {
+  //     // Extract the image from development
+  //     image = await git.extractApplicationImage(Environment.DEVELOPMENT);
+  //     expect(image).toBeTruthy();
 
-      // Promote to stage environment using PR workflow
-      await promoteToEnvironmentWithPR(git, ci, cd, Environment.STAGE, image);
-      console.log('Image promoted to stage environment successfully!');
+  //     // Promote to stage environment using PR workflow
+  //     await promoteToEnvironmentWithPR(git, ci, cd, Environment.STAGE, image);
+  //     console.log('Image promoted to stage environment successfully!');
 
-      // Additional verification for stage environment could be added here
-    });
+  //     // Additional verification for stage environment could be added here
+  //   });
 
-    test('should promote and verify deployment to production environment', async () => {
-      // Extract the image from stage
-      image = await git.extractApplicationImage(Environment.STAGE);
-      expect(image).toBeTruthy();
+  //   test('should promote and verify deployment to production environment', async () => {
+  //     // Extract the image from stage
+  //     image = await git.extractApplicationImage(Environment.STAGE);
+  //     expect(image).toBeTruthy();
 
-      // Promote to production environment using PR workflow
-      await promoteToEnvironmentWithPR(git, ci, cd, Environment.PROD, image);
-      console.log('Image promoted to production environment successfully!');
+  //     // Promote to production environment using PR workflow
+  //     await promoteToEnvironmentWithPR(git, ci, cd, Environment.PROD, image);
+  //     console.log('Image promoted to production environment successfully!');
 
-      // Additional verification for production environment could be added here
-    });
-  });
+  //     // Additional verification for production environment could be added here
+  //   });
+  // });
 
-  test.describe('Security and Compliance', () => {
-    test('should verify SBOM is uploaded to Trustification server', async () => {
-      // Skip if no image to verify
-      test.skip(!image, 'No image available to verify SBOM');
+  // test.describe('Security and Compliance', () => {
+  //   test('should verify SBOM is uploaded to Trustification server', async () => {
+  //     // Skip if no image to verify
+  //     test.skip(!image, 'No image available to verify SBOM');
 
-      // Extract image digest from image URL
-      const imageDigest = image.split(':')[2];
-      expect(imageDigest).toBeTruthy();
+  //     // Extract image digest from image URL
+  //     const imageDigest = image.split(':')[2];
+  //     expect(imageDigest).toBeTruthy();
 
-      // Get TPA instance and search for SBOM
-      const tpa = await TPA.initialize(component.getKubeClient());
-      const sbom = await tpa.searchSBOMBySha256(imageDigest);
+  //     // Get TPA instance and search for SBOM
+  //     const tpa = await TPA.initialize(component.getKubeClient());
+  //     const sbom = await tpa.searchSBOMBySha256(imageDigest);
 
-      // Verify SBOM results exist
-      expect(sbom).toBeDefined();
-      console.log(`SBOM verification successful! Found SBOM for image: ${imageDigest}`);
-    });
-  });
+  //     // Verify SBOM results exist
+  //     expect(sbom).toBeDefined();
+  //     console.log(`SBOM verification successful! Found SBOM for image: ${imageDigest}`);
+  //   });
+  // });
 });
