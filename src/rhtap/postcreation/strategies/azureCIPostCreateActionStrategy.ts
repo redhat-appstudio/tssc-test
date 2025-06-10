@@ -1,5 +1,6 @@
 import { Component } from '../../core/component';
 import { AddAzureSecrets } from './commands/addAzureSecrets';
+import { AuthorizeAzurePipeline } from './commands/authorizeAzurePipeline';
 import { CreateAzurePipelines } from './commands/createAzurePipelines';
 import { ModifyAzureFiles } from './commands/modifyAzureFiles';
 import { PostCreateActionStrategy } from './postCreateActionStrategy';
@@ -25,6 +26,7 @@ export class AzureCIPostCreateActionStrategy implements PostCreateActionStrategy
         new AddAzureSecrets(component),
         new ModifyAzureFiles(component),
         new CreateAzurePipelines(component),
+        new AuthorizeAzurePipeline(component),
       ];
 
       for (const command of commands) {

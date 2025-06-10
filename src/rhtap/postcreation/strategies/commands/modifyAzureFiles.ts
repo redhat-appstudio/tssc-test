@@ -18,10 +18,10 @@ export class ModifyAzureFiles extends BaseCommand {
   public async execute(): Promise<void> {
     this.logStart('Modifying Azure pipeline file');
 
-    await Promise.all([this.setAgentPool()]);
+    await Promise.all([this.setVars()]);
   }
 
-  private async setAgentPool(): any {
+  private async setVars(): Promise<void> {
     const modifications: ContentModifications = {
       'azure-pipelines.yml': [
         {
@@ -41,8 +41,5 @@ export class ModifyAzureFiles extends BaseCommand {
       COMMIT_MESSAGE,
       'main'
     );
-  }
-  setSecretGroup(): any {
-    throw new Error('Method not implemented.');
   }
 }

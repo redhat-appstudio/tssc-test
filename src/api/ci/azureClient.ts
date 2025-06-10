@@ -117,6 +117,28 @@ export interface ListPipelineRunsOptions {
   tags?: string;
 }
 
+export interface AgentPool {
+  id: number;
+  name: string;
+  poolType: 'automation' | 'deployment';
+  isHosted: boolean;
+}
+
+export interface AgentQueue {
+  id: number;
+  name: string;
+  pool: {
+    id: number;
+    name: string;
+    isHosted: boolean;
+  };
+}
+
+export interface VariableGroup {
+  id: number;
+  name: string;
+}
+
 export class AzureClient {
   private client: AxiosInstance;
   private host: string;
@@ -129,7 +151,7 @@ export class AzureClient {
     this.organization = config.organization;
     //TODO Add env var
     this.project = 'shared-public';
-    this.apiVersion = config.apiVersion || '7.1';
+    this.apiVersion = config.apiVersion || '7.1-preview.1';
 
     const base64Pat = Buffer.from(`:${config.pat}`).toString('base64');
     this.client = axios.create({
@@ -381,6 +403,86 @@ export class AzureClient {
       console.log(`AzureCI group creation response: ${response.data}`);
     } catch (error) {
       console.error(`Failed to create variable group '${groupName}':`, error);
+      throw error;
+    }
+  }
+
+  public async getAgentQueueByName(queueName: string): Promise<AgentQueue | null> {
+    try {
+      const response = await this.client.get(
+        `/distributedtask/queues`,
+        // eslint-disable-next-line prettier/prettier
+        { params: { queueNames: queueName, 'api-version': '7.1-preview.1' } }
+      );
+      if (response.data.count > 0) {
+        return response.data.value[0] as AgentQueue;
+      }
+      return null;
+    } catch (error) {
+      console.error(`Failed to get agent queue by name '${queueName}':`, error);
+      throw error;
+    }
+  }
+
+  public async getVariableGroupByName(groupName: string): Promise<VariableGroup | null> {
+    try {
+      const response = await this.client.get(
+        `/distributedtask/variablegroups`,
+        // eslint-disable-next-line prettier/prettier
+        { params: { groupName: groupName, 'api-version': '7.1-preview.2' } }
+      );
+      if (response.data.count > 0) {
+        return response.data.value[0] as VariableGroup;
+      }
+      return null;
+    } catch (error) {
+      console.error(`Failed to get variable group by name '${groupName}':`, error);
+      throw error;
+    }
+  }
+
+  public async authorizePipelineForAgentPool(pipelineId: number, poolId: number): Promise<void> {
+    try {
+      const payload = {
+        pipelines: [{ id: pipelineId, authorized: true }],
+        resource: {
+          id: poolId.toString(),
+          type: 'queue',
+        },
+      };
+      const response = await this.client.patch(
+        `/pipelines/pipelinePermissions/queue/${poolId}?${this.getApiVersionParam()}`,
+        payload
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to authorize pipeline ${pipelineId} for agent pool ${poolId}:`, error);
+      throw error;
+    }
+  }
+
+  public async authorizePipelineForVariableGroup(
+    pipelineId: number,
+    groupId: number
+  ): Promise<void> {
+    try {
+      const payload = {
+        pipelines: [{ id: pipelineId, authorized: true }],
+        resource: {
+          id: groupId.toString(),
+          type: 'variablegroup',
+        },
+      };
+      const response = await this.client.patch(
+        `/pipelines/pipelinePermissions/variablegroup/${groupId}?${this.getApiVersionParam()}`,
+        payload
+      );
+      return response.data;
+    } catch (error) {
+      console.error(
+        `Failed to authorize pipeline ${pipelineId} for variable group ${groupId}:`,
+        error
+      );
       throw error;
     }
   }

@@ -1,4 +1,3 @@
-import { P } from 'pino';
 import {
   AzureClient,
   AzurePipelineDefinition,
@@ -8,11 +7,13 @@ import {
   AzurePipelineTriggerReason,
 } from '../../../../../api/ci/azureClient';
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
+import { Component } from '../../../component';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
 import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
 import retry from 'async-retry';
 
+const AGENT_QUEUE = 'rhtap-testing';
 export interface Variable {
   key: string;
   value: string;
@@ -299,5 +300,17 @@ export class AzureCI extends BaseCI {
       console.error(`Failed to create or update variable group '${groupName}':`, error);
       throw error;
     }
+  }
+
+  public async authorizePipelineForAgentPool(component: Component): Promise<unknown> {
+    const pipelineId = await this.azureClient.getPipelineIdByName(component.getName());
+    const agentQueueId = await this.azureClient.getAgentQueueByName(AGENT_QUEUE);
+    return await this.azureClient.authorizePipelineForAgentPool(pipelineId!, agentQueueId!.id);
+  }
+
+  public async authorizePipelineForVariableGroup(component: Component): Promise<unknown> {
+    const pipelineId = await this.azureClient.getPipelineIdByName(component.getName());
+    const variableGroup = await this.azureClient.getVariableGroupByName(component.getName());
+    return await this.azureClient.authorizePipelineForVariableGroup(pipelineId!, variableGroup!.id);
   }
 }
