@@ -20,6 +20,7 @@ export class AddGitlabProjectVariablesCommand extends BaseCommand {
       this.addTufMirrorURLVariables(),
       this.addCosignSecretVariables(),
       this.addImageRegistryAuthVariables(),
+      this.addTpaVariables(),
     ]);
 
     this.logComplete('Environment variables addition');
@@ -72,7 +73,7 @@ export class AddGitlabProjectVariablesCommand extends BaseCommand {
     ]);
   }
 
-  public async addCosignSecretVariables(): Promise<void> {
+  private async addCosignSecretVariables(): Promise<void> {
     const gitlab = this.git as unknown as GitlabProvider;
     const cosignPublicKey = await this.credentialService.getCosignPublicKey();
 
@@ -89,7 +90,7 @@ export class AddGitlabProjectVariablesCommand extends BaseCommand {
     });
   }
 
-  public async addImageRegistryAuthVariables(): Promise<void> {
+  private async addImageRegistryAuthVariables(): Promise<void> {
     const gitlab = this.git as unknown as GitlabProvider;
     const user = this.component.getRegistry().getImageRegistryUser();
     const password = this.component.getRegistry().getImageRegistryPassword();
@@ -104,6 +105,18 @@ export class AddGitlabProjectVariablesCommand extends BaseCommand {
     await gitlab.setProjectVariableOnGitOpsRepo({
       IMAGE_REGISTRY_USER: user,
       IMAGE_REGISTRY_PASSWORD: password,
+    });
+  }
+
+  private async addTpaVariables(): Promise<void> {
+    const gitlab = this.git as unknown as GitlabProvider;
+
+    await gitlab.setProjectVariableOnGitOpsRepo({
+      TRUSTIFICATION_BOMBASTIC_API_URL: this.tpa.getBombastic_api_url(),
+      TRUSTIFICATION_OIDC_ISSUER_URL: this.tpa.getOidc_issuer_url(),
+      TRUSTIFICATION_OIDC_CLIENT_ID: this.tpa.getOidc_client_id(),
+      TRUSTIFICATION_OIDC_CLIENT_SECRET: this.tpa.getOidc_client_secret(),
+      TRUSTIFICATION_SUPPORTED_CYCLONEDX_VERSION: this.tpa.getSupported_cyclonedx_version(),
     });
   }
 }
