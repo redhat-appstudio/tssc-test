@@ -17,6 +17,7 @@ const AGENT_QUEUE = 'rhtap-testing';
 export interface Variable {
   key: string;
   value: string;
+  isSecret: boolean;
 }
 
 export class AzureCI extends BaseCI {
@@ -154,11 +155,10 @@ export class AzureCI extends BaseCI {
         return null;
       }
 
-      console.log(`Got pipeline with id: ${pipelineDef.id}`);
+      console.log(`Retrieving pipelinerun with id: ${pipelineDef.id}`);
 
       let runs: AzurePipelineRun[] = [];
       if (pullRequest.head?.sha) {
-
         runs = await this.azureClient.listPipelineRuns(pipelineDef.id, {
           sourceVersion: pullRequest.head.sha,
           queryOrder: 'finishTimeDescending',
@@ -293,7 +293,7 @@ export class AzureCI extends BaseCI {
     for (const variable of variables) {
       azureVariables[variable.key] = {
         value: variable.value,
-        isSecret: true,
+        isSecret: variable.isSecret,
       };
     }
 

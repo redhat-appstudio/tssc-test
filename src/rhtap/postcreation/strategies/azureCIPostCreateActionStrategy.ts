@@ -1,5 +1,5 @@
 import { Component } from '../../core/component';
-import { AddAzureSecrets } from './commands/addAzureSecrets';
+import { AddAzureVarsAndSecrets } from './commands/addAzureSecrets';
 import { AuthorizeAzurePipeline } from './commands/authorizeAzurePipeline';
 import { CreateAzurePipelines } from './commands/createAzurePipelines';
 import { ModifyAzureFiles } from './commands/modifyAzureFiles';
@@ -23,7 +23,7 @@ export class AzureCIPostCreateActionStrategy implements PostCreateActionStrategy
     try {
       // Create command instances
       const commands = [
-        new AddAzureSecrets(component),
+        new AddAzureVarsAndSecrets(component),
         new ModifyAzureFiles(component),
         new CreateAzurePipelines(component),
         new AuthorizeAzurePipeline(component),
