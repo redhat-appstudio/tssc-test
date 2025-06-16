@@ -345,7 +345,7 @@ export class GitHubActionsCI extends BaseCI {
     );
   }
 
-  protected override async checkPipelineStatus(pipeline: Pipeline): Promise<PipelineStatus> {
+  protected override async checkPipelinerunStatus(pipeline: Pipeline): Promise<PipelineStatus> {
     try {
       // For checking pipeline status, we need to fetch the workflow run details by repo owner and commit sha
       if (!pipeline.id || !pipeline.repositoryName) {

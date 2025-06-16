@@ -313,7 +313,7 @@ export class JenkinsCI extends BaseCI {
    * Check the status of a Jenkins pipeline
    * Uses retry logic for resilience against transient network issues
    */
-  protected override async checkPipelineStatus(pipeline: Pipeline): Promise<PipelineStatus> {
+  protected override async checkPipelinerunStatus(pipeline: Pipeline): Promise<PipelineStatus> {
     if (!pipeline.jobName || pipeline.buildNumber === undefined) {
       throw new Error('Job name and build number are required for Jenkins pipelines');
     }

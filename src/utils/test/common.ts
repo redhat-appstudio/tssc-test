@@ -3,6 +3,7 @@ import { ArgoCD, Environment } from '../../rhtap/core/integration/cd/argocd';
 import { CI, CIType, PipelineStatus } from '../../rhtap/core/integration/ci';
 import { EventType } from '../../rhtap/core/integration/ci';
 import { Git, PullRequest } from '../../rhtap/core/integration/git';
+import { sleep } from '../util';
 import { expectPipelineSuccess } from './assertionHelpers';
 import { expect } from '@playwright/test';
 
@@ -172,8 +173,8 @@ export async function handleSourceRepoCodeChanges(git: Git, ci: CI): Promise<voi
   const ciType = ci.getCIType();
   const gitType = git.getGitType();
 
-  if (ciType === CIType.GITHUB_ACTIONS) {
-    console.log(`Using GitHub Actions for ${gitType} repository`);
+  if (ciType === CIType.GITHUB_ACTIONS || ciType === CIType.AZURE) {
+    console.log(`Using ${ciType} for ${gitType} repository`);
     // For GitHub Actions, we create a direct commit to the main branch
     return fastMovingToBuildApplicationImage(git, ci);
   } else {
@@ -211,7 +212,7 @@ export async function fastMovingToBuildApplicationImage(git: Git, ci: CI): Promi
   // Step 1: Create a direct commit to the main branch
   const commitSha = await git.createSampleCommitOnSourceRepo();
   console.log(`Created commit with SHA: ${commitSha}`);
-
+  await sleep(10000);
   // Create a pull request object for pipeline reference only
   // Note: This is not an actual PR, just a reference object with the commit SHA
   const commitRef = new PullRequest(0, commitSha, git.getSourceRepoName());

@@ -154,8 +154,11 @@ export class AzureCI extends BaseCI {
         return null;
       }
 
+      console.log(`Got pipeline with id: ${pipelineDef.id}`);
+
       let runs: AzurePipelineRun[] = [];
       if (pullRequest.head?.sha) {
+
         runs = await this.azureClient.listPipelineRuns(pipelineDef.id, {
           sourceVersion: pullRequest.head.sha,
           queryOrder: 'finishTimeDescending',
@@ -212,8 +215,12 @@ export class AzureCI extends BaseCI {
     // }
   }
 
-  protected async checkPipelineStatus(pipeline: Pipeline): Promise<PipelineStatus> {
-    const pipelineRun = await this.azureClient.getPipelineRun(pipeline.id, pipeline.name!);
+  protected async checkPipelinerunStatus(pipeline: Pipeline): Promise<PipelineStatus> {
+    const [pipelineId, pipelineRunId] = pipeline.id.split(`-`);
+    const pipelineRun = await this.azureClient.getPipelineRun(
+      Number(pipelineId),
+      Number(pipelineRunId)
+    );
 
     return this.mapAzureStatusToPipelineStatus(pipelineRun);
   }

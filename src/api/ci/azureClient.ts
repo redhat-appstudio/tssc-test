@@ -162,6 +162,19 @@ export class AzureClient {
       },
     });
 
+    this.client.interceptors.request.use(
+      request => {
+        console.log(
+          `[Request] > Sending ${request.method.toUpperCase()} to ${request.baseURL}${request.url}`
+        );
+        return request;
+      },
+      error => {
+        console.error('[Request Error]', error);
+        return Promise.reject(error);
+      }
+    );
+
     this.client.interceptors.response.use(
       response => response,
       (error: AxiosError) => {
@@ -180,6 +193,7 @@ export class AzureClient {
     );
   }
 
+
   private getApiVersionParam(): string {
     return `api-version=${this.apiVersion}`;
   }
@@ -188,7 +202,7 @@ export class AzureClient {
     pipelineName: string
   ): Promise<AzurePipelineDefinition | null> {
     try {
-      const listResponse = await this.client.get(`pipelines?${this.getApiVersionParam()}`);
+      const listResponse = await this.client.get(`/pipelines?${this.getApiVersionParam()}`);
       const allPipelines = listResponse.data.value as AzurePipelineDefinition[];
       const foundPipeline = allPipelines.find(p => p.name === pipelineName);
 
@@ -204,10 +218,7 @@ export class AzureClient {
     }
   }
 
-  public async getPipelineRun(
-    pipelineId: number | string,
-    runId: number | string
-  ): Promise<AzurePipelineRun> {
+  public async getPipelineRun(pipelineId: number, runId: number): Promise<AzurePipelineRun> {
     try {
       const response = await this.client.get(
         `pipelines/${pipelineId}/runs/${runId}?${this.getApiVersionParam()}`
@@ -283,7 +294,7 @@ export class AzureClient {
     options: ListPipelineRunsOptions = {}
   ): Promise<AzurePipelineRun[]> {
     try {
-      console.log(`PipelineId ${pipelineId}, ${typeof pipelineId}`);
+      console.log(`Listing all pipelineruns for pipeline with id ${pipelineId}`);
 
       // const paramMappings: Array<{
       //   optionKey: keyof ListPipelineRunsOptions;
@@ -318,7 +329,10 @@ export class AzureClient {
       //   }
       // }
 
-      const response = await this.client.get(`pipelines/${pipelineId}/runs?api-version=7.0`);
+      const response = await this.client.get(
+        `/pipelines/${pipelineId}/runs?${this.getApiVersionParam()}`
+      );
+      console.log(`\nSUCCESS: Found ${response.data.count} total runs for this pipeline.`);
       return (response.data.value || []) as AzurePipelineRun[];
     } catch (error) {
       console.error(`Failed to list runs for pipeline ID ${pipelineId}:`, error);

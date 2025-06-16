@@ -158,7 +158,7 @@ export class GitLabCI extends BaseCI {
   // the following is the status of pipelines:
   // created, waiting_for_resource, preparing, pending, running, success, failed, canceled, skipped, manual, scheduled.
   // so we think that "success", "failed", "canceled", and "skipped" represent a completed state for the pipeline.
-  protected override async checkPipelineStatus(pipeline: Pipeline): Promise<PipelineStatus> {
+  protected override async checkPipelinerunStatus(pipeline: Pipeline): Promise<PipelineStatus> {
     if (!pipeline) {
       throw new Error('Pipeline is not defined');
     }

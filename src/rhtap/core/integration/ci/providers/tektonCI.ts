@@ -204,7 +204,7 @@ export class TektonCI extends BaseCI {
    * Implementation of abstract method from BaseCI
    * Returns a standardized pipeline status value compatible with all CI systems
    */
-  protected override async checkPipelineStatus(pipeline: Pipeline): Promise<PipelineStatus> {
+  protected override async checkPipelinerunStatus(pipeline: Pipeline): Promise<PipelineStatus> {
     if (!pipeline.name) {
       throw new Error('Pipeline name is required for Tekton pipelines');
     }
