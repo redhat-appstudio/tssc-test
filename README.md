@@ -12,7 +12,7 @@ Before using this testing framework, ensure you have:
 
 * Node.js (v23+)
 
-* ArgoCD CLI installed (Note: Avoid v2.14 due to a known issue: ["FATA[0030] context deadline exceeded"](https://github.com/argoproj/argo-cd/issues/21764))
+* ArgoCD CLI installed
 
 ## Getting Started
 

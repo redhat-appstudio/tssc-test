@@ -448,7 +448,7 @@ export class ArgoCDClient {
       const { serverUrl, username, password } = connectionInfo;
 
       // Build ArgoCD CLI commands
-      const loginCmd = `argocd login ${serverUrl} --insecure --grpc-web --username ${username} --password "${password}"`;
+      const loginCmd = `argocd login ${serverUrl} --insecure --skip-test-tls --grpc-web --username ${username} --password "${password}"`;
       const syncCmd = `argocd app sync ${applicationName} --insecure`;
 
       console.log(`Attempting to sync application ${applicationName} using ArgoCD CLI...`);
