@@ -37,10 +37,16 @@ export class Component {
    *                  - Bitbucket: Workspace name
    * @param imageOrgName The organization name for the image registry.
    * @param imageName The name of the image.
+   * @param createComponent Whether to create the component or just assign the component to the existing one.
    * @param workspace Optional workspace name for Bitbucket.
    * @param project Optional project name for Bitbucket.
    */
-  public static async new(name: string, testItem: TestItem, imageName: string): Promise<Component> {
+  public static async new(
+    name: string,
+    testItem: TestItem,
+    imageName: string,
+    createComponent: boolean = true,
+  ): Promise<Component> {
     const component = new Component(name);
 
     try {
@@ -75,16 +81,18 @@ export class Component {
         component.git
       );
 
-      // Store response from createComponent call
-      const response = await component.developerHub.createComponent(componentOptions);
-      if (!response || !response.id) {
-        throw new Error('Failed to create component: No valid response or component ID received');
-      }
+      if (createComponent) {
+        // Store response from createComponent call
+        const response = await component.developerHub.createComponent(componentOptions);
+        if (!response || !response.id) {
+          throw new Error('Failed to create component: No valid response or component ID received');
+        }
 
-      component.id = response.id;
-      console.log(
-        `Component creation started. Component Name: ${component.name}, ID: ${component.id}`
-      );
+        component.id = response.id;
+        console.log(
+          `Component creation started. Component Name: ${component.name}, ID: ${component.id}`
+        );
+      }
 
       component.isCreated = true;
       return component;
@@ -229,6 +237,10 @@ export class Component {
       throw new Error('Component has not been created yet.');
     }
     return this.developerHub.getComponentStatus(this.id);
+  }
+
+  public getDeveloperHub(): DeveloperHub {
+    return this.developerHub;
   }
 
   public getKubeClient(): KubeClient {
