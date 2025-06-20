@@ -2,10 +2,12 @@ import { Component } from '../../../core/component';
 import { AzureCI } from '../../../core/integration/ci/providers/azureCI';
 import { BaseCommand } from './baseCommand';
 
+const AGENT_QUEUE = 'rhtap-testing';
+
 /**
- * Command to authorize Azure pipeline to agent pool and variable group
+ * Command to authorize Azure pipelines to agent pool and variable group
  */
-export class AuthorizeAzurePipeline extends BaseCommand {
+export class AuthorizeAzurePipelines extends BaseCommand {
   private readonly azureCI: AzureCI;
 
   constructor(component: Component) {
@@ -14,19 +16,39 @@ export class AuthorizeAzurePipeline extends BaseCommand {
   }
 
   public async execute(): Promise<void> {
-    this.logStart('secrets addition');
+    this.logStart('Authorize pipelines');
 
     // Initialize required services before using them
     await this.ensureServicesInitialized();
 
-    await Promise.all([this.authorizeForVariableGroup(), this.authorizePipelineForAgentPool()]);
+    await Promise.all([
+      this.authorizeSourcePipelineForVariableGroup(),
+      this.authorizeSourcePipelineForAgentPool(),
+      this.authorizeGitopsPipelineForVariableGroup(),
+      this.authorizeGitopsPipelineForAgentPool(),
+    ]);
 
-    this.logComplete('secrets addition');
+    this.logComplete('Authorize pipelines');
   }
-  private async authorizePipelineForAgentPool(): Promise<void> {
-    await this.azureCI.authorizePipelineForAgentPool(this.component);
+  private async authorizeSourcePipelineForVariableGroup(): Promise<void> {
+    await this.azureCI.authorizePipelineForVariableGroup(
+      this.component.getName(),
+      this.component.getName()
+    );
   }
-  private async authorizeForVariableGroup(): Promise<void> {
-    await this.azureCI.authorizePipelineForVariableGroup(this.component);
+  private async authorizeSourcePipelineForAgentPool(): Promise<void> {
+    await this.azureCI.authorizePipelineForAgentPool(this.component.getName(), AGENT_QUEUE);
+  }
+  private async authorizeGitopsPipelineForVariableGroup(): Promise<void> {
+    await this.azureCI.authorizePipelineForVariableGroup(
+      this.component.getGit().getGitOpsRepoName(),
+      this.component.getName()
+    );
+  }
+  private async authorizeGitopsPipelineForAgentPool(): Promise<void> {
+    await this.azureCI.authorizePipelineForAgentPool(
+      this.component.getGit().getGitOpsRepoName(),
+      AGENT_QUEUE
+    );
   }
 }

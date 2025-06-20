@@ -1,6 +1,7 @@
+import { sleep } from '../../../utils/util';
 import { Component } from '../../core/component';
 import { AddAzureVarsAndSecrets } from './commands/addAzureSecrets';
-import { AuthorizeAzurePipeline } from './commands/authorizeAzurePipeline';
+import { AuthorizeAzurePipelines } from './commands/authorizeAzurePipeline';
 import { CreateAzurePipelines } from './commands/createAzurePipelines';
 import { ModifyAzureFiles } from './commands/modifyAzureFiles';
 import { PostCreateActionStrategy } from './postCreateActionStrategy';
@@ -26,12 +27,15 @@ export class AzureCIPostCreateActionStrategy implements PostCreateActionStrategy
         new AddAzureVarsAndSecrets(component),
         new ModifyAzureFiles(component),
         new CreateAzurePipelines(component),
-        new AuthorizeAzurePipeline(component),
+        new AuthorizeAzurePipelines(component),
       ];
 
       for (const command of commands) {
         await command.execute();
       }
+
+      // Wait for all changes to be processed
+      await sleep(60000);
 
       console.log(`Azure post-creation actions completed successfully for ${folderName}`);
     } catch (error) {

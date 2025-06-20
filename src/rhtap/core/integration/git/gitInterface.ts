@@ -106,4 +106,6 @@ export interface Git extends IntegrationSecret {
   getHost(): string;
 
   getRepoOwner(): string;
+
+  getToken(): string;
 }

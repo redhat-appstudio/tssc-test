@@ -148,4 +148,6 @@ export abstract class BaseGitProvider implements Git {
    * @returns The repository owner identifier appropriate for the Git provider
    */
   public abstract getRepoOwner(): string;
+
+  public abstract getToken(): string;
 }

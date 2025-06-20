@@ -18,10 +18,13 @@ export class ModifyAzureFiles extends BaseCommand {
   public async execute(): Promise<void> {
     this.logStart('Modifying Azure pipeline file');
 
-    await Promise.all([this.setVars()]);
+    await Promise.all([
+      this.setVars(this.git.getSourceRepoName()),
+      this.setVars(this.git.getGitOpsRepoName()),
+    ]);
   }
 
-  private async setVars(): Promise<void> {
+  private async setVars(repoName: string): Promise<void> {
     const modifications: ContentModifications = {
       'azure-pipelines.yml': [
         {
@@ -36,7 +39,7 @@ export class ModifyAzureFiles extends BaseCommand {
     };
     await this.gitClient.commitChangesToRepo(
       this.git.getRepoOwner(),
-      this.git.getSourceRepoName(),
+      repoName,
       modifications,
       COMMIT_MESSAGE,
       'main'

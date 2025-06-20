@@ -1,19 +1,22 @@
 import {
+  AzureBuild,
   AzureClient,
   AzurePipelineDefinition,
   AzurePipelineRun,
   AzurePipelineRunResult,
   AzurePipelineRunStatus,
   AzurePipelineTriggerReason,
+  ServiceEndpoint,
 } from '../../../../../api/ci/azureClient';
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
-import { Component } from '../../../component';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
 import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
 import retry from 'async-retry';
 
-const AGENT_QUEUE = 'rhtap-testing';
+//TODO: Deduplicate:
+const PROJECT = 'shared-public';
+
 export interface Variable {
   key: string;
   value: string;
@@ -62,6 +65,15 @@ export class AzureCI extends BaseCI {
     return this.secret.token;
   }
 
+  public async getIntegrationSecret(): Promise<Record<string, string>> {
+    await this.loadSecret();
+    return this.secret;
+  }
+
+  public getWebhookUrl(): Promise<string> {
+    throw new Error('Method not implemented.');
+  }
+
   private async initAzureClient(): Promise<void> {
     try {
       await this.loadSecret();
@@ -97,10 +109,10 @@ export class AzureCI extends BaseCI {
     if (!azureRun) return PipelineStatus.UNKNOWN;
 
     switch (azureRun.state) {
-      case AzurePipelineRunStatus.IN_PROGRESS:
       case AzurePipelineRunStatus.NOT_STARTED:
       case AzurePipelineRunStatus.POSTPONED:
-        return PipelineStatus.RUNNING;
+        return PipelineStatus.PENDING;
+      case AzurePipelineRunStatus.IN_PROGRESS:
       case AzurePipelineRunStatus.CANCELLING:
         return PipelineStatus.RUNNING;
       case AzurePipelineRunStatus.COMPLETED:
@@ -125,22 +137,58 @@ export class AzureCI extends BaseCI {
     azureRun: AzurePipelineRun,
     pipelineDef: AzurePipelineDefinition
   ): Pipeline {
-    const pipelineId = `${pipelineDef.id}-${azureRun.id}`;
     const pipelineInstance = new Pipeline(
-      pipelineId,
+      pipelineDef.id.toString(),
       this.ciType,
       pipelineDef.repository?.name || this.componentName,
       this.mapAzureStatusToPipelineStatus(azureRun)
     );
 
+    pipelineInstance.buildNumber = azureRun.id;
     pipelineInstance.name = azureRun.name;
-    pipelineInstance.url = azureRun._links?.web?.href;
+    pipelineInstance.url = azureRun.url;
     pipelineInstance.startTime = azureRun.createdDate ? new Date(azureRun.createdDate) : undefined;
     pipelineInstance.endTime = azureRun.finishedDate ? new Date(azureRun.finishedDate) : undefined;
-    pipelineInstance.sha =
-      azureRun.sourceVersion ||
-      azureRun.triggerInfo?.['ci.sourceSha'] ||
-      azureRun.triggerInfo?.['pr.sourceSha'];
+    return pipelineInstance;
+  }
+
+  private mapAzureBuildStatusToPipelineStatus(azureBuild: AzureBuild): PipelineStatus {
+    if (!azureBuild) return PipelineStatus.UNKNOWN;
+
+    switch (azureBuild.status) {
+      case 'succeeded':
+        return PipelineStatus.SUCCESS;
+      case 'failed':
+        return PipelineStatus.FAILURE;
+      case 'inProgress':
+        return PipelineStatus.RUNNING;
+      case 'notStarted':
+        return PipelineStatus.PENDING;
+      case 'stopped':
+        return PipelineStatus.CANCELLED;
+      default:
+        return PipelineStatus.UNKNOWN;
+    }
+  }
+
+  private convertAzureBuildToPipeline(
+    azureBuild: AzureBuild,
+    pipelineDef: AzurePipelineDefinition
+  ): Pipeline {
+    const pipelineInstance = new Pipeline(
+      pipelineDef.id.toString(),
+      this.ciType,
+      pipelineDef.repository?.name || this.componentName,
+      this.mapAzureBuildStatusToPipelineStatus(azureBuild)
+    );
+
+    pipelineInstance.name = `${pipelineDef.id}-${azureBuild.id}`;
+    pipelineInstance.buildNumber = azureBuild.id;
+    pipelineInstance.url = azureBuild.url;
+    pipelineInstance.startTime = azureBuild.startTime ? new Date(azureBuild.startTime) : undefined;
+    pipelineInstance.endTime = azureBuild.finishTime ? new Date(azureBuild.finishTime) : undefined;
+    pipelineInstance.sha = (azureBuild as AzureBuild).sourceGetVersion;
+
     return pipelineInstance;
   }
 
@@ -157,42 +205,48 @@ export class AzureCI extends BaseCI {
 
       console.log(`Retrieving pipelinerun with id: ${pipelineDef.id}`);
 
-      let runs: AzurePipelineRun[] = [];
-      if (pullRequest.head?.sha) {
-        runs = await this.azureClient.listPipelineRuns(pipelineDef.id, {
-          sourceVersion: pullRequest.head.sha,
-          queryOrder: 'finishTimeDescending',
-        });
-      } else if (pullRequest.head?.ref) {
-        const branchName = pullRequest.head.ref.startsWith('refs/heads/')
-          ? pullRequest.head.ref
-          : `refs/heads/${pullRequest.head.ref}`;
-        runs = await this.azureClient.listPipelineRuns(pipelineDef.id, {
-          branchName: branchName,
-          top: 1,
-          queryOrder: 'finishTimeDescending',
-        });
-      } else {
-        const latestRun = await this.azureClient.getLatestPipelineRun(pipelineDef.id);
-        if (latestRun) runs = [latestRun];
-      }
+      const runs: AzurePipelineRun[] = await this.azureClient.listPipelineRuns(pipelineDef.id);
+      const builds: AzureBuild[] = await Promise.all(
+        runs.map(run => this.azureClient.getBuild(run.id))
+      );
 
-      if (runs.length === 0) {
-        return null;
-      }
+      console.log(`Got runs ${JSON.stringify(runs)}`);
+      console.log(`Got builds ${JSON.stringify(builds)}`);
 
-      if (eventType == EventType.PULL_REQUEST) {
-        runs.filter(run => run.reason === AzurePipelineTriggerReason.PULL_REQUEST);
-      } else if (eventType == EventType.PUSH) {
-        runs.filter(run => run.reason === AzurePipelineTriggerReason.INDIVIDUAL_CI);
-      }
+      // if (eventType == EventType.PULL_REQUEST) {
+      //   builds.filter(run => run.reason === AzurePipelineTriggerReason.PULL_REQUEST);
+      // } else if (eventType == EventType.PUSH) {
+      //   builds.filter(run => run.reason === AzurePipelineTriggerReason.INDIVIDUAL_CI);
+      // }
 
-      const targetRun = runs[0];
-      const pipeline = this.convertAzureRunToPipeline(targetRun, pipelineDef);
+      console.log(`Got builds after filter ${JSON.stringify(builds)}`);
 
-      if (pipelineStatus !== undefined && pipeline.status !== pipelineStatus) {
-        return null;
-      }
+      // let targetBuild: AzureBuild | undefined;
+
+      // if (eventType === EventType.PULL_REQUEST) {
+      //   targetBuild = builds.find(
+      //     build =>
+      //       build.reason === 'pullRequest' &&
+      //       build.triggerInfo?.['pr.pullRequestId'] === String(pullRequest.pullNumber)
+      //   );
+      // } else if (eventType === EventType.PUSH) {
+      //   targetBuild = builds.find(build => build.reason === 'individualCI');
+      // } else {
+      //   targetBuild = builds[0];
+      // }
+
+      const targetBuild = builds[0];
+      console.log(`Pull request sha: ${pullRequest.sha}`);
+      console.log(`Target builds ${JSON.stringify(targetBuild)}`);
+
+      const pipeline = this.convertAzureBuildToPipeline(targetBuild!, pipelineDef);
+
+      console.log(`Got pipeline after conversion ${JSON.stringify(pipeline)}`);
+      // if (pipelineStatus !== undefined && pipeline.status !== pipelineStatus) {
+      //   return null;
+      // }
+
+      console.log(`Returning pipeline after conversion ${JSON.stringify(pipeline)}`);
 
       return pipeline;
     } catch (error) {
@@ -202,28 +256,23 @@ export class AzureCI extends BaseCI {
   }
 
   public async getPipelineLogs(pipeline: Pipeline): Promise<string> {
-    return 'Placeholder logs';
-    // try {
-    //   const logs = await this.azureClient.getPipelineRunLogContent(
-    //     Number(pipeline.pipelineDefinitionId),
-    //     Number(pipeline.ciSystemId)
-    //   );
-    //   return logs || "No logs content returned.";
-    // } catch (error) {
-    //   console.error(`Error fetching logs for Azure run ${pipeline.ciSystemId}:`, error);
-    //   throw error;
-    // }
+    const pipelineRun = await this.azureClient.getPipelineRun(
+      Number(pipeline.id),
+      pipeline.buildNumber!
+    );
+
+    return JSON.stringify(pipelineRun.log);
   }
 
   protected async checkPipelinerunStatus(pipeline: Pipeline): Promise<PipelineStatus> {
-    const [pipelineId, pipelineRunId] = pipeline.id.split(`-`);
     const pipelineRun = await this.azureClient.getPipelineRun(
-      Number(pipelineId),
-      Number(pipelineRunId)
+      Number(pipeline.id),
+      pipeline.buildNumber!
     );
 
     return this.mapAzureStatusToPipelineStatus(pipelineRun);
   }
+
   public async waitForAllPipelineRunsToFinish(): Promise<void> {
     await retry(
       async () => {
@@ -245,41 +294,72 @@ export class AzureCI extends BaseCI {
         }
       },
       {
-        retries: 30,
+        retries: 40,
         minTimeout: 10000,
         maxTimeout: 30000,
       }
     );
   }
 
-  public getWebhookUrl(): Promise<string> {
-    throw new Error('Method not implemented.');
-  }
+  public async createServiceEndpoint(
+    serviceEndpointName: string,
+    serviceEndpointType: string,
+    gitHost: string,
+    gitToken: string
+  ): Promise<ServiceEndpoint> {
+    try {
+      const projectId = await this.azureClient.getProjectIdByName(PROJECT);
 
-  public async getIntegrationSecret(): Promise<Record<string, string>> {
-    await this.loadSecret();
-    return this.secret;
+      const serviceEndpoint = await this.azureClient.createServiceEndpoint(
+        serviceEndpointName,
+        serviceEndpointType,
+        gitHost,
+        gitToken,
+        projectId
+      );
+
+      return serviceEndpoint;
+    } catch (error) {
+      console.error(`Failed to create service endpoint '${serviceEndpointName}':`, error);
+      throw error;
+    }
   }
 
   public async createPipeline(
     pipelineName: string,
     repoId: string,
     repoType: string,
+    serviceEndpoint: ServiceEndpoint,
     yamlPath: string
   ): Promise<unknown> {
     try {
-      const azureRepoType = repoType.toLowerCase() === 'github' ? 'gitHub' : repoType;
-
       const pipelineDefinition = await this.azureClient.createPipelineDefinition(
         pipelineName,
         repoId,
-        azureRepoType,
-        yamlPath
+        repoType,
+        yamlPath,
+        serviceEndpoint.id
       );
 
       return pipelineDefinition;
     } catch (error) {
       console.error(`Failed to create Azure pipeline '${pipelineName}':`, error);
+      throw error;
+    }
+  }
+
+  public async deletePipeline(pipelineName: string): Promise<void> {
+    try {
+      const pipelineId = await this.azureClient.getPipelineIdByName(pipelineName);
+      if (!pipelineId) {
+        console.warn(`Pipeline with name '${pipelineName}' not found. Skipping deletion.`);
+        return;
+      }
+
+      await this.azureClient.deletePipeline(pipelineId);
+      console.log(`Successfully deleted pipeline '${pipelineName}' with ID: ${pipelineId}`);
+    } catch (error) {
+      console.error(`Failed to delete Azure pipeline '${pipelineName}':`, error);
       throw error;
     }
   }
@@ -309,15 +389,43 @@ export class AzureCI extends BaseCI {
     }
   }
 
-  public async authorizePipelineForAgentPool(component: Component): Promise<unknown> {
-    const pipelineId = await this.azureClient.getPipelineIdByName(component.getName());
-    const agentQueueId = await this.azureClient.getAgentQueueByName(AGENT_QUEUE);
+  public async deleteVariableGroup(groupName: string): Promise<void> {
+    try {
+      if (!this.azureClient) {
+        await this.initialize();
+      }
+
+      const variableGroup = await this.azureClient.getVariableGroupByName(groupName);
+      if (!variableGroup) {
+        console.warn(`Variable group with name '${groupName}' not found. Skipping deletion.`);
+        return;
+      }
+
+      await this.azureClient.deleteVariableGroup(variableGroup.id);
+      console.log(
+        `Successfully deleted variable group '${groupName}' with ID: ${variableGroup.id}`
+      );
+    } catch (error) {
+      console.error(`Failed to delete variable group '${groupName}':`, error);
+      throw error;
+    }
+  }
+
+  public async authorizePipelineForAgentPool(
+    pipelineName: string,
+    poolName: string
+  ): Promise<unknown> {
+    const pipelineId = await this.azureClient.getPipelineIdByName(pipelineName);
+    const agentQueueId = await this.azureClient.getAgentQueueByName(poolName);
     return await this.azureClient.authorizePipelineForAgentPool(pipelineId!, agentQueueId!.id);
   }
 
-  public async authorizePipelineForVariableGroup(component: Component): Promise<unknown> {
-    const pipelineId = await this.azureClient.getPipelineIdByName(component.getName());
-    const variableGroup = await this.azureClient.getVariableGroupByName(component.getName());
+  public async authorizePipelineForVariableGroup(
+    pipelineName: string,
+    varGroupName: string
+  ): Promise<unknown> {
+    const pipelineId = await this.azureClient.getPipelineIdByName(pipelineName);
+    const variableGroup = await this.azureClient.getVariableGroupByName(varGroupName);
     return await this.azureClient.authorizePipelineForVariableGroup(pipelineId!, variableGroup!.id);
   }
 }

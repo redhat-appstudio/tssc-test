@@ -86,6 +86,11 @@ export class AddAzureVarsAndSecrets extends BaseCommand {
         value: this.tas.getRekorServerURL(),
         isSecret: false,
       },
+      {
+        key: `TUF_MIRROR`,
+        value: this.tas.getTufMirrorURL(),
+        isSecret: false,
+      },
     ];
 
     await this.azureCI.createVariableGroup(this.component.getName(), variables);

@@ -1,5 +1,4 @@
 import axios, { AxiosError, AxiosInstance } from 'axios';
-import { error } from 'console';
 
 export enum AzurePipelineRunStatus {
   CANCELLING = 'cancelling',
@@ -47,26 +46,29 @@ export interface AzurePipelineRun {
   createdDate: string;
   finishedDate?: string | null;
   url: string;
-  _links: {
-    web: { href: string };
-    self: { href: string };
-    [key: string]: unknown;
+  log?: {
+    type: string;
+    url: string;
   };
+}
+
+export interface AzureBuild {
+  id: number;
+  buildNumber: string;
+  status: 'succeeded' | 'failed' | 'inProgress' | 'stopped' | 'notStarted';
+  reason: 'manual' | 'individualCI' | 'pullRequest' | string;
+  startTime: string;
+  finishTime: string;
+  url: string;
+  log?: {
+    type: string;
+    url: string;
+  };
+  sourceGetVersion?: string;
   triggerInfo?: {
     'ci.sourceSha'?: string;
-    'ci.triggerRepository'?: string;
-    'ci.message'?: string;
-    'pr.sourceSha'?: string;
-    'pr.sourceBranch'?: string;
     'pr.pullRequestId'?: string;
-    'pr.title'?: string;
-    [key: string]: string | undefined;
   };
-  sourceVersion?: string;
-  sourceBranch?: string;
-  reason?: AzurePipelineTriggerReason;
-  variables?: { [key: string]: { value: string; isSecret?: boolean } };
-  templateParameters?: { [key: string]: unknown };
 }
 
 export interface AzurePipelineDefinition {
@@ -139,6 +141,14 @@ export interface VariableGroup {
   name: string;
 }
 
+export interface ServiceEndpoint {
+  id: string;
+  name: string;
+  type: string;
+  url: string;
+  owner: string;
+}
+
 export class AzureClient {
   private client: AxiosInstance;
   private host: string;
@@ -155,13 +165,14 @@ export class AzureClient {
 
     const base64Pat = Buffer.from(`:${config.pat}`).toString('base64');
     this.client = axios.create({
-      baseURL: `https://${this.host}/${this.organization}/${this.project}/_apis`,
+      baseURL: `https://${this.host}/${this.organization}/`,
       headers: {
         Authorization: `Basic ${base64Pat}`,
         'Content-Type': 'application/json',
       },
     });
 
+    // Interceptors for debugging purposes
     this.client.interceptors.request.use(
       request => {
         console.log(
@@ -193,16 +204,29 @@ export class AzureClient {
     );
   }
 
-
   private getApiVersionParam(): string {
     return `api-version=${this.apiVersion}`;
+  }
+
+  public async getProjectIdByName(projectName: string): Promise<string> {
+    try {
+      const response = await this.client.get(
+        `/_apis/projects/${projectName}?${this.getApiVersionParam()}`
+      );
+      return response.data.id;
+    } catch (error) {
+      console.error(`Failed to get project ID for project '${projectName}':`, error);
+      throw error;
+    }
   }
 
   public async getPipelineDefinition(
     pipelineName: string
   ): Promise<AzurePipelineDefinition | null> {
     try {
-      const listResponse = await this.client.get(`/pipelines?${this.getApiVersionParam()}`);
+      const listResponse = await this.client.get(
+        `${this.project}/_apis/pipelines?${this.getApiVersionParam()}`
+      );
       const allPipelines = listResponse.data.value as AzurePipelineDefinition[];
       const foundPipeline = allPipelines.find(p => p.name === pipelineName);
 
@@ -221,13 +245,9 @@ export class AzureClient {
   public async getPipelineRun(pipelineId: number, runId: number): Promise<AzurePipelineRun> {
     try {
       const response = await this.client.get(
-        `pipelines/${pipelineId}/runs/${runId}?${this.getApiVersionParam()}`
+        `${this.project}/_apis/pipelines/${pipelineId}/runs/${runId}?${this.getApiVersionParam()}`
       );
       const runInfo = response.data as AzurePipelineRun;
-
-      if (!runInfo.reason && runInfo.triggerInfo) {
-        runInfo.reason = this.determineTriggerEvent(runInfo);
-      }
 
       return runInfo;
     } catch (error) {
@@ -236,43 +256,25 @@ export class AzureClient {
     }
   }
 
-  private determineTriggerEvent(run: AzurePipelineRun): AzurePipelineTriggerReason {
-    if (run.reason) {
-      if (
-        Object.values(AzurePipelineTriggerReason).includes(run.reason as AzurePipelineTriggerReason)
-      ) {
-        return run.reason as AzurePipelineTriggerReason;
-      }
-    }
-    if (run.triggerInfo) {
-      if (
-        run.triggerInfo['pr.pullRequestId'] ||
-        run.triggerInfo['Build.Reason'] === 'PullRequest'
-      ) {
-        return AzurePipelineTriggerReason.PULL_REQUEST;
-      }
-      if (
-        run.triggerInfo['ci.sourceSha'] ||
-        run.triggerInfo['Build.Reason'] === 'IndividualCI' ||
-        run.triggerInfo['Build.Reason'] === 'BatchedCI'
-      ) {
-        return AzurePipelineTriggerReason.INDIVIDUAL_CI;
-      }
-    }
-    if (run.reason === 'manual' || run.reason === 'userCreated') {
-      return AzurePipelineTriggerReason.MANUAL;
-    }
+  public async getBuild(buildId: number): Promise<AzureBuild> {
+    try {
+      const response = await this.client.get(
+        `${this.project}/_apis/build/builds/${buildId}?${this.getApiVersionParam()}`
+      );
+      const runInfo = response.data as AzureBuild;
 
-    if (run.reason === 'schedule') {
-      return AzurePipelineTriggerReason.SCHEDULE;
+      return runInfo;
+    } catch (error) {
+      console.error(`Failed to get build with id ${buildId}:`, error);
+      throw error;
     }
-
-    return AzurePipelineTriggerReason.UNKNOWN;
   }
 
   private async getAllPipelines(): Promise<AzurePipelineDefinition[]> {
     try {
-      const pipelines = await this.client.get(`/pipelines?${this.getApiVersionParam()}`);
+      const pipelines = await this.client.get(
+        `${this.project}/_apis/pipelines?${this.getApiVersionParam()}`
+      );
       return pipelines.data.value;
     } catch (error) {
       console.log(`Failed to retrieve all pipelines`, error);
@@ -289,74 +291,19 @@ export class AzureClient {
     return pipeline === undefined ? null : pipeline.id;
   }
 
-  public async listPipelineRuns(
-    pipelineId: number,
-    options: ListPipelineRunsOptions = {}
-  ): Promise<AzurePipelineRun[]> {
+  public async listPipelineRuns(pipelineId: number): Promise<AzurePipelineRun[]> {
     try {
       console.log(`Listing all pipelineruns for pipeline with id ${pipelineId}`);
 
-      // const paramMappings: Array<{
-      //   optionKey: keyof ListPipelineRunsOptions;
-      //   apiKey: string;
-      //   transform?: (value: any) => string;
-      // }> = [
-      //   { optionKey: 'top', apiKey: '$top', transform: v => v.toString() },
-      //   { optionKey: 'statusFilter', apiKey: 'statusFilter' },
-      //   { optionKey: 'resultFilter', apiKey: 'resultFilter' },
-      //   { optionKey: 'reasonFilter', apiKey: 'reasonFilter' },
-      //   {
-      //     optionKey: 'branchName',
-      //     apiKey: 'branchName',
-      //     transform: v => (v.startsWith('refs/') ? v : `refs/heads/${v}`),
-      //   },
-      //   { optionKey: 'queryOrder', apiKey: 'queryOrder' },
-      //   { optionKey: 'minTime', apiKey: 'minFinishTime' },
-      //   { optionKey: 'maxTime', apiKey: 'maxFinishTime' },
-      //   { optionKey: 'repositoryId', apiKey: 'repositoryId' },
-      //   { optionKey: 'sourceVersion', apiKey: 'sourceVersion' },
-      //   { optionKey: 'tags', apiKey: 'tags' },
-      // ];
-
-      //const params = new URLSearchParams();
-      // params.append(this.getApiVersion().split('=')[0], this.getApiVersion().split('=')[1]);
-
-      // for (const mapping of paramMappings) {
-      //   const optionValue = options[mapping.optionKey];
-      //   if (optionValue !== undefined && optionValue !== null) {
-      //     const apiValue = mapping.transform ? mapping.transform(optionValue) : String(optionValue);
-      //     params.append(mapping.apiKey, apiValue);
-      //   }
-      // }
-
       const response = await this.client.get(
-        `/pipelines/${pipelineId}/runs?${this.getApiVersionParam()}`
+        `${this.project}/_apis/pipelines/${pipelineId}/runs?${this.getApiVersionParam()}`
       );
-      console.log(`\nSUCCESS: Found ${response.data.count} total runs for this pipeline.`);
+      console.log(`Found ${response.data.count} total runs for pipeline with id ${pipelineId}`);
       return (response.data.value || []) as AzurePipelineRun[];
     } catch (error) {
       console.error(`Failed to list runs for pipeline ID ${pipelineId}:`, error);
       throw error;
     }
-  }
-
-  public async getRunningPipelineRuns(pipelineId: number): Promise<AzurePipelineRun[]> {
-    return this.listPipelineRuns(pipelineId, { statusFilter: AzurePipelineRunStatus.IN_PROGRESS });
-  }
-
-  public async getLatestPipelineRun(
-    pipelineId: number,
-    branch?: string
-  ): Promise<AzurePipelineRun | null> {
-    const options: ListPipelineRunsOptions = {
-      top: 1,
-      queryOrder: 'finishTimeDescending',
-    };
-    if (branch) {
-      options.branchName = branch;
-    }
-    const runs = await this.listPipelineRuns(pipelineId, options);
-    return runs.length > 0 ? runs[0] : null;
   }
 
   public async createPipelineDefinition(
@@ -367,7 +314,6 @@ export class AzureClient {
     serviceConnectionId = '743c6aec-3848-4410-a033-dfc2316d038e',
     folderPath?: string
   ): Promise<AzurePipelineDefinition> {
-    console.log(`${repositoryId} ${repositoryType} ${pipelineName}`);
     try {
       const payload = {
         folder: folderPath,
@@ -386,10 +332,25 @@ export class AzureClient {
         },
       };
 
-      const response = await this.client.post(`/pipelines?${this.getApiVersionParam()}`, payload);
+      const response = await this.client.post(
+        `${this.project}/_apis/pipelines?${this.getApiVersionParam()}`,
+        payload
+      );
       return response.data as AzurePipelineDefinition;
     } catch (error) {
       console.error(`Failed to create pipeline definition '${pipelineName}':`, error);
+      throw error;
+    }
+  }
+
+  public async deletePipeline(pipelineId: number): Promise<void> {
+    try {
+      await this.client.delete(
+        `${this.project}/_apis/pipelines/${pipelineId}?${this.getApiVersionParam()}`
+      );
+      console.log(`Successfully deleted modern pipeline with ID: ${pipelineId}`);
+    } catch (error) {
+      console.error(`Failed to delete modern pipeline with ID ${pipelineId}:`, error);
       throw error;
     }
   }
@@ -410,10 +371,9 @@ export class AzureClient {
         ],
       };
       const response = await this.client.post(
-        `distributedtask/variablegroups?${this.getApiVersionParam()}`,
+        `${this.project}/_apis/distributedtask/variablegroups?${this.getApiVersionParam()}`,
         payload
       );
-      //TODO check response
       console.log(`AzureCI group creation response: ${response.data}`);
     } catch (error) {
       console.error(`Failed to create variable group '${groupName}':`, error);
@@ -422,9 +382,10 @@ export class AzureClient {
   }
 
   public async getAgentQueueByName(queueName: string): Promise<AgentQueue | null> {
+    console.log(`Retrieving agent pool with name: ${queueName}`);
     try {
       const response = await this.client.get(
-        `/distributedtask/queues`,
+        `${this.project}/_apis/distributedtask/queues`,
         // eslint-disable-next-line prettier/prettier
         { params: { queueNames: queueName, 'api-version': '7.1-preview.1' } }
       );
@@ -439,9 +400,10 @@ export class AzureClient {
   }
 
   public async getVariableGroupByName(groupName: string): Promise<VariableGroup | null> {
+    console.log(`Retrieving variable group with name: ${groupName}`);
     try {
       const response = await this.client.get(
-        `/distributedtask/variablegroups`,
+        `${this.project}/_apis/distributedtask/variablegroups`,
         // eslint-disable-next-line prettier/prettier
         { params: { groupName: groupName, 'api-version': '7.1-preview.2' } }
       );
@@ -465,7 +427,7 @@ export class AzureClient {
         },
       };
       const response = await this.client.patch(
-        `/pipelines/pipelinePermissions/queue/${poolId}?${this.getApiVersionParam()}`,
+        `${this.project}/_apis/pipelines/pipelinePermissions/queue/${poolId}?${this.getApiVersionParam()}`,
         payload
       );
       return response.data;
@@ -488,7 +450,7 @@ export class AzureClient {
         },
       };
       const response = await this.client.patch(
-        `/pipelines/pipelinePermissions/variablegroup/${groupId}?${this.getApiVersionParam()}`,
+        `${this.project}/_apis/pipelines/pipelinePermissions/variablegroup/${groupId}?${this.getApiVersionParam()}`,
         payload
       );
       return response.data;
@@ -497,6 +459,84 @@ export class AzureClient {
         `Failed to authorize pipeline ${pipelineId} for variable group ${groupId}:`,
         error
       );
+      throw error;
+    }
+  }
+
+  public async createServiceEndpoint(
+    name: string,
+    type: string,
+    url: string,
+    gitToken: string,
+    projectId: string
+  ): Promise<ServiceEndpoint> {
+    try {
+      const payload = {
+        name: name,
+        type: type,
+        url: url,
+        authorization: {
+          scheme: 'PersonalAccessToken',
+          parameters: {
+            accessToken: gitToken,
+          },
+        },
+        isShared: false,
+        serviceEndpointProjectReferences: [
+          {
+            projectReference: {
+              id: projectId,
+              name: this.project,
+            },
+            name: name,
+          },
+        ],
+      };
+
+      const response = await this.client.post(
+        `${this.project}/_apis/serviceendpoint/endpoints?${this.getApiVersionParam()}`,
+        payload
+      );
+
+      return response.data as ServiceEndpoint;
+    } catch (error) {
+      console.error(`Failed to create service connection '${name}':`, error);
+      throw error;
+    }
+  }
+
+  public async listServiceEndpoints(): Promise<ServiceEndpoint[]> {
+    try {
+      const response = await this.client.get(
+        `${this.project}/_apis/serviceendpoint/endpoints?${this.getApiVersionParam()}`
+      );
+      return (response.data.value || []) as ServiceEndpoint[];
+    } catch (error) {
+      console.error(`Failed to retrieve service connections for project '${this.project}':`, error);
+      throw error;
+    }
+  }
+
+  public async getServiceEndpointByName(connectionName: string): Promise<ServiceEndpoint | null> {
+    try {
+      const allEndpoints = await this.listServiceEndpoints();
+      const endpoint = allEndpoints.find(e => e.name === connectionName);
+      return endpoint || null;
+    } catch (error) {
+      console.error(`Error finding service connection by name '${connectionName}':`, error);
+      throw error;
+    }
+  }
+
+  public async deleteServiceEndpoint(endpointId: string, projectId: string): Promise<void> {
+    try {
+      await this.client.delete(
+        `serviceendpoint/endpoints/${endpointId}?projectIds=${projectId}&${this.getApiVersionParam()}`
+      );
+
+      console.log(`Successfully deleted service connection with ID: ${endpointId}`);
+    } catch (error) {
+      console.error(`Failed to delete service connection with ID ${endpointId}:`, error);
       throw error;
     }
   }
