@@ -159,8 +159,7 @@ export class AzureClient {
   constructor(config: AzurePipelinesClientConfig) {
     this.host = config.host;
     this.organization = config.organization;
-    //TODO Add env var
-    this.project = 'shared-public';
+    this.project = config.project;
     this.apiVersion = config.apiVersion || '7.1-preview.1';
 
     const base64Pat = Buffer.from(`:${config.pat}`).toString('base64');
@@ -314,6 +313,7 @@ export class AzureClient {
     serviceConnectionId = '743c6aec-3848-4410-a033-dfc2316d038e',
     folderPath?: string
   ): Promise<AzurePipelineDefinition> {
+    console.log(`${repositoryId} ${repositoryType} ${pipelineName}`);
     try {
       const payload = {
         folder: folderPath,

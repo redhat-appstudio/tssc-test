@@ -5,7 +5,6 @@ import {
   AzurePipelineRun,
   AzurePipelineRunResult,
   AzurePipelineRunStatus,
-  AzurePipelineTriggerReason,
   ServiceEndpoint,
 } from '../../../../../api/ci/azureClient';
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
@@ -13,9 +12,6 @@ import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
 import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
 import retry from 'async-retry';
-
-//TODO: Deduplicate:
-const PROJECT = 'shared-public';
 
 export interface Variable {
   key: string;
@@ -27,10 +23,12 @@ export class AzureCI extends BaseCI {
   private azureClient!: AzureClient;
   private componentName: string;
   private secret!: Record<string, string>;
+  private projectName: string;
 
-  constructor(componentName: string, kubeClient: KubeClient) {
+  constructor(componentName: string, projectName: string, kubeClient: KubeClient) {
     super(CIType.AZURE, kubeClient);
     this.componentName = componentName;
+    this.projectName = projectName;
   }
 
   private async loadSecret(): Promise<Record<string, string>> {
@@ -80,7 +78,7 @@ export class AzureCI extends BaseCI {
       this.azureClient = new AzureClient({
         host: this.getHost(),
         organization: this.getOrganization(),
-        project: this.componentName,
+        project: this.projectName,
         pat: this.getToken(),
       });
 
@@ -308,7 +306,7 @@ export class AzureCI extends BaseCI {
     gitToken: string
   ): Promise<ServiceEndpoint> {
     try {
-      const projectId = await this.azureClient.getProjectIdByName(PROJECT);
+      const projectId = await this.azureClient.getProjectIdByName(this.projectName);
 
       const serviceEndpoint = await this.azureClient.createServiceEndpoint(
         serviceEndpointName,
