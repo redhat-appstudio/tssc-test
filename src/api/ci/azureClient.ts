@@ -50,6 +50,7 @@ export interface AzurePipelineRun {
     type: string;
     url: string;
   };
+  variables?: { [key: string]: { value: string } | undefined };
 }
 
 export interface AzureBuild {
@@ -310,7 +311,7 @@ export class AzureClient {
     repositoryId: string,
     repositoryType: string,
     yamlFilePath: string,
-    serviceConnectionId = '743c6aec-3848-4410-a033-dfc2316d038e',
+    serviceConnectionId: string,
     folderPath?: string
   ): Promise<AzurePipelineDefinition> {
     console.log(`${repositoryId} ${repositoryType} ${pipelineName}`);
@@ -318,6 +319,12 @@ export class AzureClient {
       const payload = {
         folder: folderPath,
         name: pipelineName,
+        triggers: [
+          {
+            triggerType: 'pullRequest',
+            status: 'disabled',
+          },
+        ],
         configuration: {
           type: 'yaml',
           path: yamlFilePath,
@@ -336,6 +343,8 @@ export class AzureClient {
         `${this.project}/_apis/pipelines?${this.getApiVersionParam()}`,
         payload
       );
+
+      await this.disablePipelineTriggerOverride(response.data.id);
       return response.data as AzurePipelineDefinition;
     } catch (error) {
       console.error(`Failed to create pipeline definition '${pipelineName}':`, error);
@@ -537,6 +546,40 @@ export class AzureClient {
       console.log(`Successfully deleted service connection with ID: ${endpointId}`);
     } catch (error) {
       console.error(`Failed to delete service connection with ID ${endpointId}:`, error);
+      throw error;
+    }
+  }
+
+  public async disablePipelineTriggerOverride(pipelineId: number): Promise<void> {
+    const definitionUrl = `/${this.project}/_apis/build/definitions/${pipelineId}?api-version=7.1-preview.7`;
+
+    try {
+      const response = await this.client.get(definitionUrl);
+      const existingDefinition = response.data;
+
+      existingDefinition.triggers = [
+        {
+          settingsSourceType: 2, // 2 = Use trigger from YAML file.
+          triggerType: 'continuousIntegration',
+          batchChanges: false,
+          branchFilters: [],
+          pathFilters: [],
+        },
+        {
+          settingsSourceType: 2, // 2 = Use trigger from YAML file.
+          triggerType: 'pullRequest',
+          batchChanges: false,
+          branchFilters: [],
+          pathFilters: [],
+        },
+      ];
+
+      console.log(`Updating trigger settings for pipeline ID: ${pipelineId}...`);
+      const updateResponse = await this.client.put(definitionUrl, existingDefinition);
+
+      console.log(`Successfully updated trigger for pipeline "${updateResponse.data.name}".`);
+    } catch (error) {
+      console.error(`Failed to update trigger for pipeline ID ${pipelineId}:`, error);
       throw error;
     }
   }

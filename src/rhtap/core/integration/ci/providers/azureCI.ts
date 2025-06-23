@@ -5,6 +5,7 @@ import {
   AzurePipelineRun,
   AzurePipelineRunResult,
   AzurePipelineRunStatus,
+  AzurePipelineTriggerReason,
   ServiceEndpoint,
 } from '../../../../../api/ci/azureClient';
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
@@ -196,53 +197,69 @@ export class AzureCI extends BaseCI {
     eventType?: EventType
   ): Promise<Pipeline | null> {
     try {
-      const pipelineDef = await this.azureClient.getPipelineDefinition(this.componentName);
-      if (!pipelineDef) {
+      const pipelineDefSource = await this.azureClient.getPipelineDefinition(this.componentName);
+      const pipelineDefGitops = await this.azureClient.getPipelineDefinition(
+        this.componentName + '-gitops'
+      );
+      if (!pipelineDefSource || !pipelineDefGitops) {
         return null;
       }
 
-      console.log(`Retrieving pipelinerun with id: ${pipelineDef.id}`);
+      console.log(
+        `Retrieving pipelineruns for pipelines with id: ${pipelineDefSource.id} and ${pipelineDefGitops.id}`
+      );
 
-      const runs: AzurePipelineRun[] = await this.azureClient.listPipelineRuns(pipelineDef.id);
-      const builds: AzureBuild[] = await Promise.all(
+      const runsSource: AzurePipelineRun[] = await this.azureClient.listPipelineRuns(
+        pipelineDefSource.id
+      );
+      const runsGitops: AzurePipelineRun[] = await this.azureClient.listPipelineRuns(
+        pipelineDefGitops.id
+      );
+      let runs = [...runsSource, ...runsGitops];
+
+      // 0 is for dummy pull request
+      if (pullRequest.pullNumber != 0) {
+        console.log(
+          `Filtering runs for pull request ${pullRequest.pullNumber} with sha ${pullRequest.sha}`
+        );
+        runs = runs.filter(
+          run => run.variables?.['system.pullRequest.sourceCommitId']?.value === pullRequest.sha
+        );
+      }
+
+      let builds: AzureBuild[] = await Promise.all(
         runs.map(run => this.azureClient.getBuild(run.id))
       );
 
       console.log(`Got runs ${JSON.stringify(runs)}`);
       console.log(`Got builds ${JSON.stringify(builds)}`);
 
-      // if (eventType == EventType.PULL_REQUEST) {
-      //   builds.filter(run => run.reason === AzurePipelineTriggerReason.PULL_REQUEST);
-      // } else if (eventType == EventType.PUSH) {
-      //   builds.filter(run => run.reason === AzurePipelineTriggerReason.INDIVIDUAL_CI);
-      // }
+      if (eventType == EventType.PULL_REQUEST) {
+        // PR Automated shows in the azure pipeline api response as manual build
+        builds = builds.filter(run => run.reason === AzurePipelineTriggerReason.MANUAL);
+      } else if (eventType == EventType.PUSH) {
+        builds = builds.filter(run => run.reason === AzurePipelineTriggerReason.INDIVIDUAL_CI);
+      }
 
       console.log(`Got builds after filter ${JSON.stringify(builds)}`);
 
-      // let targetBuild: AzureBuild | undefined;
-
-      // if (eventType === EventType.PULL_REQUEST) {
-      //   targetBuild = builds.find(
-      //     build =>
-      //       build.reason === 'pullRequest' &&
-      //       build.triggerInfo?.['pr.pullRequestId'] === String(pullRequest.pullNumber)
-      //   );
-      // } else if (eventType === EventType.PUSH) {
-      //   targetBuild = builds.find(build => build.reason === 'individualCI');
-      // } else {
-      //   targetBuild = builds[0];
-      // }
-
-      const targetBuild = builds[0];
+      const targetBuild = builds[builds.length - 1];
       console.log(`Pull request sha: ${pullRequest.sha}`);
       console.log(`Target builds ${JSON.stringify(targetBuild)}`);
 
-      const pipeline = this.convertAzureBuildToPipeline(targetBuild!, pipelineDef);
+      if (!targetBuild) {
+        return null;
+      }
+
+      const isFromSourcePipeline = runsSource.some(run => run.id === targetBuild.id);
+      const pipelineDefToUse = isFromSourcePipeline ? pipelineDefSource : pipelineDefGitops;
+
+      const pipeline = this.convertAzureBuildToPipeline(targetBuild, pipelineDefToUse);
 
       console.log(`Got pipeline after conversion ${JSON.stringify(pipeline)}`);
-      // if (pipelineStatus !== undefined && pipeline.status !== pipelineStatus) {
-      //   return null;
-      // }
+      if (pipelineStatus !== undefined && pipeline.status !== pipelineStatus) {
+        return null;
+      }
 
       console.log(`Returning pipeline after conversion ${JSON.stringify(pipeline)}`);
 

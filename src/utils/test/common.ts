@@ -6,6 +6,7 @@ import { Git, PullRequest } from '../../rhtap/core/integration/git';
 import { sleep } from '../util';
 import { expectPipelineSuccess } from './assertionHelpers';
 import { expect } from '@playwright/test';
+import retry from 'async-retry';
 
 /**
  * Promotes an application to a specific environment using a pull request workflow
@@ -49,8 +50,23 @@ export async function promoteToEnvironmentWithPR(
     console.log(`Created promotion PR #${pr.pullNumber} in ${git.getGitOpsRepoName()} repository`);
 
     // Step 3: Wait for pipeline triggered by the promotion PR to complete
-    // return ci.getPipeline(pullRequest, PipelineStatus.RUNNING, eventType);
-    const pipeline = await ci.getPipeline(pr, PipelineStatus.RUNNING, EventType.PULL_REQUEST);
+    const pipeline = await retry(
+      async () => {
+        const p = await ci.getPipeline(pr, PipelineStatus.RUNNING, EventType.PULL_REQUEST);
+        if (!p) {
+          throw new Error('Pipeline not found or not yet running. Retrying...');
+        }
+        return p;
+      },
+      {
+        retries: 5,
+        minTimeout: 10000,
+        maxTimeout: 30000,
+        onRetry: (error: Error, attempt: number) => {
+          console.log(`Attempt ${attempt} failed: ${error.message}`);
+        },
+      }
+    );
     if (!pipeline) {
       throw new Error('No pipeline was triggered by the promotion PR');
     }
