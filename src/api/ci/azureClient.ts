@@ -100,26 +100,6 @@ interface AzurePipelinesClientConfig {
   apiVersion?: string;
 }
 
-export interface ListPipelineRunsOptions {
-  top?: number;
-  statusFilter?: AzurePipelineRunStatus;
-  resultFilter?: AzurePipelineRunResult;
-  reasonFilter?: AzurePipelineTriggerReason;
-  branchName?: string;
-  queryOrder?:
-    | 'queueTimeAscending'
-    | 'queueTimeDescending'
-    | 'startTimeAscending'
-    | 'startTimeDescending'
-    | 'finishTimeAscending'
-    | 'finishTimeDescending';
-  minTime?: string;
-  maxTime?: string;
-  repositoryId?: string;
-  sourceVersion?: string;
-  tags?: string;
-}
-
 export interface AgentPool {
   id: number;
   name: string;
@@ -539,7 +519,7 @@ export class AzureClient {
 
   public async deleteVariableGroup(groupId: number, projectId: string): Promise<void> {
     try {
-      const deleteUrl = `/_apis/distributedtask/variablegroups/${groupId}?projectIds=${projectId}&${this.getApiVersionParam()}`;
+      const deleteUrl = `/_apis/distributedtask/variablegroups/${groupId}?projectIds=${projectId}&api-version=7.1-preview.2`;
 
       await this.client.delete(deleteUrl);
 
@@ -553,7 +533,7 @@ export class AzureClient {
   public async deleteServiceEndpoint(endpointId: string, projectId: string): Promise<void> {
     try {
       await this.client.delete(
-        `serviceendpoint/endpoints/${endpointId}?projectIds=${projectId}&${this.getApiVersionParam()}`
+        `/_apis/serviceendpoint/endpoints/${endpointId}?projectIds=${projectId}&api-version=7.1-preview.4`
       );
 
       console.log(`Successfully deleted service connection with ID: ${endpointId}`);

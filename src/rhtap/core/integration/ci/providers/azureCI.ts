@@ -438,10 +438,11 @@ export class AzureCI extends BaseCI {
 
   public async deleteServiceEndpoint(endpointName: string): Promise<void> {
     const endpoint = await this.azureClient.getServiceEndpointByName(endpointName);
+    const projectId = await this.azureClient.getProjectIdByName(this.projectName);
     if (!endpoint) {
       console.warn(`Service endpoint with name '${endpointName}' not found. Skipping deletion.`);
       return;
     }
-    await this.azureClient.deleteServiceEndpoint(endpoint.id, this.projectName);
+    await this.azureClient.deleteServiceEndpoint(endpoint.id, projectId);
   }
 }

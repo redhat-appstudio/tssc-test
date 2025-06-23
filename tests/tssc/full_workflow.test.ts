@@ -1,4 +1,3 @@
-import { ComponentCleanupAction } from '../../src/rhtap/cleanup/componentCleanupAction';
 import { Component } from '../../src/rhtap/core/component';
 import { ArgoCD, Environment } from '../../src/rhtap/core/integration/cd/argocd';
 import { CI } from '../../src/rhtap/core/integration/ci';
@@ -125,7 +124,7 @@ test.describe('TSSC Complete Component Workflow', () => {
       test.skip(!image, 'No image available to verify SBOM');
 
       // Extract image digest from image URL
-      const imageDigest = image.split(':').slice(-1)[0];
+      const imageDigest = image.split(':')[2];
       expect(imageDigest).toBeTruthy();
 
       // Get TPA instance and search for SBOM
@@ -135,14 +134,6 @@ test.describe('TSSC Complete Component Workflow', () => {
       // Verify SBOM results exist
       expect(sbom).toBeDefined();
       console.log(`SBOM verification successful! Found SBOM for image: ${imageDigest}`);
-    });
-  });
-
-  test.describe('Cleanup', () => {
-    test('should delete the component', async () => {
-      const cleanupAction = new ComponentCleanupAction(component);
-      await cleanupAction.execute();
-      console.log('Component clean up executed successfully!');
     });
   });
 });

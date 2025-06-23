@@ -35,7 +35,7 @@ export class AzureCIPostCreateActionStrategy implements ComponentActionStrategy 
       }
 
       // Wait for all changes to be processed
-      await sleep(60000);
+      // await sleep(60000);
 
       console.log(`Azure post-creation actions completed successfully for ${folderName}`);
     } catch (error) {
