@@ -1,3 +1,4 @@
+import { ComponentCleanupAction } from '../../src/rhtap/cleanup/componentCleanupAction';
 import { Component } from '../../src/rhtap/core/component';
 import { ArgoCD, Environment } from '../../src/rhtap/core/integration/cd/argocd';
 import { CI } from '../../src/rhtap/core/integration/ci';
@@ -9,7 +10,7 @@ import {
   promoteToEnvironmentWithPR,
 } from '../../src/utils/test/common';
 import { createBasicFixture } from '../../src/utils/test/fixtures';
-import { randomString, sleep } from '../../src/utils/util';
+import { randomString } from '../../src/utils/util';
 import { expect } from '@playwright/test';
 
 /**
@@ -134,6 +135,14 @@ test.describe('TSSC Complete Component Workflow', () => {
       // Verify SBOM results exist
       expect(sbom).toBeDefined();
       console.log(`SBOM verification successful! Found SBOM for image: ${imageDigest}`);
+    });
+  });
+
+  test.describe('Cleanup', () => {
+    test('should delete the component', async () => {
+      const cleanupAction = new ComponentCleanupAction(component);
+      await cleanupAction.execute();
+      console.log('Component clean up executed successfully!');
     });
   });
 });

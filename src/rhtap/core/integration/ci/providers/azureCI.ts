@@ -231,9 +231,6 @@ export class AzureCI extends BaseCI {
         runs.map(run => this.azureClient.getBuild(run.id))
       );
 
-      console.log(`Got runs ${JSON.stringify(runs)}`);
-      console.log(`Got builds ${JSON.stringify(builds)}`);
-
       if (eventType == EventType.PULL_REQUEST) {
         // PR Automated shows in the azure pipeline api response as manual build
         builds = builds.filter(run => run.reason === AzurePipelineTriggerReason.MANUAL);
@@ -241,11 +238,8 @@ export class AzureCI extends BaseCI {
         builds = builds.filter(run => run.reason === AzurePipelineTriggerReason.INDIVIDUAL_CI);
       }
 
-      console.log(`Got builds after filter ${JSON.stringify(builds)}`);
-
       const targetBuild = builds[builds.length - 1];
-      console.log(`Pull request sha: ${pullRequest.sha}`);
-      console.log(`Target builds ${JSON.stringify(targetBuild)}`);
+      console.log(`Retrieved build ${JSON.stringify(targetBuild)}`);
 
       if (!targetBuild) {
         return null;
@@ -256,12 +250,9 @@ export class AzureCI extends BaseCI {
 
       const pipeline = this.convertAzureBuildToPipeline(targetBuild, pipelineDefToUse);
 
-      console.log(`Got pipeline after conversion ${JSON.stringify(pipeline)}`);
       if (pipelineStatus !== undefined && pipeline.status !== pipelineStatus) {
         return null;
       }
-
-      console.log(`Returning pipeline after conversion ${JSON.stringify(pipeline)}`);
 
       return pipeline;
     } catch (error) {
@@ -416,7 +407,8 @@ export class AzureCI extends BaseCI {
         return;
       }
 
-      await this.azureClient.deleteVariableGroup(variableGroup.id);
+      const projectId = await this.azureClient.getProjectIdByName(this.projectName);
+      await this.azureClient.deleteVariableGroup(variableGroup.id, projectId);
       console.log(
         `Successfully deleted variable group '${groupName}' with ID: ${variableGroup.id}`
       );
@@ -442,5 +434,14 @@ export class AzureCI extends BaseCI {
     const pipelineId = await this.azureClient.getPipelineIdByName(pipelineName);
     const variableGroup = await this.azureClient.getVariableGroupByName(varGroupName);
     return await this.azureClient.authorizePipelineForVariableGroup(pipelineId!, variableGroup!.id);
+  }
+
+  public async deleteServiceEndpoint(endpointName: string): Promise<void> {
+    const endpoint = await this.azureClient.getServiceEndpointByName(endpointName);
+    if (!endpoint) {
+      console.warn(`Service endpoint with name '${endpointName}' not found. Skipping deletion.`);
+      return;
+    }
+    await this.azureClient.deleteServiceEndpoint(endpoint.id, this.projectName);
   }
 }

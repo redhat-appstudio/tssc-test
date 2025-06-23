@@ -4,13 +4,13 @@ import { AddAzureVarsAndSecrets } from './commands/addAzureSecrets';
 import { AuthorizeAzurePipelines } from './commands/authorizeAzurePipeline';
 import { CreateAzurePipelines } from './commands/createAzurePipelines';
 import { ModifyAzureFiles } from './commands/modifyAzureFiles';
-import { PostCreateActionStrategy } from './postCreateActionStrategy';
+import { ComponentActionStrategy } from './componentActionStrategy';
 
 /**
  * Azure-specific implementation of post-creation action strategy
  * Uses command pattern to organize and execute different actions
  */
-export class AzureCIPostCreateActionStrategy implements PostCreateActionStrategy {
+export class AzureCIPostCreateActionStrategy implements ComponentActionStrategy {
   constructor() {}
 
   /**

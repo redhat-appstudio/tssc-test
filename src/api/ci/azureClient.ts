@@ -176,7 +176,7 @@ export class AzureClient {
     this.client.interceptors.request.use(
       request => {
         console.log(
-          `[Request] > Sending ${request.method.toUpperCase()} to ${request.baseURL}${request.url}`
+          `[Request] > Sending ${request.method?.toUpperCase()} to ${request.baseURL}${request.url}`
         );
         return request;
       },
@@ -283,7 +283,7 @@ export class AzureClient {
   }
 
   public async getPipelineIdByName(pipelineName: string): Promise<number | null> {
-    console.log(`Getting id for pipeline with name ${pipelineName}`);
+    console.log(`Retrieving id for pipeline with name ${pipelineName}`);
     const pipelines = await this.getAllPipelines();
 
     const pipeline = pipelines.find(pipeline => pipeline.name === pipelineName);
@@ -533,6 +533,19 @@ export class AzureClient {
       return endpoint || null;
     } catch (error) {
       console.error(`Error finding service connection by name '${connectionName}':`, error);
+      throw error;
+    }
+  }
+
+  public async deleteVariableGroup(groupId: number, projectId: string): Promise<void> {
+    try {
+      const deleteUrl = `/_apis/distributedtask/variablegroups/${groupId}?projectIds=${projectId}&${this.getApiVersionParam()}`;
+
+      await this.client.delete(deleteUrl);
+
+      console.log(`Successfully deleted variable group with ID: ${groupId}`);
+    } catch (error) {
+      console.error(`Failed to delete variable group with ID ${groupId}:`, error);
       throw error;
     }
   }
