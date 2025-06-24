@@ -31,8 +31,8 @@ const projects = templates.map(template => ({
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.test.ts',
-  workers: 3,
+  workers: 6,
   projects: projects.length ? projects : [{ name: 'default' }],
-  reporter: [['html'], ['list']],
+  reporter: [['html', { open: 'never' }], ['list']],
   timeout: 900000, // Default to 15 minutes (900000ms)
 });

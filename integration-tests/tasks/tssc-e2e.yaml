@@ -1,0 +1,221 @@
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: tssc-e2e
+spec:
+  params:
+    - name: ocp-login-command
+      type: string
+      description: Command to log in to the OpenShift cluster where the tests will be executed.
+    - name: oci-container
+      type: string
+      description: The URI of the OCI container registry to store test artifacts.
+      default: 'quay.io/konflux-test-storage/rhtap-team/rhtap-e2e'
+    - name: rhtap-e2e-container
+      type: string
+      default: 'quay.io/redhat-user-workloads/rhtap-shared-team-tenant/rhtap-e2e/rhtap-e2e:latest'
+    - name: job-spec
+      type: string
+      description: 'The job specification containing details of the test execution.'
+    - name: scm_config
+      type: string
+      description: "The SCM option for rhtap-cli installation. Valid values are 'github' , 'gitlab' and 'bitbucket'."
+    - name: pipeline_config
+      type: string
+      description: "The Pipeline option for rhtap-cli installation. Valid values are 'tekton' and 'jenkins'."
+    - name: ocp-version
+      type: string
+      description: 'The OpenShift version to be used for the test execution.'
+    - name: tssc-test-image
+      type: string
+      description: 'The tssc test image containing the tssc test binary.'
+  volumes:
+    - name: rhtap-cli-volume
+      secret:
+        secretName: rhtap-cli-install
+    - name: konflux-test-infra-volume
+      secret:
+        secretName: konflux-test-infra
+    - name: tssc-test-dir
+      emptyDir: {}
+  sidecars:
+    - name: upload-test-results
+      image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
+      workingDir: /e2e-test
+      volumeMounts:
+        - name: tssc-test-dir
+          mountPath: /e2e-test
+        - name: konflux-test-infra-volume
+          mountPath: /usr/local/konflux-test-infra
+      env:
+        - name: OCI_CONTAINER
+          value: $(params.oci-container)
+      script: |
+        #!/usr/bin/env bash
+        set -o errexit
+        set -o nounset
+        set -x
+
+        # List content of the mounted directory to confirm access
+        echo "Sidecar: Listing contents of /e2e-test:"
+        ls -la /e2e-test/
+        
+        # Define absolute paths for the report
+        REPORT_FILE="/e2e-test/playwright-report/index.html"
+        REPORT_DIR="/e2e-test/playwright-report"
+
+        echo "Sidecar: Waiting for test report ($REPORT_FILE) to be available..."
+        
+        # Corrected waiting loop: Only check for file existence.
+        # Remove pgrep as it's ineffective across containers.
+        ATTEMPTS=0
+        MAX_ATTEMPTS=60 # Wait up to 60 * 20 seconds = 20 minutes. Adjust as needed.
+        while [ ! -f "$REPORT_FILE" ] && [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
+          echo "Sidecar: Waiting for $REPORT_FILE... (attempt $((ATTEMPTS+1)))"
+          sleep 20 # Wait 20 seconds between checks
+          ATTEMPTS=$((ATTEMPTS+1))
+        done
+
+        echo "Sidecar: Final diagnostic information:"
+        echo "Sidecar: Contents of /e2e-test:"
+        ls -la /e2e-test/ || echo "Sidecar: Failed to list /e2e-test"
+        if [ -d "$REPORT_DIR" ]; then
+          echo "Sidecar: Contents of $REPORT_DIR:"
+          ls -la "$REPORT_DIR" || echo "Sidecar: Failed to list $REPORT_DIR"
+        else
+          echo "Sidecar: Directory $REPORT_DIR does not exist"
+        fi
+
+        if [ -f "$REPORT_FILE" ]; then
+          echo "Sidecar: Uploading test results to the test results storage"
+
+          # Export OCI storage credentials and container details
+          OCI_STORAGE_USERNAME="$(jq -r '."quay-username"' /usr/local/konflux-test-infra/oci-storage)"
+          OCI_STORAGE_TOKEN="$(jq -r '."quay-token"' /usr/local/konflux-test-infra/oci-storage)"
+          # OCI_STORAGE_CONTAINER="$(params.oci-container-repo):$(params.oci-container-tag)"
+          TEMP_ANNOTATION_FILE="$(mktemp)"
+
+          # Fetch the manifest annotations for the container
+          if ! MANIFESTS=$(oras manifest fetch "${OCI_CONTAINER}" | jq .annotations); then
+              echo "Failed to fetch manifest from ${OCI_CONTAINER}"
+              exit 1
+          fi
+
+          # Create annotation file
+          jq -n --argjson manifest "$MANIFESTS" '{ "$manifest": $manifest }' > "${TEMP_ANNOTATION_FILE}"
+
+          # Pull OCI container
+          echo "Pulling OCI container: ${OCI_CONTAINER}"
+          oras pull "${OCI_CONTAINER}"
+
+          # Push artifacts with retry logic
+          echo "Pushing artifacts to OCI container"
+          attempt=1
+          while ! oras push "$OCI_CONTAINER" \
+                          --username="${OCI_STORAGE_USERNAME}" \
+                          --password="${OCI_STORAGE_TOKEN}" \
+                          --annotation-file "${TEMP_ANNOTATION_FILE}" \
+                          ${REPORT_FILE}:application/vnd.acme.rocket.docs.layer.v1+tar; do
+              
+              if [[ $attempt -ge 5 ]]; then
+                  echo "[ERROR] Failed to push artifacts after $attempt attempts"
+                  exit 1
+              fi
+              
+              echo "[WARN] Push attempt $attempt failed. Retrying in 5 seconds..."
+              sleep 5
+              ((attempt++))
+          done
+        
+          echo "Sidecar: Test results upload simulated successfully."
+        else
+          echo "Sidecar: Error: Test report '$REPORT_FILE' not found after maximum wait time."
+          exit 1 # Exit with error if report wasn't found, or handle gracefully
+        fi
+
+        echo "Sidecar: Report collection finished."
+  steps:
+    - name: copy-tssc-test
+      image: $(params.tssc-test-image)
+      command: ["/bin/sh", "-c"]
+      args: ["cp -r /tssc-test/* /e2e-test && chmod -R +x /e2e-test/*"]
+      volumeMounts:
+        - name: tssc-test-dir
+          mountPath: /e2e-test
+    - name: generate-testplan
+      image: $(params.tssc-test-image)
+      workingDir: /e2e-test
+      volumeMounts:
+        - name: tssc-test-dir
+          mountPath: /e2e-test
+      script: |
+        #!/usr/bin/env bash
+        set -o errexit
+        set -o nounset
+
+        cat <<EOF > testplan.json
+        {
+          "templates": ["go"],
+          "tssc": {
+            "git": "github",
+            "ci": "tekton",
+            "registry": "quay.io",
+            "tpa": "local",
+            "acs": "remote"
+          },
+          "tests": ["test1", "test2"]
+        }
+        EOF
+
+        echo "Printing testplan.json file"
+        echo "--------------------------------"
+        cat testplan.json
+        echo "--------------------------------"
+    - name: run-tssc-e2e
+      image: $(params.tssc-test-image)
+      workingDir: /e2e-test
+      computeResources:
+        limits:
+          memory: 6Gi
+        requests:
+          cpu: 100m
+          memory: 3Gi
+      volumeMounts:
+        - name: rhtap-cli-volume
+          mountPath: /usr/local/rhtap-cli-install
+        - name: tssc-test-dir
+          mountPath: /e2e-test
+      script: |
+        #!/usr/bin/env bash
+        set -o errexit
+        set -o nounset
+        set -o pipefail
+
+        cat <<EOF > .env
+        #!/bin/bash
+        # shellcheck disable=SC2034
+
+        export IMAGE_REGISTRY_ORG="rhtap_qe"
+
+        # ========================== GIT REPOSITORY ==========================
+        # When using Github as git repository, set the following variables
+        export GITHUB_ORGANIZATION="rhtap-rhdh-qe"
+
+        # When using Bitbucket as git repository, set the following variables
+        export BITBUCKET_WORKSPACE="rhtap-test"
+        export BITBUCKET_PROJECT="RHTAP"
+        EOF
+
+        echo "Printing .env file"
+        echo "--------------------------------"
+        cat .env
+        echo "--------------------------------"
+
+        # Log into OpenShift
+        $(params.ocp-login-command)
+
+        source .env
+        npm run test:tssc
+
+        ls playwright-report
