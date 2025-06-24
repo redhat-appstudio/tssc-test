@@ -2,9 +2,9 @@ import { Component } from '../../core/component';
 import { GitType } from '../../core/integration/git';
 import { AddGithubSecretsAndVariablesCommand } from './commands/addGithubSecretsAndVariablesCommand';
 import { Command } from './commands/command';
-import { PostCreateActionStrategy } from './postCreateActionStrategy';
+import { ComponentActionStrategy } from './componentActionStrategy';
 
-export class GithubActionsPostCreateActionStrategy implements PostCreateActionStrategy {
+export class GithubActionsPostCreateActionStrategy implements ComponentActionStrategy {
   private readonly gitProviderHandlers: Partial<
     Record<GitType, (component: Component) => Promise<void>>
   > = {

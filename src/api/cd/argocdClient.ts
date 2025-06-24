@@ -430,7 +430,7 @@ export class ArgoCDClient {
   public async syncApplication(
     applicationName: string,
     namespace: string,
-    timeoutMs: number = 4 * 60 * 1000
+    timeoutMs: number = 10 * 60 * 1000
   ): Promise<boolean> {
     if (!applicationName || !namespace) {
       console.error('Application name and namespace are required parameters');

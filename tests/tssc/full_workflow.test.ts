@@ -64,7 +64,7 @@ test.describe('TSSC Complete Component Workflow', () => {
       console.log('✅ Post-creation actions executed successfully!');
 
       // Wait for all initial pipelines to finish
-      await ci.waitForAllPipelinesToFinish();
+      await ci.waitForAllPipelineRunsToFinish();
       console.log('All initial pipelines have finished successfully!');
     });
   });
@@ -124,7 +124,7 @@ test.describe('TSSC Complete Component Workflow', () => {
       test.skip(!image, 'No image available to verify SBOM');
 
       // Extract image digest from image URL
-      const imageDigest = image.split(':')[2];
+      const imageDigest = image.split(':').slice(-1)[0];
       expect(imageDigest).toBeTruthy();
 
       // Get TPA instance and search for SBOM

@@ -51,7 +51,7 @@ export class JenkinsfileAndEnvModificationsOnSourceRepoCommand extends BaseComma
       RhtapEnvModifier.create()
         .enableACS()
         .updateTUFMirrorURL(this.tas.getTufMirrorURL())
-        .updateRokorServerURL(this.tas.getRokorServerURL())
+        .updateRokorServerURL(this.tas.getRekorServerURL())
         .updateRoxCentralEndpoint(this.acs.getRoxCentralEndpoint())
         .updateCosignPublicKey(cosignPublicKey)
         .updateImageRegistryUser(this.component.getRegistry().getImageRegistryUser())

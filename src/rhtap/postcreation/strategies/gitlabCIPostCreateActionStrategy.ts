@@ -2,7 +2,7 @@ import { Component } from '../../core/component';
 import { GitType } from '../../core/integration/git';
 import { AddGitlabProjectVariablesCommand } from './commands/addGitlabProjectVariablesCommand';
 import { Command } from './commands/command';
-import { PostCreateActionStrategy } from './postCreateActionStrategy';
+import { PostCreateActionStrategy } from './componentActionStrategy';
 
 /**
  * GitLab-specific implementation of post-creation action strategy
