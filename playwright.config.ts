@@ -6,6 +6,7 @@ import { TemplateType } from './src/rhtap/core/integration/git/templates/templat
 import { ImageRegistryType } from './src/rhtap/core/integration/registry';
 import { GitType } from './src/rhtap/core/integration/git';
 import { CIType } from './src/rhtap/core/integration/ci';
+import { randomString } from './src/utils/util';
 
 // Load the test plan
 const testPlanPath = process.env.TESTPLAN_PATH || path.resolve(process.cwd(), 'testplan.json');
@@ -18,6 +19,7 @@ const projects = templates.map(template => ({
   name: `template-${template}`,
   use: {
     testItem: new TestItem(
+      `${template}-${randomString()}`,
       template as TemplateType,
       tssc.registry as ImageRegistryType,
       tssc.git as GitType,
@@ -35,4 +37,5 @@ export default defineConfig({
   projects: projects.length ? projects : [{ name: 'default' }],
   reporter: [['html'], ['list']],
   timeout: 900000, // Default to 15 minutes (900000ms)
+  globalSetup: './global-setup.ts',
 });

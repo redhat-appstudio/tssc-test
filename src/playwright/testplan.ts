@@ -2,6 +2,7 @@ import { CIType } from '../../src/rhtap/core/integration/ci';
 import { GitType } from '../../src/rhtap/core/integration/git';
 import { TemplateType } from '../../src/rhtap/core/integration/git';
 import { ImageRegistryType } from '../../src/rhtap/core/integration/registry';
+import { randomString } from '../utils/util';
 import { TestItem } from './testItem';
 
 export class TestPlan {
@@ -37,6 +38,7 @@ export class TestPlan {
   getTestItems(): TestItem[] {
     return this.templates.map((template: string) => {
       return new TestItem(
+        `${template}-${randomString()}`,
         template as unknown as TemplateType,
         this.tssc.registry,
         this.tssc.git,
