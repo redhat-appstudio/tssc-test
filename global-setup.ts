@@ -1,6 +1,8 @@
+// Import default logger as fallback
+import { closeAllLoggers, defaultLogger } from './src/log/logger';
+import { resetTestItemsFile } from './src/utils/testItemExporter';
 import { FullConfig } from '@playwright/test';
-import { Logger } from 'pino'; // Import Logger type
-import { closeAllLoggers, defaultLogger } from './src/log/logger'; // Import default logger as fallback
+import { Logger } from 'pino';
 
 async function globalSetup(config: FullConfig) {
   const log: Logger = defaultLogger;
@@ -8,9 +10,8 @@ async function globalSetup(config: FullConfig) {
   log.info('Starting test suite setup (Global Setup)');
 
   try {
-    // --- Your existing global setup logic here ---
-    // Example: log.debug('Performing pre-suite actions...');
-    // ---
+    // Reset the test items file for this run
+    resetTestItemsFile();
 
     log.info('Global setup completed successfully.');
   } catch (error) {
@@ -24,5 +25,6 @@ async function globalTeardown(config: FullConfig) {
   console.log('Ensuring all logs are properly flushed to disk...');
   await closeAllLoggers();
 }
+
 export { globalTeardown };
 export default globalSetup;
