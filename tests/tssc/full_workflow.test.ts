@@ -35,9 +35,11 @@ test.describe('TSSC Complete Workflow', () => {
   let git: Git;
   let image: string = '';
 
-  // Add current test item to consolidated JSON file
-  test.beforeAll(async ({ testItem }) => {
-    exportTestItem(testItem);
+  test.afterAll(async ({ testItem }, testInfo) => {
+    // Export test item only if all tests succeed
+    if (testInfo.status === 'passed') {
+      exportTestItem(testItem);
+    }
   });
 
   test.describe('Component Creation', () => {
