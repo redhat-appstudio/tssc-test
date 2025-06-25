@@ -10,8 +10,15 @@ async function globalSetup(config: FullConfig) {
   log.info('Starting test suite setup (Global Setup)');
 
   try {
-    // Reset the test items file for this run
-    resetTestItemsFile();
+    // Skip reset when running UI tests
+    const testFiles = config.projects.flatMap(project => project.testMatch || []).join(' ');
+
+    const isRunningUITests =
+      testFiles.includes('ui.test.ts') || process.argv.some(arg => arg.includes('ui.test.ts'));
+
+    if (!isRunningUITests) {
+      resetTestItemsFile();
+    }
 
     log.info('Global setup completed successfully.');
   } catch (error) {
