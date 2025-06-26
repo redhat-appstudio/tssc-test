@@ -89,11 +89,12 @@ spec:
 
         if [ -f "$REPORT_FILE" ]; then
           echo "Sidecar: Uploading test results to the test results storage"
+          # work around for showing up the report.html file in the Artifactory UI, index.html is not supported
+          mv "$REPORT_DIR/index.html" "$REPORT_DIR/report.html"
 
           # Export OCI storage credentials and container details
           OCI_STORAGE_USERNAME="$(jq -r '."quay-username"' /usr/local/konflux-test-infra/oci-storage)"
           OCI_STORAGE_TOKEN="$(jq -r '."quay-token"' /usr/local/konflux-test-infra/oci-storage)"
-          # OCI_STORAGE_CONTAINER="$(params.oci-container-repo):$(params.oci-container-tag)"
           TEMP_ANNOTATION_FILE="$(mktemp)"
 
           # Fetch the manifest annotations for the container
@@ -103,7 +104,7 @@ spec:
           fi
 
           # Create annotation file
-          jq -n --argjson manifest "$MANIFESTS" '{ "$manifest": $manifest }' > "${TEMP_ANNOTATION_FILE}"
+          jq -n --argjson manifest "$MANIFESTS" '{ "$manifest": $  }' > "${TEMP_ANNOTATION_FILE}"
 
           # Pull OCI container
           echo "Pulling OCI container: ${OCI_CONTAINER}"
@@ -116,7 +117,7 @@ spec:
                           --username="${OCI_STORAGE_USERNAME}" \
                           --password="${OCI_STORAGE_TOKEN}" \
                           --annotation-file "${TEMP_ANNOTATION_FILE}" \
-                          ${REPORT_FILE}:application/vnd.acme.rocket.docs.layer.v1+tar; do
+                          playwright-report/:application/vnd.acme.rocket.docs.layer.v1+tar; do
               
               if [[ $attempt -ge 5 ]]; then
                   echo "[ERROR] Failed to push artifacts after $attempt attempts"
