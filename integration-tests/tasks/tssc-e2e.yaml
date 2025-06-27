@@ -1,0 +1,268 @@
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: tssc-e2e
+spec:
+  params:
+    - name: ocp-login-command
+      type: string
+      description: Command to log in to the OpenShift cluster where the tests will be executed.
+    - name: oci-container
+      type: string
+      description: The URI of the OCI container registry to store test artifacts.
+      default: 'quay.io/konflux-test-storage/rhtap-team/rhtap-e2e'
+    - name: rhtap-e2e-container
+      type: string
+      default: 'quay.io/redhat-user-workloads/rhtap-shared-team-tenant/rhtap-e2e/rhtap-e2e:latest'
+    - name: job-spec
+      type: string
+      description: 'The job specification containing details of the test execution.'
+    - name: scm_config
+      type: string
+      description: "The SCM option for rhtap-cli installation. Valid values are 'github' , 'gitlab' and 'bitbucket'."
+    - name: pipeline_config
+      type: string
+      description: "The Pipeline option for rhtap-cli installation. Valid values are 'tekton' and 'jenkins'."
+    - name: ocp-version
+      type: string
+      description: 'The OpenShift version to be used for the test execution.'
+    - name: tssc-test-image
+      type: string
+      description: 'The tssc test image containing the tssc test binary.'
+  volumes:
+    - name: rhtap-cli-volume
+      secret:
+        secretName: rhtap-cli-install
+    - name: konflux-test-infra-volume
+      secret:
+        secretName: konflux-test-infra
+    - name: tssc-test-dir
+      emptyDir: {}
+  sidecars:
+    - name: upload-test-results
+      image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
+      workingDir: /e2e-test
+      volumeMounts:
+        - name: tssc-test-dir
+          mountPath: /e2e-test
+        - name: konflux-test-infra-volume
+          mountPath: /usr/local/konflux-test-infra
+      env:
+        - name: OCI_CONTAINER
+          value: $(params.oci-container)
+      script: |
+        #!/usr/bin/env bash
+        set -o errexit
+        set -o nounset
+
+        #===========================================
+        # INITIALIZATION AND SETUP
+        #===========================================
+        
+        # Define absolute paths for the report
+        readonly REPORT_DIR="/e2e-test/playwright-report"
+        readonly REPORT_FILE="$REPORT_DIR/index.html"
+        readonly RENAMED_REPORT_FILE="$REPORT_DIR/report.html"
+        
+        #===========================================
+        # WAIT FOR TEST COMPLETION
+        #===========================================
+        
+        wait_for_test_report() {
+          echo "Waiting for test report to be available..."
+          
+          local attempts=0
+          local max_attempts=60  # Wait up to 60 * 20 seconds = 20 minutes
+          
+          while [ ! -f "$REPORT_FILE" ] && [ $attempts -lt $max_attempts ]; do
+            sleep 20
+            attempts=$((attempts+1))
+          done
+          
+          return $([[ -f "$REPORT_FILE" ]] && echo 0 || echo 1)
+        }
+        
+        #===========================================
+        # OCI OPERATIONS
+        #===========================================
+        
+        load_oci_credentials() {
+          OCI_STORAGE_USERNAME="$(jq -r '."quay-username"' /usr/local/konflux-test-infra/oci-storage)"
+          OCI_STORAGE_TOKEN="$(jq -r '."quay-token"' /usr/local/konflux-test-infra/oci-storage)"
+        }
+        
+        prepare_oci_annotations() {
+          local temp_annotation_file="$(mktemp)"
+          
+          # Fetch the manifest annotations for the container
+          if ! manifests=$(oras manifest fetch "${OCI_CONTAINER}" | jq .annotations); then
+            echo "Failed to fetch manifest from ${OCI_CONTAINER}"
+            return 1
+          fi
+          
+          # Create annotation file
+           jq -n --argjson manifest "$manifests" '{ "$manifest": $manifest }' > "${temp_annotation_file}"
+          echo "$temp_annotation_file"
+        }
+        
+        pull_oci_container() {
+          oras pull "${OCI_CONTAINER}" >/dev/null 2>&1
+        }
+        
+        push_artifacts_with_retry() {
+          local annotation_file="$1"
+          
+          local attempt=1
+          local max_attempts=5
+          
+          while ! oras push "$OCI_CONTAINER" \
+                        --username="${OCI_STORAGE_USERNAME}" \
+                        --password="${OCI_STORAGE_TOKEN}" \
+                        --annotation-file "${annotation_file}" \
+                        playwright-report/:application/vnd.acme.rocket.docs.layer.v1+tar >/dev/null 2>&1; do
+            
+            if [[ $attempt -ge $max_attempts ]]; then
+              echo "Failed to push artifacts after $attempt attempts"
+              return 1
+            fi
+            
+            echo "Push attempt $attempt failed. Retrying in 5 seconds..."
+            sleep 5
+            ((attempt++))
+          done
+          
+          echo "Test results uploaded successfully"
+        }
+        
+        #===========================================
+        # MAIN EXECUTION FLOW
+        #===========================================
+        
+        # Wait for test completion
+        if ! wait_for_test_report; then
+          echo "Error: Test report not found after maximum wait time"
+          exit 1
+        fi
+        
+        # Process and upload test results
+        if [ -f "$REPORT_FILE" ]; then
+          echo "Test report found. Processing upload..."
+          
+          # workaround for showing up the test report in the Artifactory UI
+          mv "$REPORT_FILE" "$RENAMED_REPORT_FILE"
+          
+          # Load OCI credentials
+          load_oci_credentials
+          
+          # Prepare OCI annotations
+          if ! annotation_file=$(prepare_oci_annotations); then
+            echo "Failed to prepare OCI annotations"
+            exit 1
+          fi
+          
+          # Pull OCI container
+          if ! pull_oci_container; then
+            echo "Failed to pull OCI container"
+            exit 1
+          fi
+          
+          # Push artifacts with retry logic
+          if ! push_artifacts_with_retry "$annotation_file"; then
+            echo "Failed to push artifacts to OCI container"
+            exit 1
+          fi
+          
+          # Cleanup
+          rm -f "$annotation_file"
+          
+        else
+          echo "Error: Test report not found"
+          exit 1
+        fi
+
+        echo "Report collection completed"
+  steps:
+    - name: copy-tssc-test
+      image: $(params.tssc-test-image)
+      command: ["/bin/sh", "-c"]
+      args: ["cp -r /tssc-test/* /e2e-test && chmod -R +x /e2e-test/*"]
+      volumeMounts:
+        - name: tssc-test-dir
+          mountPath: /e2e-test
+    - name: generate-testplan
+      image: $(params.tssc-test-image)
+      workingDir: /e2e-test
+      volumeMounts:
+        - name: tssc-test-dir
+          mountPath: /e2e-test
+      script: |
+        #!/usr/bin/env bash
+        set -o errexit
+        set -o nounset
+
+        cat <<EOF > testplan.json
+        {
+          "templates": ["go"],
+          "tssc": {
+            "git": "github",
+            "ci": "tekton",
+            "registry": "quay.io",
+            "tpa": "local",
+            "acs": "remote"
+          },
+          "tests": ["test1", "test2"]
+        }
+        EOF
+
+        echo "Printing testplan.json file"
+        echo "--------------------------------"
+        cat testplan.json
+        echo "--------------------------------"
+    - name: run-tssc-e2e
+      image: $(params.tssc-test-image)
+      workingDir: /e2e-test
+      computeResources:
+        limits:
+          memory: 6Gi
+        requests:
+          cpu: 100m
+          memory: 3Gi
+      volumeMounts:
+        - name: rhtap-cli-volume
+          mountPath: /usr/local/rhtap-cli-install
+        - name: tssc-test-dir
+          mountPath: /e2e-test
+      script: |
+        #!/usr/bin/env bash
+        set -o errexit
+        set -o nounset
+        set -o pipefail
+
+        cat <<EOF > .env
+        #!/bin/bash
+        # shellcheck disable=SC2034
+
+        export IMAGE_REGISTRY_ORG="rhtap_qe"
+
+        # ========================== GIT REPOSITORY ==========================
+        # When using Github as git repository, set the following variables
+        export GITHUB_ORGANIZATION="rhtap-rhdh-qe"
+
+        # When using Bitbucket as git repository, set the following variables
+        export BITBUCKET_WORKSPACE="rhtap-test"
+        export BITBUCKET_PROJECT="RHTAP"
+        EOF
+
+        echo "Printing .env file"
+        echo "--------------------------------"
+        cat .env
+        echo "--------------------------------"
+
+        # Log into OpenShift
+        $(params.ocp-login-command)
+
+        source .env
+        npm run test:tssc
+
+        ls playwright-report

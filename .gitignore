@@ -35,3 +35,9 @@ Thumbs.db
 /testplan.json
 /kubeconfig
 /package-lock.json
+
+# Tekton
+.tekton/
+
+# Integration tests
+integration-tests/
