@@ -55,87 +55,133 @@ spec:
         #!/usr/bin/env bash
         set -o errexit
         set -o nounset
-        set -x
 
-        # List content of the mounted directory to confirm access
-        echo "Sidecar: Listing contents of /e2e-test:"
-        ls -la /e2e-test/
+        #===========================================
+        # INITIALIZATION AND SETUP
+        #===========================================
         
         # Define absolute paths for the report
-        REPORT_FILE="/e2e-test/playwright-report/index.html"
-        REPORT_DIR="/e2e-test/playwright-report"
-
-        echo "Sidecar: Waiting for test report ($REPORT_FILE) to be available..."
+        readonly REPORT_DIR="/e2e-test/playwright-report"
+        readonly REPORT_FILE="$REPORT_DIR/index.html"
+        readonly RENAMED_REPORT_FILE="$REPORT_DIR/report.html"
         
-        # Corrected waiting loop: Only check for file existence.
-        # Remove pgrep as it's ineffective across containers.
-        ATTEMPTS=0
-        MAX_ATTEMPTS=60 # Wait up to 60 * 20 seconds = 20 minutes. Adjust as needed.
-        while [ ! -f "$REPORT_FILE" ] && [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
-          echo "Sidecar: Waiting for $REPORT_FILE... (attempt $((ATTEMPTS+1)))"
-          sleep 20 # Wait 20 seconds between checks
-          ATTEMPTS=$((ATTEMPTS+1))
-        done
-
-        echo "Sidecar: Final diagnostic information:"
-        echo "Sidecar: Contents of /e2e-test:"
-        ls -la /e2e-test/ || echo "Sidecar: Failed to list /e2e-test"
-        if [ -d "$REPORT_DIR" ]; then
-          echo "Sidecar: Contents of $REPORT_DIR:"
-          ls -la "$REPORT_DIR" || echo "Sidecar: Failed to list $REPORT_DIR"
-        else
-          echo "Sidecar: Directory $REPORT_DIR does not exist"
-        fi
-
-        if [ -f "$REPORT_FILE" ]; then
-          echo "Sidecar: Uploading test results to the test results storage"
-          # work around for showing up the report.html file in the Artifactory UI, index.html is not supported
-          mv "$REPORT_DIR/index.html" "$REPORT_DIR/report.html"
-
-          # Export OCI storage credentials and container details
+        #===========================================
+        # WAIT FOR TEST COMPLETION
+        #===========================================
+        
+        wait_for_test_report() {
+          echo "Waiting for test report to be available..."
+          
+          local attempts=0
+          local max_attempts=60  # Wait up to 60 * 20 seconds = 20 minutes
+          
+          while [ ! -f "$REPORT_FILE" ] && [ $attempts -lt $max_attempts ]; do
+            sleep 20
+            attempts=$((attempts+1))
+          done
+          
+          return $([[ -f "$REPORT_FILE" ]] && echo 0 || echo 1)
+        }
+        
+        #===========================================
+        # OCI OPERATIONS
+        #===========================================
+        
+        load_oci_credentials() {
           OCI_STORAGE_USERNAME="$(jq -r '."quay-username"' /usr/local/konflux-test-infra/oci-storage)"
           OCI_STORAGE_TOKEN="$(jq -r '."quay-token"' /usr/local/konflux-test-infra/oci-storage)"
-          TEMP_ANNOTATION_FILE="$(mktemp)"
-
-          # Fetch the manifest annotations for the container
-          if ! MANIFESTS=$(oras manifest fetch "${OCI_CONTAINER}" | jq .annotations); then
-              echo "Failed to fetch manifest from ${OCI_CONTAINER}"
-              exit 1
-          fi
-
-          # Create annotation file
-          jq -n --argjson manifest "$MANIFESTS" '{ "$manifest": $  }' > "${TEMP_ANNOTATION_FILE}"
-
-          # Pull OCI container
-          echo "Pulling OCI container: ${OCI_CONTAINER}"
-          oras pull "${OCI_CONTAINER}"
-
-          # Push artifacts with retry logic
-          echo "Pushing artifacts to OCI container"
-          attempt=1
-          while ! oras push "$OCI_CONTAINER" \
-                          --username="${OCI_STORAGE_USERNAME}" \
-                          --password="${OCI_STORAGE_TOKEN}" \
-                          --annotation-file "${TEMP_ANNOTATION_FILE}" \
-                          playwright-report/:application/vnd.acme.rocket.docs.layer.v1+tar; do
-              
-              if [[ $attempt -ge 5 ]]; then
-                  echo "[ERROR] Failed to push artifacts after $attempt attempts"
-                  exit 1
-              fi
-              
-              echo "[WARN] Push attempt $attempt failed. Retrying in 5 seconds..."
-              sleep 5
-              ((attempt++))
-          done
+        }
         
-          echo "Sidecar: Test results upload simulated successfully."
+        prepare_oci_annotations() {
+          local temp_annotation_file="$(mktemp)"
+          
+          # Fetch the manifest annotations for the container
+          if ! manifests=$(oras manifest fetch "${OCI_CONTAINER}" | jq .annotations); then
+            echo "Failed to fetch manifest from ${OCI_CONTAINER}"
+            return 1
+          fi
+          
+          # Create annotation file
+           jq -n --argjson manifest "$manifests" '{ "$manifest": $manifest }' > "${temp_annotation_file}"
+          echo "$temp_annotation_file"
+        }
+        
+        pull_oci_container() {
+          oras pull "${OCI_CONTAINER}" >/dev/null 2>&1
+        }
+        
+        push_artifacts_with_retry() {
+          local annotation_file="$1"
+          
+          local attempt=1
+          local max_attempts=5
+          
+          while ! oras push "$OCI_CONTAINER" \
+                        --username="${OCI_STORAGE_USERNAME}" \
+                        --password="${OCI_STORAGE_TOKEN}" \
+                        --annotation-file "${annotation_file}" \
+                        playwright-report/:application/vnd.acme.rocket.docs.layer.v1+tar >/dev/null 2>&1; do
+            
+            if [[ $attempt -ge $max_attempts ]]; then
+              echo "Failed to push artifacts after $attempt attempts"
+              return 1
+            fi
+            
+            echo "Push attempt $attempt failed. Retrying in 5 seconds..."
+            sleep 5
+            ((attempt++))
+          done
+          
+          echo "Test results uploaded successfully"
+        }
+        
+        #===========================================
+        # MAIN EXECUTION FLOW
+        #===========================================
+        
+        # Wait for test completion
+        if ! wait_for_test_report; then
+          echo "Error: Test report not found after maximum wait time"
+          exit 1
+        fi
+        
+        # Process and upload test results
+        if [ -f "$REPORT_FILE" ]; then
+          echo "Test report found. Processing upload..."
+          
+          # workaround for showing up the test report in the Artifactory UI
+          mv "$REPORT_FILE" "$RENAMED_REPORT_FILE"
+          
+          # Load OCI credentials
+          load_oci_credentials
+          
+          # Prepare OCI annotations
+          if ! annotation_file=$(prepare_oci_annotations); then
+            echo "Failed to prepare OCI annotations"
+            exit 1
+          fi
+          
+          # Pull OCI container
+          if ! pull_oci_container; then
+            echo "Failed to pull OCI container"
+            exit 1
+          fi
+          
+          # Push artifacts with retry logic
+          if ! push_artifacts_with_retry "$annotation_file"; then
+            echo "Failed to push artifacts to OCI container"
+            exit 1
+          fi
+          
+          # Cleanup
+          rm -f "$annotation_file"
+          
         else
-          echo "Sidecar: Error: Test report '$REPORT_FILE' not found after maximum wait time."
-          exit 1 # Exit with error if report wasn't found, or handle gracefully
+          echo "Error: Test report not found"
+          exit 1
         fi
 
-        echo "Sidecar: Report collection finished."
+        echo "Report collection completed"
   steps:
     - name: copy-tssc-test
       image: $(params.tssc-test-image)
