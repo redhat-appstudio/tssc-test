@@ -4,6 +4,7 @@ import { TemplateType } from '../../src/rhtap/core/integration/git';
 import { ImageRegistryType } from '../../src/rhtap/core/integration/registry';
 
 export class TestItem {
+  private name: string;
   private template: TemplateType;
   private registryType: ImageRegistryType;
   private gitType: GitType;
@@ -12,6 +13,7 @@ export class TestItem {
   private acs: string;
 
   constructor(
+    name: string,
     template: TemplateType,
     registryType: ImageRegistryType,
     gitType: GitType,
@@ -19,6 +21,7 @@ export class TestItem {
     tpa: string = '',
     acs: string = ''
   ) {
+    this.name = name;
     this.template = template;
     this.registryType = registryType;
     this.gitType = gitType;
@@ -28,6 +31,10 @@ export class TestItem {
   }
 
   // Getters
+  public getName(): string {
+    return this.name;
+  }
+
   public getTemplate(): TemplateType {
     return this.template;
   }
@@ -53,6 +60,10 @@ export class TestItem {
   }
 
   // Setters
+  public setName(name: string): void {
+    this.name = name;
+  }
+
   public setTemplate(template: TemplateType): void {
     this.template = template;
   }
@@ -75,5 +86,35 @@ export class TestItem {
 
   public setACS(acs: string): void {
     this.acs = acs;
+  }
+
+  /**
+   * Convert the TestItem to a JSON-serializable object
+   */
+  public toJSON(): object {
+    return {
+      name: this.name,
+      template: this.template,
+      registryType: this.registryType,
+      gitType: this.gitType,
+      ciType: this.ciType,
+      tpa: this.tpa,
+      acs: this.acs,
+    };
+  }
+
+  /**
+   * Create a TestItem from a JSON object
+   */
+  public static fromJSON(data: Record<string, unknown>): TestItem {
+    return new TestItem(
+      data.name as string,
+      data.template as TemplateType,
+      data.registryType as ImageRegistryType,
+      data.gitType as GitType,
+      data.ciType as CIType,
+      data.tpa as string,
+      data.acs as string
+    );
   }
 }

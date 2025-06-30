@@ -146,7 +146,15 @@ export function getTestItemFromEnv(): TestItem {
   }
   try {
     const obj = JSON.parse(raw);
-    return new TestItem(obj.template, obj.registryType, obj.gitType, obj.ciType, obj.tpa, obj.acs);
+    return new TestItem(
+      obj.name,
+      obj.template,
+      obj.registryType,
+      obj.gitType,
+      obj.ciType,
+      obj.tpa,
+      obj.acs
+    );
   } catch (e) {
     throw new Error(`Failed to parse TESTITEM: ${e}`);
   }
