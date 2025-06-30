@@ -10,6 +10,8 @@
         "validate": "npm run lint && npm run format && npm run check-types",
         "test": "playwright test",
         "test:report": "playwright show-report",
+        "test:report:tssc": "playwright show-report playwright-report-tssc",
+        "test:report:ui": "playwright show-report playwright-report-ui",
         "test:tssc": "playwright test tests/tssc/full_workflow.test.ts",
         "test:ui": "UI_TEST=true playwright test tests/tssc/ui.test.ts",
         "ui": "UI_TEST=true playwright test --ui tests/tssc/ui.test.ts"

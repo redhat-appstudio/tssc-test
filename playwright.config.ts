@@ -14,7 +14,18 @@ const testPlanData = JSON.parse(readFileSync(testPlanPath, 'utf-8'));
 const templates = testPlanData.templates || [];
 const tssc = testPlanData.tssc || {};
 
-// Create e2e projects from testplan.json
+// Dynamic output directories based on test type or timestamp
+const getOutputDir = (baseDir: string): string => {
+  const isUITest = process.env.UI_TEST === 'true';
+  
+  // Different output directories for UI and TSCC tests
+  if (isUITest) {
+    return `${baseDir}-ui`;
+  }
+  return `${baseDir}-tssc`;
+};
+
+// Create a project for each template
 const e2eProjects = templates.map(template => ({
   name: `template-${template}`,
   testMatch: '**/full_workflow.test.ts',
@@ -28,6 +39,8 @@ const e2eProjects = templates.map(template => ({
       tssc.tpa || '',
       tssc.acs || ''
     ),
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
   },
 }));
 
@@ -57,8 +70,23 @@ export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.test.ts',
   workers: 3,
-  projects: allProjects.length ? allProjects : [{ name: 'default' }],
-  reporter: [['html'], ['list']],
+  projects: allProjects.length ? allProjects : [{ 
+    name: 'default',
+    use: {
+      screenshot: 'only-on-failure',
+      video: 'retain-on-failure',
+    }
+  }],
+  reporter: [['html', { 
+    outputFolder: getOutputDir('playwright-report'),
+    open: 'never' // Prevent auto-opening report server on failure
+  }], 
+  ['list']],
   timeout: 900000, // Default to 15 minutes (900000ms)
+  outputDir: getOutputDir('test-results'),
+  use: {
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+  },
   globalSetup: './global-setup.ts',
 });

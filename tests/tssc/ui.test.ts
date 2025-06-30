@@ -39,7 +39,7 @@ test.describe('RHTAP UI Test Suite', () => {
     test('open developer hub and log in', async ({ page }) => {
       await page.goto(component.getCoreComponent().getDeveloperHub().getUrl());
       await component.getGit().login(page);
-      await page.getByRole('heading', { name: CommonPO.welcomeTitle }).waitFor({ state: 'visible' });
+      await page.getByRole('heading', { name: CommonPO.welcomeTitle }).waitFor({ state: 'visible', timeout: 5000 });
     });
 
   });
