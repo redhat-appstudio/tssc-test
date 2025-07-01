@@ -47,7 +47,7 @@ try {
   if (ENABLE_UI_TESTS) {
     // Create auth setup project for UI tests
     authProjects = [{ name: 'auth-setup', testMatch: '**/auth.setup.ts' }];
-    
+
     uiProjects = projectConfigs.map(config => ({
       name: `ui-${config.name}`,
       testMatch: 'tests/ui/**/*.test.ts',
@@ -90,7 +90,7 @@ export default defineConfig({
   timeout: DEFAULT_TIMEOUT,
   fullyParallel: false, // This should allow immediate execution when dependencies are met
   projects: allProjects.length ? allProjects : [{ name: 'default' }],
-  
+
   // Reporter configuration
   reporter: [
     ['html', { open: 'never', outputFolder: 'playwright-report' }],
