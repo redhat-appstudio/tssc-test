@@ -90,6 +90,8 @@ npm run test:report
 
 The framework includes UI automation tests that validate the tssc user interface using Playwright. These tests ensure the correct functionality of the web interface and its integration with various plugins and backend services.
 
+More information about the desing can be found [here](./docs/UI_TESTS.md).
+
 ### Running UI Tests
 
 Before running the UI test, follow all steps for the backend tests described above. Test expects the component to be created manually or during backend tests and the name should be set as an environment variable. To successfully run the UI test, set also other variables related to UI test in the .env file.
@@ -106,7 +108,7 @@ To run UI tests in UI mode:
 ```bash
 npm run ui
 ```
-UI mode opens a Playwright UI interface and allows developer to see the test execution and UI behavior, read the DOM, watch the networking of the page, etc. 
+UI mode opens a Playwright UI interface and allows developer to see the test execution and UI behavior, read the DOM, watch the networking of the page, etc.
 
 ### UI Test Structure
 
