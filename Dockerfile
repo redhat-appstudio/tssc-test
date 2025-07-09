@@ -12,7 +12,7 @@ RUN VERSION=$(curl -L -s https://raw.githubusercontent.com/argoproj/argo-cd/stab
     && argocd version --client
 
 # Final stage
-FROM registry.access.redhat.com/ubi9/nodejs-20:9.6-1751535294
+FROM registry.access.redhat.com/ubi9/nodejs-20:9.6-1751964045
 
 LABEL name="tssc-test" \
       maintainers="TSSC Team"
