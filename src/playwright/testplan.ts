@@ -1,7 +1,8 @@
-import { CIType } from '../rhtap/core/integration/ci';
-import { GitType } from '../rhtap/core/integration/git';
-import { TemplateType } from '../rhtap/core/integration/git/templates/templateFactory';
-import { ImageRegistryType } from '../rhtap/core/integration/registry';
+import { CIType } from '../../src/rhtap/core/integration/ci';
+import { GitType } from '../../src/rhtap/core/integration/git';
+import { TemplateType } from '../../src/rhtap/core/integration/git';
+import { ImageRegistryType } from '../../src/rhtap/core/integration/registry';
+import { randomString } from '../utils/util';
 import { TestItem } from './testItem';
 
 export interface TSScConfig {
@@ -44,6 +45,7 @@ export class TestPlan {
       this.tsscConfigs.forEach(tsscConfig => {
         testItems.push(
           new TestItem(
+            `${template}-${randomString()}`,
             template as TemplateType,
             tsscConfig.registry,
             tsscConfig.git,
@@ -69,6 +71,7 @@ export class TestPlan {
         projects.push({
           name: `${template}[${tsscConfig.git}-${tsscConfig.ci}-${tsscConfig.registry}]`,
           testItem: new TestItem(
+            `${template}-${randomString()}`,
             template as TemplateType,
             tsscConfig.registry,
             tsscConfig.git,
