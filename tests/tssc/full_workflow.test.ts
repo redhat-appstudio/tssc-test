@@ -9,7 +9,7 @@ import {
   promoteToEnvironmentWithPR,
 } from '../../src/utils/test/common';
 import { createBasicFixture } from '../../src/utils/test/fixtures';
-import { randomString } from '../../src/utils/util';
+import { exportTestItem } from '../../src/utils/testItemExporter';
 import { expect } from '@playwright/test';
 
 /**
@@ -35,10 +35,17 @@ test.describe('TSSC Complete Workflow', () => {
   let git: Git;
   let image: string = '';
 
+  test.afterAll(async ({ testItem }, testInfo) => {
+    // Export test item only if all tests succeed
+    if (testInfo.status === 'passed') {
+      exportTestItem(testItem);
+    }
+  });
+
   test.describe('Component Creation', () => {
     test('should create a component successfully', async ({ testItem }) => {
       // Generate component name directly in the test
-      const componentName = `${testItem.getTemplate()}-${randomString()}`;
+      const componentName = testItem.getName();
       const imageName = `${componentName}`;
       console.log(`Creating component: ${componentName}`);
 
