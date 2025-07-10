@@ -1,0 +1,6 @@
+# Default owner for everything in this repository.
+* @xinredhat
+
+# Owners for UI related files and directories
+/src/ui/ @Katka92
+/tests/ui/ui.test.ts @Katka92
