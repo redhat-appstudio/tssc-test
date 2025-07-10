@@ -229,7 +229,11 @@ The UI tests are organized as follows:
 
 - `src/ui/plugins/` - UI-specific automation for various plugins (Git providers, CI providers, image registries, etc.)
 - `src/ui/page-objects/` - Page Object Models (POMs) for UI elements
-- `tests/tssc/ui.test.ts` - Main UI automation test file
+- `tests/ui/ui.test.ts` - Main UI automation test file
+
+### Naming convention
+
+All UI related files should be place to the `/src/ui` or `/tests/ui` folders. To differentiate between UI and backend entities, it's required to include `Ui` or `plugin` to the name of the entity.
 
 ### UI Test Artifacts
 
