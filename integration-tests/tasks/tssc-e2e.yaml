@@ -232,6 +232,9 @@ spec:
           mountPath: /usr/local/rhtap-cli-install
         - name: tssc-test-dir
           mountPath: /e2e-test
+      env:
+        - name: JOB_SPEC
+          value: "$(params.job-spec)"
       script: |
         #!/usr/bin/env bash
         set -o errexit
@@ -252,6 +255,14 @@ spec:
         export BITBUCKET_WORKSPACE="rhtap-test"
         export BITBUCKET_PROJECT="RHTAP"
         EOF
+
+        # Set CI_TEST_RUNNER_IMAGE if CI running for tssc-dev-multi-ci repo
+        GIT_REPO="$(jq -r '.git.repo // empty' <<< $JOB_SPEC)"
+        if [ "$GIT_REPO" = "tssc-dev-multi-ci" ]; then
+          cat << EOF >> .env
+        export CI_TEST_RUNNER_IMAGE="${CI_TEST_RUNNER_IMAGE:-$(echo "$JOB_SPEC" | jq -r '.container_image')}"
+        EOF
+        fi
 
         echo "Printing .env file"
         echo "--------------------------------"
