@@ -12,6 +12,49 @@
 
 This project is an end-to-end automation testing framework designed to validate the functionality of the [Red Hat Trusted Software Supply Chain CLI](https://github.com/redhat-appstudio/rhtap-cli) (tssc). Built with Playwright and TypeScript, this framework simulates real-world user interactions and backend processes to ensure the reliability and correctness of tssc's core features.
 
+## Test Execution Control
+
+The framework supports environment variables to control which types of tests run:
+
+### Environment Variables
+
+- **`ENABLE_E2E_TESTS`** (default: `true`) - Controls backend E2E test execution
+- **`ENABLE_UI_TESTS`** (default: `false`) - Controls UI test execution
+
+### Usage Examples
+
+```bash
+# Run only E2E tests (default behavior) - generates fresh config
+npm run test:e2e
+# or
+ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=false npm test
+
+# Run only UI tests - uses existing config from previous E2E runs
+npm run test:ui
+# or
+ENABLE_E2E_TESTS=false ENABLE_UI_TESTS=true playwright test
+
+# Run both E2E and UI tests - generates fresh config, UI depends on E2E
+npm run test:all
+# or
+npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=true npm test
+
+# Default: Only E2E tests - generates fresh config
+npm test
+```
+
+### Test Dependencies
+
+- **When both are enabled**: UI tests depend on their corresponding E2E tests
+- **When only UI enabled**: UI tests run standalone using existing project configurations
+- **When only E2E enabled**: Only backend tests run with fresh configurations
+
+### Configuration Generation
+
+- **E2E tests**: Always generate fresh project configurations (new components)
+- **UI-only tests**: Use existing configurations from previous E2E runs (test existing components)
+- **Combined tests**: Generate fresh configurations for the entire workflow
+
 ## Prerequisites
 
 Before using this testing framework, ensure you have:

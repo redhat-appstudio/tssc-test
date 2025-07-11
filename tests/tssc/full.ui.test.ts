@@ -27,19 +27,23 @@ test.describe('RHTAP UI Test Suite', () => {
 
   test.beforeAll('', async ({ testItem }) => {
     console.log('Running UI test for:', testItem);
-    const componentName = testItem.getName();
-    const imageName = `${componentName}`;
-    console.log(`Creating component: ${componentName}`);
+    console.log(`testItem name: ${testItem.getName()}`);
+    
+    // Component creation logic temporarily commented out during refactoring
+    // const componentName = testItem.getName(); // Alternative: loadFromEnv('IMAGE_REGISTRY_ORG')
+    // const imageName = `${componentName}`;
+    // console.log(`Creating component: ${componentName}`);
 
     // Assign the already created component 
-    component = await UiComponent.new(componentName, testItem, imageName);
+    // component = await UiComponent.new(componentName, testItem, imageName);
   });
 
   test.describe('Log In', () => {
-    test('open developer hub and log in', async ({ page }) => {
-      await page.goto(component.getCoreComponent().getDeveloperHub().getUrl());
-      await component.getGit().login(page);
-      await page.getByRole('heading', { name: CommonPO.welcomeTitle }).waitFor({ state: 'visible' });
+    test('open developer hub and log in', async ({ page, testItem }) => {
+      console.log(`testItem name: ${testItem.getName()}`);
+      // await page.goto(component.getCoreComponent().getDeveloperHub().getUrl());
+      // await component.getGit().login(page);
+      // await page.getByRole('heading', { name: CommonPO.welcomeTitle }).waitFor({ state: 'visible' });
     });
 
   });

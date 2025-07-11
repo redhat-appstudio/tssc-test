@@ -10,7 +10,6 @@ import {
   promoteToEnvironmentWithoutPR,
 } from '../../src/utils/test/common';
 import { createBasicFixture } from '../../src/utils/test/fixtures';
-import { exportTestItem } from '../../src/utils/testItemExporter';
 import { expect } from '@playwright/test';
 
 /**
@@ -35,13 +34,6 @@ test.describe('TSSC Complete Workflow', () => {
   let ci: CI;
   let git: Git;
   let image: string = '';
-
-  test.afterAll(async ({ testItem }, testInfo) => {
-    // Export test item only if all tests succeed
-    if (testInfo.status === 'passed') {
-      exportTestItem(testItem);
-    }
-  });
 
   test.describe('Component Creation', () => {
     test('should create a component successfully', async ({ testItem }) => {
@@ -84,6 +76,48 @@ test.describe('TSSC Complete Workflow', () => {
       console.log('Source code changes processed successfully!');
     });
   });
+
+  // test.describe('Component Creation', () => {
+  //   test('should create a component successfully', async ({ testItem }) => {
+  //     // Generate component name directly in the test
+  //     const componentName = testItem.getName();
+  //     const imageName = `${componentName}`;
+  //     console.log(`Creating component: ${componentName}`);
+
+  //     // Create the component directly in the test
+  //     component = await Component.new(componentName, testItem, imageName);
+
+  //     // Wait for the component to be created
+  //     await component.waitUntilComponentIsCompleted();
+
+  //     // Initialize shared resources
+  //     cd = component.getCD();
+  //     git = component.getGit();
+  //     ci = component.getCI();
+
+  //     // Verify component status
+  //     const componentStatus = await component.getStatus();
+  //     expect(componentStatus).toBe('completed');
+  //     console.log('Component was created successfully!');
+
+  //     // Execute post-creation actions
+  //     const postCreateAction = new ComponentPostCreateAction(component);
+  //     await postCreateAction.execute();
+  //     console.log('✅ Post-creation actions executed successfully!');
+
+  //     // Wait for all initial pipelines to finish
+  //     await ci.waitForAllPipelinesToFinish();
+  //     console.log('All initial pipelines have finished successfully!');
+  //   });
+  // });
+
+  // test.describe('Build Application Image', () => {
+  //   test('should build application changes as new image through pipelines', async () => {
+  //     // Handle source code changes based on CI provider type
+  //     await handleSourceRepoCodeChanges(git, ci);
+  //     console.log('Source code changes processed successfully!');
+  //   });
+  // });
 
   test.describe('Deployment Verification', () => {
     test('should verify deployment to development environment', async () => {
