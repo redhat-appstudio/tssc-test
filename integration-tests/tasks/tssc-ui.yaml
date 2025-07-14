@@ -1,0 +1,166 @@
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: tssc-ui
+spec:
+  params:
+    - name: ocp-login-command
+      type: string
+      description: Command to log in to the OpenShift cluster where the tests will be executed.
+    - name: oci-container
+      type: string
+      description: The URI of the OCI container registry to store test artifacts.
+    - name: job-spec
+      type: string
+      description: 'The job specification containing details of the test execution.'
+    - name: tssc-test-image
+      type: string
+      description: 'The tssc test image containing the tssc test binary.'
+  volumes:
+    - name: konflux-test-infra-volume
+      secret:
+        secretName: konflux-test-infra
+    - name: rhtap-cli-volume
+      secret:
+        secretName: rhtap-cli-install
+    - name: tssc-test-dir
+      emptyDir: {}
+  steps:
+    - name: prepare-environment
+      image: $(params.tssc-test-image)
+      command: ['/bin/sh', '-c']
+      args: ['cp -r /tssc-test/* /ui-test && chmod -R +x /ui-test/*']
+      volumeMounts:
+        - name: tssc-test-dir
+          mountPath: /ui-test
+    - name: setup-test-environment
+      image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
+      workingDir: /ui-test
+      computeResources:
+        limits:
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 512Mi
+      volumeMounts:
+        - name: tssc-test-dir
+          mountPath: /ui-test
+        - name: konflux-test-infra-volume
+          mountPath: /usr/local/konflux-test-infra
+        - name: rhtap-cli-volume
+          mountPath: /usr/local/rhtap-cli-install
+      env:
+        - name: OCI_CONTAINER
+          value: $(params.oci-container)
+
+      script: |
+        #!/usr/bin/env bash
+        set -eu
+
+        echo "Copying testplan.json to root directory"
+        cp ./templates/testplan.json ./testplan.json
+
+        # Load GitHub credentials from rhtap-cli-install secret
+        GH_USERNAME=""
+        GH_PASSWORD=""
+        GH_SECRET=""
+        
+        # Load GitHub username from rhtap-cli-install secret
+        if [ -f "/usr/local/rhtap-cli-install/github-username" ]; then
+          echo "Loading GitHub username from rhtap-cli-install secret..."
+          GH_USERNAME=$(cat /usr/local/rhtap-cli-install/github-username 2>/dev/null || echo "")
+          echo "GitHub username loaded from secret"
+        else
+          echo "GitHub username not found in rhtap-cli-install secret"
+        fi
+        
+        # Load GitHub password from rhtap-cli-install secret
+        if [ -f "/usr/local/rhtap-cli-install/github-password" ]; then
+          echo "Loading GitHub password from rhtap-cli-install secret..."
+          GH_PASSWORD=$(cat /usr/local/rhtap-cli-install/github-password 2>/dev/null || echo "")
+          echo "GitHub password loaded from secret"
+        else
+          echo "GitHub password not found in rhtap-cli-install secret"
+        fi
+
+        # Load GitHub 2FA secret
+        if [ -f "/usr/local/rhtap-cli-install/github-2fa-secret" ]; then
+          GH_SECRET=$(cat /usr/local/rhtap-cli-install/github-2fa-secret 2>/dev/null || echo "")
+          echo "GitHub 2FA secret loaded from secret"
+        else
+          echo "GitHub 2FA secret not found in rhtap-cli-install secret"
+        fi    
+
+        # Download test artifacts from OCI container
+        echo "Pulling OCI container: $OCI_CONTAINER"
+        if PULL_OUTPUT=$(oras pull "$OCI_CONTAINER" --output . 2>&1); then
+          echo "Successfully downloaded files from OCI container"
+        else
+          echo "ERROR: Failed to download from OCI container"
+          echo "ORAS pull error output:"
+          echo "$PULL_OUTPUT"
+          exit 1
+        fi
+
+        echo "Creating .env file with environment variables..."
+        cat <<EOF > .env
+        #!/bin/bash
+        # shellcheck disable=SC2034
+
+        export QUAY_REGISTRY_ORG="rhtap_qe"
+        export ARTIFACTORY_REGISTRY_ORG="rhtap"
+        export NEXUS_REGISTRY_ORG="rhtap"
+
+        # ========================== GIT REPOSITORY ==========================
+        # When using Github as git repository, set the following variables
+        export GITHUB_ORGANIZATION="rhtap-rhdh-qe"
+
+        # When using Bitbucket as git repository, set the following variables
+        export BITBUCKET_WORKSPACE="rhtap-test"
+        export BITBUCKET_PROJECT="RHTAP"
+
+        # ========================== GITHUB CREDENTIALS ==========================
+        export GH_USERNAME="$GH_USERNAME"
+        export GH_PASSWORD="$GH_PASSWORD"
+        export GH_SECRET="$GH_SECRET"
+
+        # ========================== CI CONFIGURATION ==========================
+        export CI_TEST_RUNNER_IMAGE="quay.io/redhat-user-workloads/rhtap-shared-team-tenant/tssc-test:latest"
+        EOF
+
+        echo "Logging into OpenShift..."
+        $(params.ocp-login-command)
+
+        echo "Copying kubeconfig to shared directory..."
+        mkdir -p /ui-test/.kube
+        cp "$HOME/.kube/config" /ui-test/.kube/config
+
+        chown -R 1001:0 /ui-test
+
+    - name: run-ui-tests
+      image: $(params.tssc-test-image)
+      workingDir: /ui-test
+      computeResources:
+        limits:
+          memory: 6Gi
+        requests:
+          cpu: 100m
+          memory: 3Gi
+      volumeMounts:
+        - name: tssc-test-dir
+          mountPath: /ui-test
+      env:
+        - name: UI_TEST
+          value: "true"
+        - name: KUBECONFIG
+          value: /ui-test/.kube/config
+      script: |
+        #!/usr/bin/env bash
+        set -eu
+
+        echo "Sourcing environment variables"
+        source .env
+
+        echo "Running UI tests with 'npm run test:ui'"
+        npm run test:ui
