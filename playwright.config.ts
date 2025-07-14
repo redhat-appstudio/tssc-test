@@ -47,7 +47,12 @@ try {
       },
       // Only add dependencies if e2e tests are enabled
       ...(ENABLE_E2E_TESTS && {
-        dependencies: [`e2e-${config.name}`]
+        // Set dependency behavior based on flag:
+        // By default, UI test depends only on its corresponding e2e test.
+        // If UI_DEPENDS_ON_ALL_E2E is set to 'true', depend on all e2e tests.
+        dependencies: process.env.UI_DEPENDS_ON_ALL_E2E === 'true'
+          ? projectConfigs.map(cfg => `e2e-${cfg.name}`)
+          : [`e2e-${config.name}`]
       })
     }));
   }
