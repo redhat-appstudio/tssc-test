@@ -9,7 +9,7 @@
     },
     {
       "git": "gitlab",
-      "ci": "tekton",
+      "ci": "gitlabci",
       "registry": "quay.io",
       "tpa": "local",
       "acs": "remote"
