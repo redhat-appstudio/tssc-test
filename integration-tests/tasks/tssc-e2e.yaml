@@ -245,7 +245,9 @@ spec:
         #!/bin/bash
         # shellcheck disable=SC2034
 
-        export IMAGE_REGISTRY_ORG="rhtap_qe"
+        export QUAY_REGISTRY_ORG="rhtap_qe"
+        export ARTIFACTORY_REGISTRY_ORG="rhtap"
+        export NEXUS_REGISTRY_ORG="rhtap"
 
         # ========================== GIT REPOSITORY ==========================
         # When using Github as git repository, set the following variables
