@@ -10,7 +10,7 @@
   {
     "git": "github",
     "ci": "githubactions",
-    "registry": "quay.io",
+    "registry": "artifactory",
     "tpa": "local",
     "acs": "remote"
   },
