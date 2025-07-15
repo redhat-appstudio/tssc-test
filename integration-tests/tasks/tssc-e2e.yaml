@@ -49,8 +49,8 @@ spec:
         readonly REPORT_FILE="$REPORT_DIR/index.html"
         readonly RENAMED_REPORT_FILE="$REPORT_DIR/report.html"
         readonly ANNOTATION_FILE="annotation.json"
-        readonly WAIT_INTERVAL=20
-        readonly MAX_WAIT_ATTEMPTS=60  # 20 minutes total
+        readonly WAIT_INTERVAL=60
+        readonly MAX_WAIT_ATTEMPTS=40  # 40 minutes total
         readonly MAX_PUSH_ATTEMPTS=5
         readonly RETRY_DELAY=5
 
@@ -195,7 +195,7 @@ spec:
           mountPath: /e2e-test
       env:
         - name: JOB_SPEC
-          value: "$(params.job-spec)"
+          value: '$(params.job-spec)'
       script: |
         #!/usr/bin/env bash
         set -o errexit
@@ -234,7 +234,7 @@ spec:
           mountPath: /e2e-test
       env:
         - name: JOB_SPEC
-          value: "$(params.job-spec)"
+          value: '$(params.job-spec)'
       script: |
         #!/usr/bin/env bash
         set -o errexit
