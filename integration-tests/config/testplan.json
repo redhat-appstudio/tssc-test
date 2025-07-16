@@ -4,21 +4,21 @@
     "git": "github",
     "ci": "tekton",
     "registry": "quay.io",
-    "tpa": "local",
+    "tpa": "remote",
     "acs": "remote"
   },
   {
     "git": "github",
     "ci": "githubactions",
     "registry": "artifactory",
-    "tpa": "local",
+    "tpa": "remote",
     "acs": "remote"
   },
   {
     "git": "gitlab",
     "ci": "gitlabci",
-    "registry": "quay.io",
-    "tpa": "local",
+    "registry": "nexus",
+    "tpa": "remote",
     "acs": "remote"
   }],
   "tests": ["test1", "test2"]
