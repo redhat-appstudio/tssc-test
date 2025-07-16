@@ -51,7 +51,7 @@ export abstract class BaseCI implements CI {
   //TODO: needs one more parameter to specify the final status to wait for
   public async waitForPipelineToFinish(
     pipeline: Pipeline,
-    timeoutMs: number = 600000
+    timeoutMs: number = 900000
   ): Promise<PipelineStatus> {
     console.log(`Waiting for pipeline ${pipeline.getDisplayName()} to finish...`);
 
@@ -84,9 +84,9 @@ export abstract class BaseCI implements CI {
       };
 
       status = await retry(checkPipelineStatus, {
-        retries: Math.floor(timeoutMs / 5000), // Calculate retries based on timeout
-        minTimeout: 5000, // 5 seconds between retries
-        maxTimeout: 5000, // Keep consistent timing
+        retries: Math.floor(timeoutMs / 30000), // Calculate retries based on timeout
+        minTimeout: 30000, // 30 seconds between retries
+        maxTimeout: 30000, // Keep consistent timing
         factor: 1, // No backoff
         onRetry: (error: Error, attempt: number) => {
           console.log(
