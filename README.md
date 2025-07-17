@@ -204,6 +204,8 @@ The framework includes UI automation tests that validate the tssc user interface
 - Set UI-specific variables in the `.env` file
 - GitHub App authentication: Ensure user has authenticated the application manually (this step is not part of the UI tests)
 
+More information about the design can be found [here](./docs/UI_TESTS.md).
+
 ### Running UI Tests
 
 #### Local Execution
