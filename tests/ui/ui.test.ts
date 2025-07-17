@@ -27,7 +27,7 @@ test.describe('RHTAP UI Test Suite', () => {
 
   test.beforeAll('', async ({ testItem }) => {
     console.log('Running UI test for:', testItem);
-    const componentName = loadFromEnv('IMAGE_REGISTRY_ORG');
+    const componentName = testItem.getName();
     const imageName = `${componentName}`;
     console.log(`Creating component: ${componentName}`);
 

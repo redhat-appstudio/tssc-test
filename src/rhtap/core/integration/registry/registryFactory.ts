@@ -48,20 +48,23 @@ export class RegistryFactory {
     // orgName: string,
     imageName: string
   ): Promise<ImageRegistry> {
-    const imageOrg = loadFromEnv('IMAGE_REGISTRY_ORG');
+    let imageOrg;
     switch (imageRegistryType) {
       case ImageRegistryType.QUAY:
       case ImageRegistryType.QUAYIO:
+        imageOrg = loadFromEnv('QUAY_REGISTRY_ORG');
         const quayRegistry = new QuayRegistry(imageOrg, imageName);
         quayRegistry.setKubeClient(this.kubeClient);
         await quayRegistry.initialize();
         return quayRegistry;
       case ImageRegistryType.ARTIFACTORY:
+        imageOrg = loadFromEnv('ARTIFACTORY_REGISTRY_ORG');
         const artifactoryRegistry = new ArtifactoryRegistry(imageOrg, imageName);
         artifactoryRegistry.setKubeClient(this.kubeClient);
         await artifactoryRegistry.initialize();
         return artifactoryRegistry;
       case ImageRegistryType.NEXUS:
+        imageOrg = loadFromEnv('NEXUS_REGISTRY_ORG');
         const nexusRegistry = new NexusRegistry(imageOrg, imageName);
         nexusRegistry.setKubeClient(this.kubeClient);
         await nexusRegistry.initialize();
