@@ -14,7 +14,7 @@ export interface EnvModification {
 /**
  * ACS modification - toggles ACS feature on/off
  */
-export class EnableACS implements EnvModification {
+export class DisableACS implements EnvModification {
   getModification(): ContentModifications {
     return {
       'rhtap/env.sh': [
@@ -124,7 +124,7 @@ export class EnvModificationFactory {
   static create(type: EnvModificationType): EnvModification {
     switch (type) {
       case EnvModificationType.ACS:
-        return new EnableACS();
+        return new DisableACS();
       case EnvModificationType.TUF_MIRROR:
         return new UpdateTUFMirrorURL();
       case EnvModificationType.ROKOR_SERVER:
@@ -162,7 +162,7 @@ export class RhtapEnvModifier {
     this.container = new ContentModificationsContainer();
   }
 
-  enableACS(): RhtapEnvModifier {
+  disableACS(): RhtapEnvModifier {
     const modification = EnvModificationFactory.create(EnvModificationType.ACS).getModification();
     this.container.merge(modification);
     return this;

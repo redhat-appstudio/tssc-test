@@ -20,6 +20,13 @@
     "registry": "nexus",
     "tpa": "remote",
     "acs": "remote"
+  },
+  {
+    "git": "github",
+    "ci": "jenkins",
+    "registry": "quay.io",
+    "tpa": "remote",
+    "acs": "remote"
   }],
   "tests": ["test1", "test2"]
 }
