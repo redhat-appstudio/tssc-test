@@ -72,8 +72,7 @@ test.describe('RHTAP UI Test Suite', () => {
     const response = await page.request.head(linkHref!);
     const status = response.status();
     
-    const validStatuses = [200, 201, 202, 301, 302, 304];
-    test.expect(validStatuses).toContain(status);
+    test.expect(status).toBe(200);
     
     console.log(`GitHub URL: ${linkHref}`);
   });
