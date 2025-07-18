@@ -52,63 +52,29 @@ test.describe('RHTAP UI Test Suite', () => {
    * 3. Verify link is accessible
    */
   test('should find GitHub "View Source" link', async ({ page, testItem }) => {
-    // Step 1: Navigate to component page
     const componentUrl = component.getComponentUrl();
-    console.log(`🚀 Navigating to component: ${componentUrl}`);
     await page.goto(componentUrl, { timeout: 20000 });
     
-    // Wait for page to be ready without using networkidle
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForSelector('[data-testid="overview-page"], .overview-content, main', { timeout: 10000 });
+    await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
     
-    // Step 2: Search for "View Source" GitHub link using single locator
-    console.log('🔍 Searching for "View Source" link...');
+    const githubLink = page.locator('a[href*="github.com"]:has-text("View Source")').first();
     
-    // Use a single comprehensive locator that covers the most common patterns
-    const githubLink = page.locator('a[href*="github.com"]:has-text("View Source"), a[href*="github.com"]:has-text("Source")').first();
-    
-    // Wait for the link to be present
     await githubLink.waitFor({ state: 'visible', timeout: 10000 });
     
-    const linkText = await githubLink.textContent();
     const linkHref = await githubLink.getAttribute('href');
     
-    console.log(`✅ Found GitHub link: "${linkText?.trim()}" -> ${linkHref}`);
-    
-    // Verify we found the link
     test.expect(githubLink).toBeTruthy();
-    test.expect(linkHref).toContain('github.com');
-    console.log(`✅ GitHub link found and verified`);
     
-    // Step 3: Verify link is clickable and accessible
-    console.log('🔗 Verifying link is clickable...');
     const isClickable = await githubLink.isEnabled();
     test.expect(isClickable).toBe(true);
-    console.log(`✅ Link is clickable`);
     
-    // Check if GitHub repository is accessible
-    console.log('🌐 Checking if GitHub link is accessible...');
-    try {
-      const response = await page.request.head(linkHref!);
-      const status = response.status();
-      console.log(`📊 GitHub repository HTTP status: ${status}`);
-      
-      // Accept common successful status codes
-      const validStatuses = [200, 201, 202, 301, 302, 304];
-      test.expect(validStatuses).toContain(status);
-        
-      console.log(`✅ Link is accessible (${status})`);
-    } catch (error) {
-      console.warn('⚠️  Could not verify link accessibility:', error);
-      // Don't fail the test if network request fails
-    }
+    const response = await page.request.head(linkHref!);
+    const status = response.status();
     
-    // Test completed successfully
-    console.log('🎉 GitHub integration test completed successfully!');
-    console.log(`📊 Test Summary:`);
-    console.log(`   • Component: ${testItem.getName()}`);
-    console.log(`   • Component URL: ${componentUrl}`);
-    console.log(`   • GitHub URL: ${linkHref}`);
-    console.log(`   • Link Text: "${linkText?.trim()}"`);
+    const validStatuses = [200, 201, 202, 301, 302, 304];
+    test.expect(validStatuses).toContain(status);
+    
+    console.log(`GitHub URL: ${linkHref}`);
   });
 });
