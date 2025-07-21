@@ -5,6 +5,7 @@ import { CreateJenkinsJobsCommand } from './commands/createJenkinsJobsCommand';
 import { CreateWebhookCommand } from './commands/createWebhookCommand';
 import { JenkinsfileAndEnvModificationsOnGitopsRepoCommand } from './commands/jenkinsfileAndEnvModificationsOnGitopsRepoCommand';
 import { JenkinsfileAndEnvModificationsOnSourceRepoCommand } from './commands/jenkinsfileAndEnvModificationsOnSourceRepoCommand';
+import { TriggerJenkinsJobCommand } from './commands/triggerJenkinsJobCommand';
 import { PostCreateActionStrategy } from './postCreateActionStrategy';
 
 /**
@@ -31,6 +32,9 @@ export class JenkinsPostCreateActionStrategy implements PostCreateActionStrategy
         new AddJenkinsSecretsCommand(component),
         new CreateJenkinsJobsCommand(component),
         new CreateWebhookCommand(component),
+        //First run must be triggered manually:
+        // https://stackoverflow.com/questions/56714213/jenkins-not-triggered-by-github-webhook#comment109322558_60625199 
+        new TriggerJenkinsJobCommand(component),
       ];
 
       // Execute commands sequentially
