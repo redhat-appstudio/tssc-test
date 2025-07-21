@@ -57,6 +57,8 @@ export class ArgoCD {
     const success = await this.argoCDClient.syncApplication(applicationName, this.NAMESPACE);
 
     if (!success) {
+      const status = await this.getApplicationStatus(environment);
+      console.log(status);
       throw new Error(`Failed to sync application ${applicationName}`);
     }
   }

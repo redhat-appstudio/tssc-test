@@ -4,13 +4,23 @@
   "useTabs": false,
   "semi": true,
   "singleQuote": true,
+  "quoteProps": "as-needed",
   "trailingComma": "es5",
   "bracketSpacing": true,
+  "bracketSameLine": false,
   "arrowParens": "avoid",
   "endOfLine": "lf",
+  "embeddedLanguageFormatting": "auto",
   "plugins": [
     "@trivago/prettier-plugin-sort-imports"
   ],
+  "importOrder": [
+    "^@playwright/(.*)$",
+    "^@types/(.*)$",
+    "^@/(.*)$",
+    "^[./]"
+  ],
   "importOrderSeparation": true,
-  "importOrderSortSpecifiers": true
+  "importOrderSortSpecifiers": true,
+  "importOrderCaseInsensitive": true
 }

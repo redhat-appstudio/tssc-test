@@ -247,4 +247,3 @@ export class TemplateFactory {
     }
   }
 }
-export { ContentModifications };
