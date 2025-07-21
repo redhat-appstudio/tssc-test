@@ -275,11 +275,11 @@ export class GitLabCI extends BaseCI {
   }
 
   public override getIntegrationSecret(): Promise<Record<string, string>> {
-    return this.secret;
+    return Promise.resolve(this.secret);
   }
 
-  public getPipelineLogs(pipeline: Pipeline): Promise<string> {
-    return this.gitlabCIClient.getPipelineLogs(pipeline.id);
+  public override async getPipelineLogs(pipeline: Pipeline): Promise<string> {
+    throw new Error('GitLab does not support getting pipeline logs.');
   }
 
   public override async getCIFilePathInRepo(): Promise<string> {

@@ -1,4 +1,4 @@
-import { CredentialType } from '../../../../api/ci/jenkinsClient';
+import { CredentialType } from '../../../../api/ci/jenkins';
 import { Component } from '../../../core/component';
 import { JenkinsCI } from '../../../core/integration/ci';
 import { GitType } from '../../../core/integration/git';

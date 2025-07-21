@@ -146,23 +146,24 @@ export class GitLabCIClient {
    * @param jobId The job ID for which to retrieve logs
    * @returns A promise that resolves to the job logs as a string
    */
-  // public async getPipelineLogs(projectPath: string, jobId: number): Promise<string> {
-  //   try {
-  //     // Access the raw REST API client to make a direct request for job logs
-  //     const gitlab = this.gitlabClient.getClient();
+  //TODO: need to confirm if this is correct
+  public async getPipelineLogs(projectPath: string, jobId: number): Promise<string> {
+    try {
+      // Access the raw REST API client to make a direct request for job logs
+      const gitlab = this.gitlabClient.getClient();
 
-  //     // GitLab API endpoint for job traces is GET /projects/:id/jobs/:job_id/trace
-  //     const encodedProjectPath = encodeURIComponent(projectPath);
-  //     const url = `projects/${encodedProjectPath}/jobs/${jobId}/trace`;
+      // GitLab API endpoint for job traces is GET /projects/:id/jobs/:job_id/trace
+      const encodedProjectPath = encodeURIComponent(projectPath);
+      const url = `projects/${encodedProjectPath}/jobs/${jobId}/trace`;
 
-  //     // Make the request using the underlying requester
-  //     const jobTrace = await gitlab.request.get(url);
-  //     return jobTrace as string;
-  //   } catch (error) {
-  //     console.error(`Failed to get logs for job ${jobId} in project ${projectPath}:`, error);
-  //     return 'Failed to retrieve job logs';
-  //   }
-  // }
+      // Make the request using the underlying requester
+      const jobTrace = await gitlab.requester.get(url);
+      return jobTrace as unknown as string;
+    } catch (error) {
+      console.error(`Failed to get logs for job ${jobId} in project ${projectPath}:`, error);
+      return 'Failed to retrieve job logs';
+    }
+  }
 
   /**
    * Maps GitLab pipeline status to our standardized PipelineStatus enum
