@@ -1,5 +1,5 @@
 import { KubeClient } from '../../../../../../src/api/ocp/kubeClient';
-import { GitLabCIClient } from '../../../../../api/ci/gitlabciClient';
+import { GitLabClient, GitLabConfigBuilder } from '../../../../../api/gitlab';
 // import { GitLabClient } from '../../../../../api/git/gitlabClient';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
@@ -10,7 +10,7 @@ export class GitLabCI extends BaseCI {
   private componentName: string;
   private secret!: Record<string, string>;
   private baseUrl: string = '';
-  private gitlabCIClient!: GitLabCIClient;
+  private gitlabCIClient!: GitLabClient;
   // private gitlabClient!: GitLabClient;
   private gitOpsRepoName: string;
   private sourceRepoName: string;
@@ -41,15 +41,15 @@ export class GitLabCI extends BaseCI {
    * Initialize GitLab client with token
    * @returns Promise with GitLab client
    */
-  private async initGitlabCIClient(): Promise<GitLabCIClient> {
+  private async initGitlabCIClient(): Promise<GitLabClient> {
     const gitlabToken = this.getToken();
     const hostname = this.getHost();
     this.baseUrl = `https://${hostname}`;
-    // Initialize the GitLabCI client with the base URL and token
-    const gitlabCIClient = new GitLabCIClient({
-      token: gitlabToken,
-      baseUrl: this.baseUrl,
-    });
+    // Initialize the GitLab client with the new config pattern
+    const config = GitLabConfigBuilder
+      .create(this.baseUrl, gitlabToken)
+      .build();
+    const gitlabCIClient = new GitLabClient(config);
     return gitlabCIClient;
   }
 
