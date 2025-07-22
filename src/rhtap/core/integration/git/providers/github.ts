@@ -5,13 +5,9 @@ import { Environment } from '../../cd/argocd';
 import { BaseGitProvider } from '../baseGitProvider';
 import { GitType } from '../gitInterface';
 import { PullRequest } from '../models';
-import {
-  ContentModifications,
-  ITemplate,
-  TemplateFactory,
-  TemplateType,
-} from '../templates/templateFactory';
+import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
 import sodium from 'sodium-native';
+import { ContentModifications } from '../../../../modification/contentModification';
 
 export class GithubProvider extends BaseGitProvider {
   private githubClient!: GithubClient;

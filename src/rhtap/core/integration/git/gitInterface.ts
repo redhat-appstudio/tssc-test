@@ -1,7 +1,7 @@
 import { IntegrationSecret } from '../../integrationSecret';
 import { Environment } from '../cd/argocd';
 import { PullRequest } from './models';
-import { ContentModifications } from './templates/templateFactory';
+import { ContentModifications } from '../../../modification/contentModification';
 
 export enum GitType {
   GITHUB = 'github',

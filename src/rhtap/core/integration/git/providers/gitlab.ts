@@ -1,15 +1,11 @@
-import { GitLabClient } from '../../../../../../src/api/git/gitlabClient';
+import { GitLabClient } from '../../../../../api/gitlab';
 import { KubeClient } from '../../../../../../src/api/ocp/kubeClient';
 import { Environment } from '../../cd/argocd';
 import { BaseGitProvider } from '../baseGitProvider';
 import { GitType } from '../gitInterface';
 import { PullRequest } from '../models';
-import {
-  ContentModifications,
-  ITemplate,
-  TemplateFactory,
-  TemplateType,
-} from '../templates/templateFactory';
+import { ContentModifications } from '../../../../modification/contentModification';
+import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
 
 /**
  * GitLab provider class
@@ -587,7 +583,7 @@ export class GitlabProvider extends BaseGitProvider {
       }
 
       // Prepare all file modifications for a single batch commit
-      const fileActions: { action: 'create' | 'update'; file_path: string; content: string }[] = [];
+      const fileActions: { action: 'create' | 'update'; filePath: string; content: string }[] = [];
 
       // Process each file modification
       for (const [filePath, modifications] of Object.entries(contentModifications)) {
@@ -629,7 +625,7 @@ export class GitlabProvider extends BaseGitProvider {
           // Add to batch actions using file_path (will be converted to filePath in createCommit)
           fileActions.push({
             action: fileExists ? 'update' : 'create',
-            file_path: filePath,
+            filePath: filePath,
             content: fileContent,
           });
         } catch (error: any) {

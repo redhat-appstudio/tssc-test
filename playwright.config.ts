@@ -1,4 +1,4 @@
-import { defineConfig, PlaywrightTestConfig } from '@playwright/test';
+import { defineConfig } from '@playwright/test';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 

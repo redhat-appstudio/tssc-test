@@ -3,13 +3,10 @@ import { Environment } from '../../cd/argocd';
 import { BaseGitProvider } from '../baseGitProvider';
 import { GitType } from '../gitInterface';
 import { PullRequest } from '../models';
-import {
-  ContentModifications,
-  ITemplate,
-  TemplateFactory,
-  TemplateType,
-} from '../templates/templateFactory';
-import { KubeClient } from './../../../../../../src/api/ocp/kubeClient';
+import { ContentModifications } from '../../../../modification/contentModification';
+
+import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
+import { KubeClient } from '../../../../../api/ocp/kubeClient';
 
 /**
  * Bitbucket provider class
