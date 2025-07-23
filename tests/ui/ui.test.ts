@@ -2,7 +2,6 @@ import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { UiComponent } from '../../src/ui/uiComponent';
 import { loadFromEnv } from '../../src/utils/util';
 import { CommonPO } from '../../src/ui/page-objects/common_po';
-
 /**
  * Create a basic test fixture with testItem
  */
@@ -41,39 +40,35 @@ test.describe('RHTAP UI Test Suite', () => {
         .waitFor({ state: 'visible', timeout: 20000 });
     });
   });
-
   /**
-   * A simple test scenario for RHTAP UI GitHub link verification:
-   *
-   * This test assumes authentication is already done by a separate test case.
-   * Test steps:
-   * 1. Navigate to component page
-   * 2. Find and verify GitHub "View Source" link
-   * 3. Verify link is accessible
+   * Test case: Verify "View Source" link functionality
+   * 
+   * This test verifies that the Git integration is properly displayed in the UI by:
+   * 1. Navigate to the component page in Developer Hub
+   * 2. Wait for the component page to load completely
+   * 3. Locate the "View Source" link that points to GitHub repository
+   * 4. Verify the link is visible and clickable
+   * 5. Validate that the link URL responds with HTTP 200 (repository exists)
+   * 6. Log the GitHub repository URL for verification
    */
-  test('should find GitHub "View Source" link', async ({ page, testItem }) => {
-    const componentUrl = component.getComponentUrl();
-    await page.goto(componentUrl, { timeout: 20000 });
-    
-    await page.waitForLoadState('domcontentloaded');
-    await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
-    
-    const githubLink = page.locator('a[href*="github.com"]:has-text("View Source")').first();
-    
-    await githubLink.waitFor({ state: 'visible', timeout: 10000 });
-    
-    const linkHref = await githubLink.getAttribute('href');
-    
-    test.expect(githubLink).toBeTruthy();
-    
-    const isClickable = await githubLink.isEnabled();
-    test.expect(isClickable).toBe(true);
-    
-    const response = await page.request.head(linkHref!);
-    const status = response.status();
-    
-    test.expect(status).toBe(200);
-    
-    console.log(`GitHub URL: ${linkHref}`);
+  test.describe("Verify Git", () => {
+    test('verify "View Source" link', async ({ page }) => {
+      const componentUrl = component.getComponentUrl();
+      await page.goto(componentUrl, { timeout: 20000 });
+        
+      await page.waitForLoadState('domcontentloaded');
+      await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
+      
+      const githubLink = page.locator('a[href*="github.com"]:has-text("View Source")').first();
+      await githubLink.waitFor({ state: 'visible', timeout: 10000 });
+      const linkHref = await githubLink.getAttribute('href');
+      test.expect(githubLink).toBeTruthy();
+      const isClickable = await githubLink.isEnabled();
+      test.expect(isClickable).toBe(true);
+      const response = await page.request.head(linkHref!);
+      const status = response.status();
+      test.expect(status).toBe(200);
+      console.log(`GitHub URL: ${linkHref}`);
+    });
   });
 });
