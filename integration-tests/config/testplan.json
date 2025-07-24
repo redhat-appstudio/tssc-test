@@ -8,6 +8,13 @@
     "acs": "remote"
   },
   {
+    "git": "gitlab",
+    "ci": "tekton",
+    "registry": "nexus",
+    "tpa": "remote",
+    "acs": "remote"
+  },
+  {
     "git": "github",
     "ci": "githubactions",
     "registry": "artifactory",
