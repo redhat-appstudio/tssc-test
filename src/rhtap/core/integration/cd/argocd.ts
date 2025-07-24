@@ -1,5 +1,5 @@
-import { KubeClient } from '../../../../../src/api//ocp/kubeClient';
-import { ApplicationKind, ArgoCDClient } from '../../../../../src/api/cd/argocdClient';
+import { KubeClient } from '../../../../../src/api/ocp/kubeClient';
+import { ApplicationKind, ArgoCDClient } from '../../../../api/argocd';
 import retry from 'async-retry';
 
 // Define environment constants
@@ -145,7 +145,7 @@ export class ArgoCD {
         {
           retries: maxRetries,
           minTimeout: retryDelayMs,
-          onRetry: (_, attempt) => {
+          onRetry: (_: any, attempt: any) => {
             console.log(`Attempt ${attempt} failed. ${maxRetries - attempt + 1} attempts left.`);
           },
         }
