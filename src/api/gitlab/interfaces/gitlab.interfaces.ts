@@ -17,6 +17,7 @@ import {
   GitLabWebhook,
   CreateWebhookOptions,
   GitLabFile,
+  GitLabFileOperationResult,
   FileAction,
   CommitResult,
   GitLabVariable,
@@ -69,14 +70,14 @@ export interface IGitLabRepositoryService {
     branch: string,
     content: string,
     commitMessage: string
-  ): Promise<any>;
+  ): Promise<GitLabFileOperationResult>;
   updateFile(
     projectId: ProjectIdentifier,
     filePath: string,
     branch: string,
     content: string,
     commitMessage: string
-  ): Promise<any>;
+  ): Promise<GitLabFileOperationResult>;
   extractContentByRegex(
     projectId: ProjectIdentifier,
     filePath: string,

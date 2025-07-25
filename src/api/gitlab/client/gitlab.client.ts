@@ -25,6 +25,7 @@ import {
   MergeRequestResult,
   MergeResult,
   GitLabFile,
+  GitLabFileOperationResult,
   FileAction,
   CommitResult,
   GitLabVariable,
@@ -115,7 +116,7 @@ export class GitLabClient implements IGitLabCoreClient {
     branch: string,
     content: string,
     commitMessage: string
-  ): Promise<any> {
+  ): Promise<GitLabFileOperationResult> {
     return this.repositoryService.createFile(projectId, filePath, branch, content, commitMessage);
   }
 
@@ -125,7 +126,7 @@ export class GitLabClient implements IGitLabCoreClient {
     branch: string,
     content: string,
     commitMessage: string
-  ): Promise<any> {
+  ): Promise<GitLabFileOperationResult> {
     return this.repositoryService.updateFile(projectId, filePath, branch, content, commitMessage);
   }
 

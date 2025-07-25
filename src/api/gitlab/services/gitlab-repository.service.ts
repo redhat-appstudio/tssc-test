@@ -5,6 +5,7 @@ import {
   GitLabCommit,
   GitLabCommitSearchParams,
   GitLabFile,
+  GitLabFileOperationResult,
   FileAction,
   CommitResult,
   ProjectIdentifier,
@@ -138,7 +139,7 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
     branch: string,
     content: string,
     commitMessage: string
-  ): Promise<any> {
+  ): Promise<GitLabFileOperationResult> {
     try {
       const result = await this.gitlabClient.RepositoryFiles.create(
         projectId,
@@ -147,7 +148,7 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
         content,
         commitMessage
       );
-      return result;
+      return result as GitLabFileOperationResult;
     } catch (error) {
       throw createGitLabErrorFromResponse('createFile', error, 'file', filePath);
     }
@@ -159,7 +160,7 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
     branch: string,
     content: string,
     commitMessage: string
-  ): Promise<any> {
+  ): Promise<GitLabFileOperationResult> {
     try {
       const result = await this.gitlabClient.RepositoryFiles.edit(
         projectId,
@@ -168,7 +169,7 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
         content,
         commitMessage
       );
-      return result;
+      return result as GitLabFileOperationResult;
     } catch (error) {
       throw createGitLabErrorFromResponse('updateFile', error, 'file', filePath);
     }

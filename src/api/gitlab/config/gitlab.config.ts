@@ -92,15 +92,26 @@ export class GitLabConfigBuilder {
     if (!this.config.token) {
       throw new Error('GitLab token is required');
     }
+  
+    const timeout = this.config.timeout ?? 30000;
+    if (timeout <= 0) {
+      throw new Error('Timeout must be greater than 0');
+    }
+
+    const retryMinTimeout = this.config.retryMinTimeout ?? 1000;
+    const retryMaxTimeout = this.config.retryMaxTimeout ?? 5000;
+    if (retryMinTimeout > retryMaxTimeout) {
+      throw new Error('Retry min timeout must be less than or equal to max timeout');
+    }
 
     return {
       baseUrl: this.config.baseUrl,
       token: this.config.token,
-      timeout: this.config.timeout ?? 30000,
+      timeout,
       sslVerify: this.config.sslVerify ?? true,
       maxRetries: this.config.maxRetries ?? 3,
-      retryMinTimeout: this.config.retryMinTimeout ?? 1000,
-      retryMaxTimeout: this.config.retryMaxTimeout ?? 5000,
+      retryMinTimeout,
+      retryMaxTimeout,
     };
   }
 
