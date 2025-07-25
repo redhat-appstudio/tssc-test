@@ -4,14 +4,14 @@ import {
   JenkinsBuildResult,
   JenkinsBuildTrigger,
   JenkinsClient,
-} from '../../../../../../src/api/ci/jenkins';
+} from '../../../../../api/jenkins';
 // ... existing code ...
 import { KubeClient } from '../../../../../../src/api/ocp/kubeClient';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
 import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
 import retry from 'async-retry';
-import { JobActivityStatus } from '../../../../../../src/api/ci/jenkins';
+import { JobActivityStatus } from '../../../../../api/jenkins';
 
 export class JenkinsCI extends BaseCI {
   private jenkinsClient!: JenkinsClient;

@@ -143,6 +143,11 @@ export interface GitLabFile {
   readonly last_commit_id?: string;
 }
 
+export interface GitLabFileOperationResult {
+  readonly file_path: string;
+  readonly branch: string;
+}
+
 export interface FileAction {
   readonly action: 'create' | 'update' | 'delete';
   readonly filePath: string;

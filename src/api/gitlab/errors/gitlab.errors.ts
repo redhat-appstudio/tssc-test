@@ -134,12 +134,26 @@ export function createGitLabErrorFromResponse(
   
   if (error?.response?.status === 429) {
     const retryAfter = error.response.headers?.['retry-after'];
-    return new GitLabRateLimitError(operation, retryAfter ? parseInt(retryAfter) : undefined);
+    const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : undefined;
+    // Keep validation to prevent NaN/negative values
+    const validRetryAfter = retryAfterSeconds && retryAfterSeconds > 0 ? retryAfterSeconds : undefined;
+    return new GitLabRateLimitError(operation, validRetryAfter);
   }
   
   if (error?.response?.status === 422) {
-    const validationErrors = error.response?.data?.message || [error.message || 'Unknown validation error'];
-    return new GitLabValidationError(operation, Array.isArray(validationErrors) ? validationErrors : [validationErrors]);
+    // Use your simpler, cleaner approach
+    let validationErrors: string[] = [];
+    const errorData = error.response?.data?.message;
+    
+    if (Array.isArray(errorData)) {
+      validationErrors = errorData.map(e => String(e));
+    } else if (errorData) {
+      validationErrors = [String(errorData)];
+    } else {
+      validationErrors = [error.message || 'Unknown validation error'];
+    }
+    
+    return new GitLabValidationError(operation, validationErrors);
   }
   
   if (error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT') {
