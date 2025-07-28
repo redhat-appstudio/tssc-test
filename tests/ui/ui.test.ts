@@ -59,16 +59,7 @@ test.describe('RHTAP UI Test Suite', () => {
       await page.waitForLoadState('domcontentloaded');
       await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
       
-      const githubLink = page.locator('a[href*="github.com"]:has-text("View Source")').first();
-      await githubLink.waitFor({ state: 'visible', timeout: 10000 });
-      const linkHref = await githubLink.getAttribute('href');
-      test.expect(githubLink).toBeTruthy();
-      const isClickable = await githubLink.isEnabled();
-      test.expect(isClickable).toBe(true);
-      const response = await page.request.head(linkHref!);
-      const status = response.status();
-      test.expect(status).toBe(200);
-      console.log(`GitHub URL: ${linkHref}`);
+      await component.getGit().checkViewSourceLink(page);
     });
   });
 });
