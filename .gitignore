@@ -13,6 +13,7 @@ playwright-report/
 # Editor directories and files
 .idea/
 .vscode/
+.cursor/
 *.sublime-project
 *.sublime-workspace
 
