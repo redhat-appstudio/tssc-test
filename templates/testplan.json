@@ -4,14 +4,14 @@
     {
       "git": "github",
       "ci": "tekton",
-      "registry": "quay.io",
+      "registry": "quay",
       "tpa": "remote",
       "acs": "local"
     },
     {
       "git": "gitlab",
       "ci": "tekton",
-      "registry": "quay.io",
+      "registry": "quay",
       "tpa": "remote",
       "acs": "local"
     }
