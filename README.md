@@ -43,14 +43,14 @@ The testplan.json file supports defining multiple TSSC combinations, allowing yo
     {
       "git": "github",
       "ci": "tekton",
-      "registry": "quay.io",
+      "registry": "quay",
       "tpa": "remote",
       "acs": "local"
     },
     {
       "git": "gitlab",
       "ci": "tekton",
-      "registry": "quay.io",
+      "registry": "quay",
       "tpa": "remote",
       "acs": "local"
     }
@@ -67,7 +67,7 @@ The testplan.json file supports defining multiple TSSC combinations, allowing yo
 - **`tssc`**: Array of TSSC configuration objects, each containing:
   - `git`: Git provider - `["github", "gitlab", "bitbucket"]`
   - `ci`: CI provider - `["tekton", "jenkins", "gitlabci", "githubactions"]`
-  - `registry`: Image registry - `["quay", "quay.io", "artifactory", "nexus"]`
+  - `registry`: Image registry - `["quay","artifactory", "nexus"]`
   - `acs`: ACS configuration - `["local", "remote"]`
   - `tpa`: TPA configuration - `["local", "remote"]`
 
@@ -77,7 +77,7 @@ The testplan.json file supports defining multiple TSSC combinations, allowing yo
 
 The framework creates a test matrix by combining each template with each TSSC configuration. For example, with the above configuration:
 - **Templates**: 6 (go, python, nodejs, dotnet-basic, java-quarkus, java-springboot)
-- **TSSC combinations**: 2 (github+tekton+quay.io, gitlab+tekton+quay.io)
+- **TSSC combinations**: 2 (github+tekton+quay, gitlab+tekton+quay)
 - **Total tests**: 6 × 2 = 12 test combinations
 
 Each test combination runs independently, allowing you to validate different technology stacks across various TSSC configurations.

@@ -9,10 +9,6 @@ export class QuayRegistry extends BaseImageRegistry {
   }
 
   public getRegistryType(): ImageRegistryType {
-    //if registry host is quay.io, return QUAYIO
-    if (this.getRegistryHost() === 'quay.io') {
-      return ImageRegistryType.QUAYIO;
-    }
     return ImageRegistryType.QUAY;
   }
 
