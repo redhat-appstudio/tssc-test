@@ -19,15 +19,12 @@ export function loadProjectConfigurations(): ProjectConfig[] {
   const configFilePath = './tmp/project-configs.json';
   
   if (!existsSync(configFilePath)) {
-    console.error('❌ Project configuration file not found!');
-    console.error(`   Expected: ${configFilePath}`);
-    console.error('   Run: npm run generate-config');
+    console.error(`Project configuration file not found: ${configFilePath}`);
+    console.error('Run: npm run generate-config');
     throw new Error('Project configurations not generated. Run the generate-config script first.');
   }
 
   try {
-    console.log('📂 Loading pre-generated project configurations...');
-    
     const data = readFileSync(configFilePath, 'utf-8');
     const serializedConfigs: SerializedProjectConfig[] = JSON.parse(data);
     
@@ -36,15 +33,10 @@ export function loadProjectConfigurations(): ProjectConfig[] {
       testItem: TestItem.fromJSON(config.testItem)
     }));
 
-    console.log(`✅ Loaded ${projectConfigs.length} project configurations:`);
-    projectConfigs.forEach(config => {
-      console.log(`   - ${config.name} (TestItem: ${config.testItem.getName()})`);
-    });
-
     return projectConfigs;
 
   } catch (error) {
-    console.error('❌ Failed to load project configurations:', error);
+    console.error('Failed to load project configurations:', error);
     throw new Error('Failed to load project configurations from file');
   }
 }

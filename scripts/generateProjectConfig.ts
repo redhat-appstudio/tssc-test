@@ -14,12 +14,9 @@ interface ProjectConfig {
  * This ensures consistent TestItem instances across all test executions
  */
 function generateProjectConfig(): void {
-  console.log('🏗️  Generating project configurations...');
-
   try {
     // Load test plan
     const testPlanPath = process.env.TESTPLAN_PATH || path.resolve(process.cwd(), 'testplan.json');
-    console.log(`📋 Loading test plan from: ${testPlanPath}`);
     
     if (!existsSync(testPlanPath)) {
       throw new Error(`Test plan file not found: ${testPlanPath}`);
@@ -31,10 +28,7 @@ function generateProjectConfig(): void {
     // Generate project configurations with consistent TestItems
     const projectConfigs = testPlan.getProjectConfigs();
     
-    console.log(`✅ Generated ${projectConfigs.length} project configurations:`);
-    projectConfigs.forEach(config => {
-      console.log(`   - ${config.name} (TestItem: ${config.testItem.getName()})`);
-    });
+    console.log(`Generated ${projectConfigs.length} project configurations`);
 
     // Prepare serialized configurations
     const serializedConfigs: ProjectConfig[] = projectConfigs.map(config => ({
@@ -51,7 +45,6 @@ function generateProjectConfig(): void {
 
     // Write configurations to file
     writeFileSync(outputPath, JSON.stringify(serializedConfigs, null, 2));
-    console.log(`💾 Saved project configurations to ${outputPath}`);
 
     // Also generate a summary for verification
     const summary = {
@@ -68,13 +61,10 @@ function generateProjectConfig(): void {
     };
 
     writeFileSync('./tmp/project-config-summary.json', JSON.stringify(summary, null, 2));
-    console.log(`📊 Generated summary at ./tmp/project-config-summary.json`);
-    
-    console.log('🎉 Project configuration generation completed successfully!');
+    console.log('Project configuration generation completed successfully!');
 
   } catch (error) {
-    console.error('❌ Failed to generate project configurations:');
-    console.error(error);
+    console.error('Failed to generate project configurations:', error);
     process.exit(1);
   }
 }

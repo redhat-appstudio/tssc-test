@@ -79,6 +79,4 @@ export default defineConfig({
     ['junit', { outputFile: 'test-results/junit.xml' }],
   ],
   
-  // Global setup and teardown
-  globalSetup: './global-setup.ts',
 });
