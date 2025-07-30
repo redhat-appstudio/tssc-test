@@ -42,21 +42,17 @@ RUN echo "=== Verifying tool installations ===" && \
 # Copy application source code
 COPY . .
 
-# Install npm packages first
+# Install npm packages, system dependencies, and Playwright browsers
 RUN npm install && \
-    npm cache clean --force
-
-# Install Playwright system dependencies
-RUN yum update -y && yum install -y --allowerasing \
+    npm cache clean --force && \
+    yum update -y && yum install -y --allowerasing \
     wget \
     nss at-spi2-atk libdrm gtk3 mesa-libgbm alsa-lib \
     libXcomposite libXcursor libXdamage libXext libXi \
     libXrandr libXScrnSaver libXtst pango atk cairo-gobject \
     gdk-pixbuf2 \
-    && yum clean all
-
-# Install Playwright browsers
-RUN npx playwright install chromium
+    && yum clean all && \
+    npx playwright install chromium
 
 # Change ownership of all files to the final user
 RUN chown -R 1001:0 /tssc-test
