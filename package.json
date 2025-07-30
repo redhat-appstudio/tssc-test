@@ -1,7 +1,6 @@
 {
     "name": "tssc-test",
     "version": "1.0.0",
-    "type": "module",
     "description": "TSSC Test is a testing framework for TSSC API using Playwright and TypeScript.",
     "scripts": {
         "lint": "eslint --ext .ts src tests",
