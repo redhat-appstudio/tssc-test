@@ -2,7 +2,7 @@ import { KubeClient } from '../../../../../src/api/ocp/kubeClient';
 import { Environment } from '../cd/argocd';
 import { Git, GitType } from './gitInterface';
 import { PullRequest } from './models';
-import { ContentModifications } from '../../../modification/contentModification';
+import { ContentModifications } from '../../../../common/modification/contentModification';
 
 /**
  * Abstract base class for Git providers with common functionality

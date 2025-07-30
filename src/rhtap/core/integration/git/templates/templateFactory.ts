@@ -1,4 +1,4 @@
-import { ContentModifications } from '../../../../modification/contentModification';
+import { ContentModifications } from '../../../../../common/modification/contentModification';
 
 export enum TemplateType {
   SPRINGBOOT = 'java-springboot',

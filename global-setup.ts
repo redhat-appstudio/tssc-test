@@ -8,7 +8,7 @@ import { resetTestItemsFile } from './src/utils/testItemExporter';
 /**
  * Global setup function for Playwright tests
  */
-async function globalSetup(config: FullConfig): Promise<void> {
+async function globalSetup(_config: FullConfig): Promise<void> {
   const log: Logger = defaultLogger;
 
   log.info('Starting test suite setup (Global Setup)');
@@ -34,7 +34,7 @@ async function globalSetup(config: FullConfig): Promise<void> {
 /**
  * Global teardown function for Playwright tests
  */
-async function globalTeardown(config: FullConfig): Promise<void> {
+async function globalTeardown(_config: FullConfig): Promise<void> {
   console.log('Ensuring all logs are properly flushed to disk...');
   
   try {

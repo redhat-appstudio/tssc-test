@@ -21,9 +21,9 @@ export class ArgoCDClient {
   private readonly applicationService: ArgoCDApplicationService;
   private readonly syncService: ArgoCDSyncService;
 
-  constructor(private readonly kubeClient: KubeClient) {
-    this.connectionService = new ArgoCDConnectionService(kubeClient);
-    this.applicationService = new ArgoCDApplicationService(kubeClient);
+  constructor(private readonly _kubeClient: KubeClient) {
+    this.connectionService = new ArgoCDConnectionService(this._kubeClient);
+    this.applicationService = new ArgoCDApplicationService(this._kubeClient);
     this.syncService = new ArgoCDSyncService(this.connectionService, this.applicationService);
   }
 

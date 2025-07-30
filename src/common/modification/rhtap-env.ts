@@ -145,12 +145,20 @@ export class EnvModificationFactory {
  * RhtapEnvModifier class to manage environment modifications
  * Example usage:
  * const modifier = RhtapEnvModifier.create()
- *   .enableACS()
+ *   .disableACS()
  *   .updateTUFMirrorURL('http://new-tuf-url')
  *   .updateRokorServerURL('http://new-rekor-url')
  *   .updateRoxCentralEndpoint('http://new-rox-url');
+ *
+ * // To get the modifications object:
  * const modifications = modifier.getModifications();
  * console.log(modifications);
+ *
+ * // To apply modifications to a file content string:
+ * const originalContent = '... content of rhtap/env.sh ...';
+ * const modifiedContent = modifier.applyModifications(originalContent);
+ * console.log(modifiedContent);
+ *
  * This will create a ContentModifications object with the specified changes.
  * The modifications can then be applied to the relevant files.
  * Note: The methods are chainable, allowing for a fluent interface.
@@ -212,7 +220,11 @@ export class RhtapEnvModifier {
     return this.container.getModifications();
   }
 
-  // Updated to align with the latest ContentModificationsContainer usage
+  /**
+   * Applies the stored modifications for 'rhtap/env.sh' to the given content.
+   * @param content The original content of the file.
+   * @returns The content with all modifications applied.
+   */
   applyModifications(content: string): string {
     return this.container.applyToContent('rhtap/env.sh', content);
   }
@@ -222,3 +234,4 @@ export class RhtapEnvModifier {
     return new RhtapEnvModifier();
   }
 }
+

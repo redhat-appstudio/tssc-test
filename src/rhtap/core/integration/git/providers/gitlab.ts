@@ -1,10 +1,10 @@
-import { GitLabClient } from '../../../../../api/gitlab';
+import { GitLabClient } from '../../../../../api/gitlab/gitlab.client';
 import { KubeClient } from '../../../../../../src/api/ocp/kubeClient';
 import { Environment } from '../../cd/argocd';
 import { BaseGitProvider } from '../baseGitProvider';
 import { GitType } from '../gitInterface';
 import { PullRequest } from '../models';
-import { ContentModifications } from '../../../../modification/contentModification';
+import { ContentModifications } from '../../../../../common/modification/contentModification';
 import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
 
 /**

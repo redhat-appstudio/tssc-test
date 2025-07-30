@@ -1,5 +1,4 @@
-import { GithubClient } from '../../../../../../src/api/git/githubClient';
-import { GitHubClientFactory } from '../../../../../../src/api/git/githubClientFactory';
+import { GithubClient } from '../../../../../api/github';
 import { KubeClient } from '../../../../../../src/api/ocp/kubeClient';
 import { Environment } from '../../cd/argocd';
 import { BaseGitProvider } from '../baseGitProvider';
@@ -7,14 +6,12 @@ import { GitType } from '../gitInterface';
 import { PullRequest } from '../models';
 import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
 import sodium from 'sodium-native';
-import { ContentModifications } from '../../../../modification/contentModification';
+import { ContentModifications } from '../../../../../common/modification/contentModification';
 
 export class GithubProvider extends BaseGitProvider {
   private githubClient!: GithubClient;
   private template!: ITemplate;
   private repoOwner: string;
-  private clientFactory: GitHubClientFactory;
-
   public constructor(
     componentName: string,
     repoOwner: string,
@@ -24,7 +21,6 @@ export class GithubProvider extends BaseGitProvider {
     super(componentName, GitType.GITHUB, kubeClient);
     this.repoOwner = repoOwner;
     this.template = TemplateFactory.createTemplate(templateType);
-    this.clientFactory = GitHubClientFactory.getInstance();
   }
 
   public async initialize(): Promise<void> {
@@ -48,9 +44,6 @@ export class GithubProvider extends BaseGitProvider {
     }
 
     // Register the token with the factory so it can be shared
-    if (secret.token) {
-      this.clientFactory.registerToken(this.componentName, secret.token);
-    }
 
     return secret;
   }
@@ -92,9 +85,7 @@ export class GithubProvider extends BaseGitProvider {
   private async initGithubClient(): Promise<GithubClient> {
     const githubToken = this.getToken();
 
-    // Get the client from the factory instead of creating a new one
-    const githubClient = this.clientFactory.getClientByToken(githubToken);
-    return githubClient;
+    return new GithubClient({ token: githubToken });
   }
 
   /**
@@ -123,7 +114,7 @@ export class GithubProvider extends BaseGitProvider {
 
     const contentModifications = this.template.getContentModifications();
 
-    const result = await this.githubClient.createPullRequest(
+    const result = await this.githubClient.pullRequests.createPullRequest(
       this.repoOwner,
       this.sourceRepoName,
       this.repoOwner,
@@ -179,7 +170,7 @@ export class GithubProvider extends BaseGitProvider {
     try {
       // Get the content of the file
       console.log(`Getting File Contents of ${filePath} in repo ${repo}`);
-      const fileContent = await this.githubClient.getContent(owner, repo, filePath, branch);
+      const fileContent = await this.githubClient.repository.getContent(owner, repo, filePath, branch);
 
       if (!fileContent || !('content' in fileContent)) {
         throw new Error(`Could not retrieve content for file: ${filePath}`);
@@ -255,7 +246,7 @@ export class GithubProvider extends BaseGitProvider {
       console.log(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
 
       // Create a PR with the changes
-      const result = await this.githubClient.createPullRequest(
+      const result = await this.githubClient.pullRequests.createPullRequest(
         this.repoOwner,
         this.gitOpsRepoName,
         this.repoOwner,
@@ -298,7 +289,7 @@ export class GithubProvider extends BaseGitProvider {
 
     try {
       // Call the GitHub API to merge the PR
-      const mergeResponse = await this.githubClient.mergePullRequest(
+      const mergeResponse = await this.githubClient.pullRequests.mergePullRequest(
         this.repoOwner,
         pullRequest.repository,
         pullRequest.pullNumber
@@ -350,7 +341,7 @@ export class GithubProvider extends BaseGitProvider {
     try {
       // Use batch commit method from githubClient to commit all changes at once
       // Now passing the branch parameter to the commit method
-      const commitSha = await this.githubClient.commit(
+      const commitSha = await this.githubClient.repository.commit(
         owner,
         repo,
         contentModifications,
@@ -457,7 +448,7 @@ export class GithubProvider extends BaseGitProvider {
       // 2. |\s+- image:$\s+(.+)$ - Matches '- image:' with value on next line (indented)
       const imagePattern = /(?:^|\s+)-\s+image:(?:\s+(.+)$)?|(^\s+.+$)/gm;
 
-      const matches = await this.githubClient.extractContentByRegex(
+      const matches = await this.githubClient.repository.extractContentByRegex(
         this.repoOwner,
         this.gitOpsRepoName,
         filePath,
@@ -514,7 +505,7 @@ export class GithubProvider extends BaseGitProvider {
         `Getting latest commit SHA for source repo: ${this.sourceRepoName}, branch: ${branch}`
       );
 
-      return await this.githubClient.getBranchCommitSha(
+      return await this.githubClient.repository.getBranchCommitSha(
         this.repoOwner,
         this.sourceRepoName,
         branch
@@ -537,7 +528,7 @@ export class GithubProvider extends BaseGitProvider {
         `Getting latest commit SHA for GitOps repo: ${this.gitOpsRepoName}, branch: ${branch}`
       );
 
-      return await this.githubClient.getBranchCommitSha(
+      return await this.githubClient.repository.getBranchCommitSha(
         this.repoOwner,
         this.gitOpsRepoName,
         branch
@@ -555,7 +546,7 @@ export class GithubProvider extends BaseGitProvider {
   public override async configWebhookOnSourceRepo(webhookUrl: string): Promise<void> {
     try {
       console.log(`Configuring webhook for source repo at ${webhookUrl}`);
-      await this.githubClient.configWebhook(this.repoOwner, this.sourceRepoName, webhookUrl);
+      await this.githubClient.webhooks.configWebhook(this.repoOwner, this.sourceRepoName, webhookUrl);
     } catch (error: any) {
       console.error(`Failed to configure webhook on source repo: ${error.message}`);
       throw error;
@@ -569,7 +560,7 @@ export class GithubProvider extends BaseGitProvider {
   public override async configWebhookOnGitOpsRepo(webhookUrl: string): Promise<void> {
     try {
       console.log(`Configuring webhook for GitOps repo at ${webhookUrl}`);
-      await this.githubClient.configWebhook(this.repoOwner, this.gitOpsRepoName, webhookUrl);
+      await this.githubClient.webhooks.configWebhook(this.repoOwner, this.gitOpsRepoName, webhookUrl);
     } catch (error: any) {
       console.error(`Failed to configure webhook on GitOps repo: ${error.message}`);
       throw error;
@@ -600,13 +591,13 @@ export class GithubProvider extends BaseGitProvider {
   // TODO: change the name of this method to updateVariableOnSourceRepo
   public async setVariablesOnSourceRepo(variables: Record<string, string>): Promise<void> {
     for (const [name, value] of Object.entries(variables)) {
-      await this.githubClient.setRepoVariable(this.repoOwner, this.sourceRepoName, name, value);
+      await this.githubClient.variables.setRepoVariable(this.repoOwner, this.sourceRepoName, name, value);
     }
   }
 
   public async setVariablesOnGitOpsRepo(variables: Record<string, string>): Promise<void> {
     for (const [name, value] of Object.entries(variables)) {
-      await this.githubClient.setRepoVariable(this.repoOwner, this.gitOpsRepoName, name, value);
+      await this.githubClient.variables.setRepoVariable(this.repoOwner, this.gitOpsRepoName, name, value);
     }
   }
 
@@ -616,7 +607,7 @@ export class GithubProvider extends BaseGitProvider {
    */
   public async setSecretsOnSourceRepo(secrets: Record<string, string>): Promise<void> {
     // Get the public key for the repository (required for encrypting secrets)
-    const publicKeyResponse = await this.githubClient.getRepoPublicKey(
+    const publicKeyResponse = await this.githubClient.variables.getRepoPublicKey(
       this.repoOwner,
       this.sourceRepoName
     );
@@ -630,7 +621,7 @@ export class GithubProvider extends BaseGitProvider {
       const encryptedValue = await this.encryptSecret(publicKeyResponse.key, value);
 
       // Set or update the secret in the repository
-      await this.githubClient.getOctokit().actions.createOrUpdateRepoSecret({
+      await this.githubClient.octokitInstance.actions.createOrUpdateRepoSecret({
         owner: this.repoOwner,
         repo: this.sourceRepoName,
         secret_name: name,
@@ -643,7 +634,7 @@ export class GithubProvider extends BaseGitProvider {
   }
 
   public async setSecretsOnGitOpsRepo(secrets: Record<string, string>): Promise<void> {
-    const publicKeyResponse = await this.githubClient.getRepoPublicKey(
+    const publicKeyResponse = await this.githubClient.variables.getRepoPublicKey(
       this.repoOwner,
       this.gitOpsRepoName
     );
@@ -657,7 +648,7 @@ export class GithubProvider extends BaseGitProvider {
       const encryptedValue = await this.encryptSecret(publicKeyResponse.key, value);
 
       // Set or update the secret in the repository
-      await this.githubClient.getOctokit().actions.createOrUpdateRepoSecret({
+      await this.githubClient.octokitInstance.actions.createOrUpdateRepoSecret({
         owner: this.repoOwner,
         repo: this.gitOpsRepoName,
         secret_name: name,

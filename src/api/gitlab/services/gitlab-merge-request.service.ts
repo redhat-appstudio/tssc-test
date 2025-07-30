@@ -8,7 +8,7 @@ import {
   MergeResult,
   ProjectIdentifier,
 } from '../types/gitlab.types';
-import { ContentModifications } from '../../../rhtap/modification/contentModification';
+import { ContentModifications } from '../../../common/modification/contentModification';
 import { createGitLabErrorFromResponse } from '../errors/gitlab.errors';
 
 export class GitLabMergeRequestService implements IGitLabMergeRequestService {
@@ -86,7 +86,7 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
   public async createMergeRequestWithNewBranch(
     owner: string,
     repo: string,
-    targetOwner: string,
+    _targetOwner: string,
     baseBranch: string,
     newBranchName: string,
     contentModifications: ContentModifications,

@@ -1,7 +1,7 @@
 import { loadFromEnv } from '../../../../utils/util';
 import { getRunnerImageFromCIFile } from '../../../../utils/util';
 import { CIType } from '../../../core/integration/ci/ciInterface';
-import { ContentModifications } from '../../../modification/contentModification';
+import { ContentModifications } from '../../../../common/modification/contentModification';
 import { BaseCommand } from './baseCommand';
 
 /**

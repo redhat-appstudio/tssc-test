@@ -120,13 +120,18 @@ export class JenkinsXmlBuilder {
   /**
    * Escape XML special characters
    */
-  private static escapeXml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+  public static escapeXml(text: string | null | undefined): string {
+    if (text === null || text === undefined) {
+      return '';
+    }
+    const replacements: { [key: string]: string } = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&apos;',
+    };
+    return String(text).replace(/[&<>"']/g, (char: string) => replacements[char]);
   }
 }
 
@@ -261,4 +266,4 @@ export class JenkinsPollingUtils {
   static sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
-} 
+}

@@ -1,10 +1,8 @@
 import { Component } from '../../../core/component';
-import {
-  ContentModifications,
-  ContentModificationsContainer,
-} from '../../../modification/contentModification';
-import JenkinsfileModifier from '../../../modification/jenkinsfile';
-import { RhtapEnvModifier } from '../../../modification/rhtap-env';
+import { ContentModifications } from '../../../../common/modification/contentModification';
+import { ContentModificationsContainer } from '../../../../common/modification/contentModification';
+import JenkinsfileModifier from '../../../../common/modification/jenkinsfile';
+import { RhtapEnvModifier } from '../../../../common/modification/rhtap-env';
 import { BaseCommand } from './baseCommand';
 
 /**
