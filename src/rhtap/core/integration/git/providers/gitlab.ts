@@ -472,10 +472,13 @@ export class GitlabProvider extends BaseGitProvider {
       // Extract the merge request number and commit SHA from the result
       const { prNumber, commitSha } = result as { prNumber: number; commitSha: string };
 
+      // Construct the pull request URL
+      const prUrl = `${this.baseUrl}/${this.getGroup()}/${this.sourceRepoName}/merge_requests/${prNumber}`;
+
       console.log(`Successfully created merge request #${prNumber} with commit SHA: ${commitSha}`);
 
       // Return a PullRequest object with the merge request details
-      return new PullRequest(prNumber, commitSha, this.sourceRepoName);
+      return new PullRequest(prNumber, commitSha, this.sourceRepoName, false, undefined, prUrl);
     } catch (error: any) {
       console.error(`Error creating sample merge request: ${error.message}`);
       throw error;

@@ -431,6 +431,12 @@ export class JenkinsCI extends BaseCI {
     }
   }
 
+  public override async cancelAllInitialPipelines(): Promise<void> {
+    throw new Error(
+      'Jenkins does not support cancelling initial pipeline runs.'
+    );
+  }
+
   /**
    * Enhanced method to wait for all Jenkins jobs to finish (both running and queued)
    */

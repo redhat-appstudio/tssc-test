@@ -181,7 +181,7 @@ export async function handleSourceRepoCodeChanges(git: Git, ci: CI): Promise<voi
   const gitType = git.getGitType();
 
   if (ciType === CIType.GITHUB_ACTIONS || ciType === CIType.JENKINS) {
-    console.log(`Using GitHub Actions for ${gitType} repository`);
+    console.log(`Using ${ciType} for ${gitType} repository`);
     // For GitHub Actions, we create a direct commit to the main branch
     return fastMovingToBuildApplicationImage(git, ci);
   } else {
@@ -296,5 +296,18 @@ export async function buildApplicationImageWithPR(git: Git, ci: CI): Promise<voi
       `Error handling source repo code changes: ${error instanceof Error ? error.message : String(error)}`
     );
     throw error;
+  }
+}
+
+export async function handleInitialPipelineRuns(ci: CI): Promise<void> {
+  if (ci.getCIType() === CIType.GITLABCI) {
+    // Cancel initial GitLab CI pipelines triggered by the first commit.
+    // Gitlabci pipelines takes longer than other CIs, canceling helps reduce total test duration.
+    console.log('CI Provider is gitlabci - cancelling initial pipelines');
+    await ci.cancelAllInitialPipelines();
+  } else {
+    // For other CI providers, wait for the initial pipelines to complete.
+    console.log(`CI Provider is ${ci.getCIType()} - waiting for initial pipelines to finish`);
+    await ci.waitForAllPipelinesToFinish();
   }
 }

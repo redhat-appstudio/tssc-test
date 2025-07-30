@@ -28,8 +28,8 @@ export class GithubActionsPostCreateActionStrategy implements PostCreateActionSt
   private async handleGithubProviderActions(component: Component): Promise<void> {
     const componentName = component.getName();
     const commands: Command[] = [
-      new AddGithubSecretsAndVariablesCommand(component),
       new UpdateCIRunnerImage(component),
+      new AddGithubSecretsAndVariablesCommand(component),
     ];
     for (const command of commands) {
       await command.execute();

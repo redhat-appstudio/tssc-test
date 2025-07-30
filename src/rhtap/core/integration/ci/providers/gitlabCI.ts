@@ -270,6 +270,34 @@ export class GitLabCI extends BaseCI {
     }
   }
 
+  public override async cancelAllInitialPipelines(): Promise<void> {
+    try{
+      const allPipelines = await this.gitlabCIClient.getAllPipelines(
+        `${this.getGroup()}/${this.sourceRepoName}`
+      );
+      if (!allPipelines || allPipelines.length === 0) {
+          throw new Error(`No pipelines found for component ${this.componentName}`);
+      }
+
+      console.log(`Found ${allPipelines.length} pipelines for ${this.componentName}`);
+
+      await Promise.all(
+        allPipelines
+        .filter(pipeline => pipeline.status !== 'failed')
+        .map(pipeline => {
+          console.log(`Cancelling initial pipeline ${pipeline.id} with status ${pipeline.status}`);
+          return this.gitlabCIClient.cancelPipeline(
+            `${this.getGroup()}/${this.sourceRepoName}`,
+            pipeline.id
+          );
+        })
+      );
+
+    } catch (error: any) {
+      console.error(`Error while cancelling pipelines: ${error}`);
+    }
+  }
+
   public override async getWebhookUrl(): Promise<string> {
     throw new Error('GitLab does not support webhooks in the same way as other CI systems.');
   }
