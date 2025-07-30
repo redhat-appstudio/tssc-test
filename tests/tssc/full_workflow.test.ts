@@ -5,6 +5,7 @@ import { Git } from '../../src/rhtap/core/integration/git';
 import { TPA } from '../../src/rhtap/core/integration/tpa';
 import { ComponentPostCreateAction } from '../../src/rhtap/postcreation/componentPostCreateAction';
 import {
+  handleInitialPipelineRuns,
   handleSourceRepoCodeChanges,
   promoteToEnvironmentWithPR,
   promoteToEnvironmentWithoutPR,
@@ -71,9 +72,9 @@ test.describe('TSSC Complete Workflow', () => {
       await postCreateAction.execute();
       console.log('✅ Post-creation actions executed successfully!');
 
-      // Wait for all initial pipelines to finish
-      await ci.waitForAllPipelinesToFinish();
-      console.log('All initial pipelines have finished successfully!');
+      // Handle initial pipeline runs based on CI provider type
+      await handleInitialPipelineRuns(ci);
+      console.log('All initial pipelines have ended!');
     });
   });
 

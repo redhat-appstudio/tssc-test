@@ -46,5 +46,6 @@ export interface CI extends IntegrationSecret {
 
   getWebhookUrl(): Promise<string>;
   getCIFilePathInRepo(): Promise<string>;
+  cancelAllInitialPipelines(): Promise<void>;
 }
 export { PipelineStatus, Pipeline };

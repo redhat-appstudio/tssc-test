@@ -118,6 +118,8 @@ export abstract class BaseCI implements CI {
 
   public abstract waitForAllPipelinesToFinish(): Promise<void>;
 
+  public abstract cancelAllInitialPipelines(): Promise<void>;
+
   public abstract getWebhookUrl(): Promise<string>;
 
   public abstract getIntegrationSecret(): Promise<Record<string, string>>;

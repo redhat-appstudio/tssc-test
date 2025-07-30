@@ -129,6 +129,7 @@ export interface IGitLabPipelineService {
   getPipelineById(projectPath: string, pipelineId: number): Promise<GitLabPipeline>;
   getPipelineLogs(projectPath: string, jobId: number): Promise<string>;
   mapPipelineStatus(gitlabStatus: string): PipelineStatus;
+  cancelPipeline(projectPath: string, pipelineId: number): Promise<GitLabPipeline>;
 }
 
 /**
