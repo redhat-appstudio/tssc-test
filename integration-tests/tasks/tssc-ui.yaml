@@ -69,27 +69,42 @@ spec:
         # Load GitHub username from rhtap-cli-install secret
         if [ -f "/usr/local/rhtap-cli-install/github-username" ]; then
           echo "Loading GitHub username from rhtap-cli-install secret..."
-          GH_USERNAME=$(cat /usr/local/rhtap-cli-install/github-username 2>/dev/null || echo "")
+          GH_USERNAME=$(cat /usr/local/rhtap-cli-install/github-username 2>/dev/null)
+          if [ -z "$GH_USERNAME" ]; then
+            echo "ERROR: GitHub username is empty in rhtap-cli-install secret"
+            exit 1
+          fi
           echo "GitHub username loaded from secret"
         else
-          echo "GitHub username not found in rhtap-cli-install secret"
+          echo "ERROR: GitHub username not found in rhtap-cli-install secret"
+          exit 1
         fi
         
         # Load GitHub password from rhtap-cli-install secret
         if [ -f "/usr/local/rhtap-cli-install/github-password" ]; then
           echo "Loading GitHub password from rhtap-cli-install secret..."
-          GH_PASSWORD=$(cat /usr/local/rhtap-cli-install/github-password 2>/dev/null || echo "")
+          GH_PASSWORD=$(cat /usr/local/rhtap-cli-install/github-password 2>/dev/null)
+          if [ -z "$GH_PASSWORD" ]; then
+            echo "ERROR: GitHub password is empty in rhtap-cli-install secret"
+            exit 1
+          fi
           echo "GitHub password loaded from secret"
         else
-          echo "GitHub password not found in rhtap-cli-install secret"
+          echo "ERROR: GitHub password not found in rhtap-cli-install secret"
+          exit 1
         fi
 
         # Load GitHub 2FA secret
         if [ -f "/usr/local/rhtap-cli-install/github-2fa-secret" ]; then
-          GH_SECRET=$(cat /usr/local/rhtap-cli-install/github-2fa-secret 2>/dev/null || echo "")
+          GH_SECRET=$(cat /usr/local/rhtap-cli-install/github-2fa-secret 2>/dev/null)
+          if [ -z "$GH_SECRET" ]; then
+            echo "ERROR: GitHub 2FA secret is empty in rhtap-cli-install secret"
+            exit 1
+          fi
           echo "GitHub 2FA secret loaded from secret"
         else
-          echo "GitHub 2FA secret not found in rhtap-cli-install secret"
+          echo "ERROR: GitHub 2FA secret not found in rhtap-cli-install secret"
+          exit 1
         fi    
 
         # Download test artifacts from OCI container
@@ -124,9 +139,6 @@ spec:
         export GH_USERNAME="$GH_USERNAME"
         export GH_PASSWORD="$GH_PASSWORD"
         export GH_SECRET="$GH_SECRET"
-
-        # ========================== CI CONFIGURATION ==========================
-        export CI_TEST_RUNNER_IMAGE="quay.io/redhat-user-workloads/rhtap-shared-team-tenant/tssc-test:latest"
         EOF
 
         echo "Logging into OpenShift..."
