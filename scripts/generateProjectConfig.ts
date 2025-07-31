@@ -56,7 +56,7 @@ function generateProjectConfig(): void {
         template: config.testItem.getTemplate(),
         git: config.testItem.getGitType(),
         ci: config.testItem.getCIType(),
-        registry: config.testItem.getregistryType()
+        registry: config.testItem.getRegistryType()
       }))
     };
 

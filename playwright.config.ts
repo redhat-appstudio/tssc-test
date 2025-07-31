@@ -1,6 +1,6 @@
 import { defineConfig, PlaywrightTestConfig, PlaywrightTestOptions, PlaywrightWorkerOptions } from '@playwright/test';
 import { TestItem } from './src/playwright/testItem';
-import { loadProjectConfigurations, ProjectConfig } from './src/utils/projectConfigSingleton';
+import { loadProjectConfigurations, ProjectConfig } from './src/utils/projectConfigLoader';
 
 // Extend Playwright types to include testItem
 declare module '@playwright/test' {
