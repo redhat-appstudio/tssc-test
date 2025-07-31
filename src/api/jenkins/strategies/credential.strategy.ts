@@ -1,5 +1,7 @@
 import { CredentialType } from '../enums/jenkins.enums';
 import { JenkinsConfig } from '../config/jenkins.config';
+import { JenkinsXmlBuilder } from '../utils/jenkins.utils';
+import { JenkinsCredentialError } from '../errors/jenkins.errors';
 
 /**
  * Interface for credential creation strategies
@@ -16,23 +18,14 @@ export class SecretTextCredentialStrategy implements CredentialStrategy {
   buildXml(credentialId: string, secretValue: string): string {
     return `<org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl plugin="${JenkinsConfig.PLUGINS.PLAIN_CREDENTIALS}">
   <scope>GLOBAL</scope>
-  <id>${this.escapeXml(credentialId)}</id>
-  <description>Secret variable for ${this.escapeXml(credentialId)}</description>
-  <secret>${this.escapeXml(secretValue)}</secret>
+  <id>${JenkinsXmlBuilder.escapeXml(credentialId)}</id>
+  <description>Secret variable for ${JenkinsXmlBuilder.escapeXml(credentialId)}</description>
+  <secret>${JenkinsXmlBuilder.escapeXml(secretValue)}</secret>
 </org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl>`;
   }
 
   getType(): CredentialType {
     return CredentialType.SECRET_TEXT;
-  }
-
-  private escapeXml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
   }
 }
 
@@ -45,10 +38,10 @@ export class UsernamePasswordCredentialStrategy implements CredentialStrategy {
     
     return `<com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl>
   <scope>GLOBAL</scope>
-  <id>${this.escapeXml(credentialId)}</id>
-  <description>Credentials for ${this.escapeXml(credentialId)}</description>
-  <username>${this.escapeXml(username)}</username>
-  <password>${this.escapeXml(password)}</password>
+  <id>${JenkinsXmlBuilder.escapeXml(credentialId)}</id>
+  <description>Credentials for ${JenkinsXmlBuilder.escapeXml(credentialId)}</description>
+  <username>${JenkinsXmlBuilder.escapeXml(username)}</username>
+  <password>${JenkinsXmlBuilder.escapeXml(password)}</password>
 </com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl>`;
   }
 
@@ -59,22 +52,13 @@ export class UsernamePasswordCredentialStrategy implements CredentialStrategy {
   private parseCredentials(secretValue: string): [string, string] {
     const parts = secretValue.split(':');
     if (parts.length < 2) {
-      throw new Error('Username/password credentials must be in format "username:password"');
+      throw new JenkinsCredentialError('Username/password credentials must be in format "username:password"', 'Invalid format');
     }
     
     const username = parts[0];
     const password = parts.slice(1).join(':'); // Handle passwords with colons
     
     return [username, password];
-  }
-
-  private escapeXml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
   }
 }
 
@@ -87,13 +71,13 @@ export class SshPrivateKeyCredentialStrategy implements CredentialStrategy {
     
     return `<com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey plugin="ssh-credentials">
   <scope>GLOBAL</scope>
-  <id>${this.escapeXml(credentialId)}</id>
-  <description>SSH credentials for ${this.escapeXml(credentialId)}</description>
-  <username>${this.escapeXml(username)}</username>
+  <id>${JenkinsXmlBuilder.escapeXml(credentialId)}</id>
+  <description>SSH credentials for ${JenkinsXmlBuilder.escapeXml(credentialId)}</description>
+  <username>${JenkinsXmlBuilder.escapeXml(username)}</username>
   <privateKeySource class="com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey$DirectEntryPrivateKeySource">
-    <privateKey>${this.escapeXml(privateKey)}</privateKey>
+    <privateKey>${JenkinsXmlBuilder.escapeXml(privateKey)}</privateKey>
   </privateKeySource>
-  <passphrase>${this.escapeXml(passphrase || '')}</passphrase>
+  <passphrase>${JenkinsXmlBuilder.escapeXml(passphrase || '')}</passphrase>
 </com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>`;
   }
 
@@ -104,7 +88,7 @@ export class SshPrivateKeyCredentialStrategy implements CredentialStrategy {
   private parseCredentials(secretValue: string): [string, string, string?] {
     const parts = secretValue.split('::');
     if (parts.length < 2) {
-      throw new Error('SSH credentials must be in format "username::privateKey" or "username::privateKey::passphrase"');
+      throw new JenkinsCredentialError('SSH credentials must be in format "username::privateKey" or "username::privateKey::passphrase"', 'Invalid format');
     }
     
     const username = parts[0];
@@ -112,15 +96,6 @@ export class SshPrivateKeyCredentialStrategy implements CredentialStrategy {
     const passphrase = parts[2];
     
     return [username, privateKey, passphrase];
-  }
-
-  private escapeXml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
   }
 }
 
@@ -141,7 +116,7 @@ export class CredentialStrategyFactory {
     const strategy = this.strategies.get(type);
     
     if (!strategy) {
-      throw new Error(`Unsupported credential type: ${type}`);
+      throw new JenkinsCredentialError(`Unsupported credential type: ${type}`, 'Unsupported Type');
     }
     
     return strategy;
@@ -160,4 +135,4 @@ export class CredentialStrategyFactory {
   static isSupported(type: CredentialType): boolean {
     return this.strategies.has(type);
   }
-} 
+}

@@ -1,5 +1,6 @@
 import { KubeClient } from '../../../../../../src/api/ocp/kubeClient';
-import { GitLabClient, GitLabConfigBuilder } from '../../../../../api/gitlab';
+import { GitLabClient } from '../../../../../api/gitlab/gitlab.client';
+import { GitLabConfigBuilder } from '../../../../../api/gitlab/config/gitlab.config';
 // import { GitLabClient } from '../../../../../api/git/gitlabClient';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
@@ -12,14 +13,14 @@ export class GitLabCI extends BaseCI {
   private baseUrl: string = '';
   private gitlabCIClient!: GitLabClient;
   // private gitlabClient!: GitLabClient;
-  private gitOpsRepoName: string;
+  private _gitOpsRepoName: string;
   private sourceRepoName: string;
 
   constructor(componentName: string, kubeClient: KubeClient) {
     super(CIType.GITLABCI, kubeClient);
     this.componentName = componentName;
     this.sourceRepoName = componentName;
-    this.gitOpsRepoName = `${componentName}-gitops`;
+    this._gitOpsRepoName = `${componentName}-gitops`;
   }
 
   private async loadSecret(): Promise<Record<string, string>> {
@@ -131,7 +132,7 @@ export class GitLabCI extends BaseCI {
       const latestPipeline = pipelines[0];
       //TODO: for debugging purpose, remove it later
       console.log(`Latest pipeline ID: ${latestPipeline.id}, Source: ${latestPipeline.source}`);
-      const mappedStatus = this.gitlabCIClient.mapPipelineStatus(latestPipeline.status);
+      const mappedStatus = this.mapPipelineStatus(latestPipeline.status);
 
       // Only return pipelines that match the requested status if it's not UNKNOWN
       if (pipelineStatus !== PipelineStatus.UNKNOWN && mappedStatus !== pipelineStatus) {
@@ -192,7 +193,7 @@ export class GitLabCI extends BaseCI {
       }
 
       // For all other statuses, use the standard mapping
-      const mappedStatus = this.gitlabCIClient.mapPipelineStatus(gitlabStatus);
+      const mappedStatus = this.mapPipelineStatus(gitlabStatus);
       return mappedStatus;
     } catch (error) {
       console.error(`Error checking pipeline status for ${pipeline.id}:`, error);
@@ -278,11 +279,38 @@ export class GitLabCI extends BaseCI {
     return Promise.resolve(this.secret);
   }
 
-  public override async getPipelineLogs(pipeline: Pipeline): Promise<string> {
+  public override async getPipelineLogs(_pipeline: Pipeline): Promise<string> {
     throw new Error('GitLab does not support getting pipeline logs.');
   }
 
   public override async getCIFilePathInRepo(): Promise<string> {
     return '.gitlab-ci.yml';
+  }
+  /**
+   * Maps GitLab pipeline status to our standardized PipelineStatus enum
+   * @param gitlabStatus The status string from GitLab API
+   * @returns The standardized PipelineStatus value
+   */
+  public mapPipelineStatus(gitlabStatus: string): PipelineStatus {
+    switch (gitlabStatus) {
+      case 'success':
+        return PipelineStatus.SUCCESS;
+      case 'failed':
+      case 'canceled':
+        return PipelineStatus.FAILURE;
+      case 'running':
+        return PipelineStatus.RUNNING;
+      case 'pending':
+      case 'created':
+      case 'waiting_for_resource':
+      case 'preparing':
+      case 'manual':
+      case 'scheduled':
+        return PipelineStatus.PENDING;
+      case 'skipped':
+        return PipelineStatus.FAILURE; // Treat skipped as failure for consistency
+      default:
+        return PipelineStatus.UNKNOWN;
+    }
   }
 }
