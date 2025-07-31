@@ -5,9 +5,7 @@ import {
   GitLabPipeline,
   GitLabPipelineSearchParams,
 } from '../types/gitlab.types';
-import { PipelineStatus } from '../../../rhtap/core/integration/ci/pipeline';
 import { createGitLabErrorFromResponse } from '../errors/gitlab.errors';
-import { GitLabUtils } from '../utils/gitlab.utils';
 
 export class GitLabPipelineService implements IGitLabPipelineService {
   constructor(private readonly gitlabClient: InstanceType<typeof Gitlab>) {}
@@ -93,10 +91,6 @@ export class GitLabPipelineService implements IGitLabPipelineService {
       console.error(`Failed to get logs for job ${jobId} in project ${projectPath}:`, error);
       return 'Failed to retrieve job logs';
     }
-  }
-
-  public mapPipelineStatus(gitlabStatus: string): PipelineStatus {
-    return GitLabUtils.mapPipelineStatus(gitlabStatus);
   }
 
   public async cancelPipeline(projectPath: string, pipelineId: number): Promise<GitLabPipeline> {

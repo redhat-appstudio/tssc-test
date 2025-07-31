@@ -131,7 +131,7 @@ export class GitLabCI extends BaseCI {
       const latestPipeline = pipelines[0];
       //TODO: for debugging purpose, remove it later
       console.log(`Latest pipeline ID: ${latestPipeline.id}, Source: ${latestPipeline.source}`);
-      const mappedStatus = this.gitlabCIClient.mapPipelineStatus(latestPipeline.status);
+      const mappedStatus = this.mapPipelineStatus(latestPipeline.status);
 
       // Only return pipelines that match the requested status if it's not UNKNOWN
       if (pipelineStatus !== PipelineStatus.UNKNOWN && mappedStatus !== pipelineStatus) {
@@ -192,7 +192,7 @@ export class GitLabCI extends BaseCI {
       }
 
       // For all other statuses, use the standard mapping
-      const mappedStatus = this.gitlabCIClient.mapPipelineStatus(gitlabStatus);
+      const mappedStatus = this.mapPipelineStatus(gitlabStatus);
       return mappedStatus;
     } catch (error) {
       console.error(`Error checking pipeline status for ${pipeline.id}:`, error);
@@ -307,10 +307,45 @@ export class GitLabCI extends BaseCI {
   }
 
   public override async getPipelineLogs(pipeline: Pipeline): Promise<string> {
-    throw new Error('GitLab does not support getting pipeline logs.');
+    const pipelineId = parseInt(pipeline.id);
+    if (isNaN(pipelineId)) {
+      throw new Error(`Invalid pipeline ID: ${pipeline.id}`);
+    }
+    return this.gitlabCIClient.getPipelineLogs(
+      `${this.getGroup()}/${pipeline.repositoryName}`,
+      pipelineId
+    );
   }
 
   public override async getCIFilePathInRepo(): Promise<string> {
     return '.gitlab-ci.yml';
+  }
+
+  /**
+   * Maps GitLab pipeline status to our standardized PipelineStatus enum
+   * @param gitlabStatus The status string from GitLab API
+   * @returns The standardized PipelineStatus value
+   */
+  public mapPipelineStatus(gitlabStatus: string): PipelineStatus {
+    switch (gitlabStatus) {
+      case 'success':
+        return PipelineStatus.SUCCESS;
+      case 'failed':
+      case 'canceled':
+        return PipelineStatus.FAILURE;
+      case 'running':
+        return PipelineStatus.RUNNING;
+      case 'pending':
+      case 'created':
+      case 'waiting_for_resource':
+      case 'preparing':
+      case 'manual':
+      case 'scheduled':
+        return PipelineStatus.PENDING;
+      case 'skipped':
+        return PipelineStatus.FAILURE; // Treat skipped as failure for consistency
+      default:
+        return PipelineStatus.UNKNOWN;
+    }
   }
 }
