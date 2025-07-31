@@ -1,5 +1,4 @@
 import { Gitlab } from '@gitbeaker/rest';
-import { PipelineStatus } from '../../../rhtap/core/integration/ci/pipeline';
 import { ContentModifications } from '../../../rhtap/modification/contentModification';
 import {
   GitLabProject,
@@ -128,7 +127,6 @@ export interface IGitLabPipelineService {
   getAllPipelines(projectPath: string): Promise<GitLabPipeline[]>;
   getPipelineById(projectPath: string, pipelineId: number): Promise<GitLabPipeline>;
   getPipelineLogs(projectPath: string, jobId: number): Promise<string>;
-  mapPipelineStatus(gitlabStatus: string): PipelineStatus;
   cancelPipeline(projectPath: string, pipelineId: number): Promise<GitLabPipeline>;
 }
 

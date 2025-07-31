@@ -1,5 +1,5 @@
 import { Gitlab } from '@gitbeaker/rest';
-import { GitLabConfig } from '../config/gitlab.config';
+import { GitLabConfig } from './config/gitlab.config';
 import {
   IGitLabCoreClient,
   IGitLabProjectService,
@@ -7,12 +7,12 @@ import {
   IGitLabMergeRequestService,
   IGitLabWebhookService,
   IGitLabPipelineService,
-} from '../interfaces/gitlab.interfaces';
-import { GitLabProjectService } from '../services/gitlab-project.service';
-import { GitLabRepositoryService } from '../services/gitlab-repository.service';
-import { GitLabMergeRequestService } from '../services/gitlab-merge-request.service';
-import { GitLabWebhookService } from '../services/gitlab-webhook.service';
-import { GitLabPipelineService } from '../services/gitlab-pipeline.service';
+} from './interfaces/gitlab.interfaces';
+import { GitLabProjectService } from './services/gitlab-project.service';
+import { GitLabRepositoryService } from './services/gitlab-repository.service';
+import { GitLabMergeRequestService } from './services/gitlab-merge-request.service';
+import { GitLabWebhookService } from './services/gitlab-webhook.service';
+import { GitLabPipelineService } from './services/gitlab-pipeline.service';
 import {
   GitLabProject,
   GitLabProjectSearchParams,
@@ -36,9 +36,8 @@ import {
   CreateWebhookOptions,
   GitLabPipeline,
   GitLabPipelineSearchParams,
-} from '../types/gitlab.types';
-import { ContentModifications } from '../../../rhtap/modification/contentModification';
-import { PipelineStatus } from '../../../rhtap/core/integration/ci/pipeline';
+} from './types/gitlab.types';
+import { ContentModifications } from '../../rhtap/modification/contentModification';
 
 /**
  * Main GitLab client that provides a comprehensive interface to GitLab operations
@@ -296,17 +295,7 @@ export class GitLabClient implements IGitLabCoreClient {
     return this.pipelineService.getPipelineLogs(projectPath, jobId);
   }
 
-  /**
-   * Maps GitLab pipeline status to our standardized PipelineStatus enum
-   * @param gitlabStatus The status string from GitLab API
-   * @returns The standardized PipelineStatus value
-   */
-  public mapPipelineStatus(gitlabStatus: string): PipelineStatus {
-    return this.pipelineService.mapPipelineStatus(gitlabStatus);
-  }
-
   public async cancelPipeline(projectPath: string, pipelineId: number): Promise<GitLabPipeline> {
     return this.pipelineService.cancelPipeline(projectPath, pipelineId);
   }
-
 } 
