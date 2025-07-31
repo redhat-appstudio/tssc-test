@@ -58,7 +58,7 @@ export class GithubUiPlugin implements GitPlugin {
      * @param page - Playwright Page object for UI interactions
      */
     async checkViewSourceLink(page: Page): Promise<void> {
-        const githubLink = page.locator(`${GitPO.githubLinkSelector}:has-text("${GitPO.viewSourceLinkText}")`).first();
+        const githubLink = page.locator(`${GitPO.githubLinkSelector}:has-text("${GitPO.viewSourceLinkText}")`);
         await githubLink.waitFor({ state: 'visible', timeout: 10000 });
         
         const linkHref = await githubLink.getAttribute('href');

@@ -1,7 +1,6 @@
 import { defineConfig } from '@playwright/test';
 import { existsSync, readFileSync } from 'fs';
-import path, { dirname } from 'path';
-import { fileURLToPath } from 'url';
+import path from 'path';
 
 import { TestItem } from './src/playwright/testItem';
 import { TestPlan } from './src/playwright/testplan';
@@ -78,8 +77,7 @@ const e2eProjects = testPlan.getProjectConfigs().map(config => ({
 }));
 
 // Authentication file path
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const authFile = path.join(__dirname, 'playwright/.auth/user.json');
+const authFile = path.resolve(process.cwd(), 'playwright/.auth/user.json');
 
 // Create UI projects for UI tests from exported test items
 let uiProjects: any[] = [];
