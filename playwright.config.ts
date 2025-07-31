@@ -69,7 +69,7 @@ export default defineConfig({
   testMatch: '**/*.test.ts',
   workers: 6,
   timeout: DEFAULT_TIMEOUT,
-  fullyParallel: true, // This should allow immediate execution when dependencies are met
+  fullyParallel: false, // This should allow immediate execution when dependencies are met
   projects: allProjects.length ? allProjects : [{ name: 'default' }],
   
   // Reporter configuration
