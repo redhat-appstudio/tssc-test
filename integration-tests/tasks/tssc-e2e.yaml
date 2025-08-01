@@ -28,14 +28,14 @@ spec:
       emptyDir: {}
   steps:
     - name: copy-tssc-test
-      image: $(params.tssc-test-image)
+      image: quay.io/redhat-user-workloads/rhtap-shared-team-tenant/tssc-test:tssc-test-on-pull-request-gcgwf-build-container
       command: ['/bin/sh', '-c']
       args: ['cp -r /tssc-test/* /e2e-test && chmod -R +x /e2e-test/*']
       volumeMounts:
         - name: tssc-test-dir
           mountPath: /e2e-test
     - name: generate-testplan
-      image: $(params.tssc-test-image)
+      image: quay.io/redhat-user-workloads/rhtap-shared-team-tenant/tssc-test:tssc-test-on-pull-request-gcgwf-build-container
       workingDir: /e2e-test
       volumeMounts:
         - name: tssc-test-dir
@@ -66,7 +66,7 @@ spec:
         cat testplan.json
         echo "--------------------------------"
     - name: run-tssc-e2e
-      image: $(params.tssc-test-image)
+      image: quay.io/redhat-user-workloads/rhtap-shared-team-tenant/tssc-test:tssc-test-on-pull-request-gcgwf-build-container
       workingDir: /e2e-test
       onError: continue
       computeResources:
