@@ -2,7 +2,6 @@ import { KubeClient } from './../../../../../src/api/ocp/kubeClient';
 
 export enum ImageRegistryType {
   QUAY = 'quay',
-  QUAYIO = 'quay.io',
   ARTIFACTORY = 'artifactory',
   NEXUS = 'nexus',
 }
@@ -14,7 +13,7 @@ export interface ImageRegistry {
   getImageName(): string;
 
   /**
-   * The format is {"auths":{"quay.io":{"auth":"base64encoded", "email":""}}}
+   * The format is {"auths":{"<image-registry-host-url>":{"auth":"base64encoded", "email":""}}}
    */
   getDockerConfig(): string;
   getImageRegistryUser(): string;
