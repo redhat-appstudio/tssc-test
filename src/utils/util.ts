@@ -174,6 +174,15 @@ export function loadFromEnv(name: string): string {
   return value;
 }
 
+export function loadSecretFromEnv(name: string): string {
+  const value = process.env[name] || '';
+  // Check if the variable is defined and not empty
+  if (!value || value.trim() === '') {
+    throw new Error(`Environment variable ${name} is not defined or is empty`);
+  }
+  console.log(`Loaded secret ${name}`);
+  return value;
+}
 /**
  * Encodes a string to base64 format
  * @param str The string to encode
