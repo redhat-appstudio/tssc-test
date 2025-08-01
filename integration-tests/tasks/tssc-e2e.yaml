@@ -277,5 +277,5 @@ spec:
         $(params.ocp-login-command)
 
         source .env
-        FORCE_COLOR=false npm run test:tssc
+        FORCE_COLOR=false npm run test:e2e
         ls -l playwright-report

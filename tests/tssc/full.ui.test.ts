@@ -1,6 +1,5 @@
 import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { UiComponent } from '../../src/ui/uiComponent';
-import { loadFromEnv } from '../../src/utils/util';
 import { CommonPO } from '../../src/ui/page-objects/common_po';
 
 /**
