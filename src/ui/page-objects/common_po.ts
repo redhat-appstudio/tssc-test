@@ -8,3 +8,14 @@
 export const CommonPO = {
     welcomeTitle: 'Welcome back!',
 } 
+
+/**
+ * Git-related Page Objects
+ * 
+ * Contains locators for Git provider UI elements (GitHub, GitLab)
+ */
+export const GitPO = {
+    viewSourceLinkText: 'View Source',
+    githubLinkSelector: 'a[href*="github.com"]',
+    gitlabLinkSelector: 'a[href*="gitlab.com"]',
+}
