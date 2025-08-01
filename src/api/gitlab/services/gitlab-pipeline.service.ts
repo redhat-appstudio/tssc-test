@@ -98,4 +98,23 @@ export class GitLabPipelineService implements IGitLabPipelineService {
   public mapPipelineStatus(gitlabStatus: string): PipelineStatus {
     return GitLabUtils.mapPipelineStatus(gitlabStatus);
   }
+
+  public async cancelPipeline(projectPath: string, pipelineId: number): Promise<GitLabPipeline> {
+    try {
+      const cancelledPipeline = await this.gitlabClient.Pipelines.cancel(projectPath, pipelineId);
+      console.log(`Cancelled pipeline ${pipelineId} for project ${projectPath}`);
+      return cancelledPipeline as GitLabPipeline;
+    } catch (error) {
+      console.error(
+        `Failed to cancel GitLab pipeline ${pipelineId} for project ${projectPath}:`,
+        error
+      );
+      throw createGitLabErrorFromResponse(
+        'cancelPipeline',
+        error,
+        'pipeline',
+        pipelineId
+      );
+    }
+  }
 } 

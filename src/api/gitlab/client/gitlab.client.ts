@@ -304,4 +304,9 @@ export class GitLabClient implements IGitLabCoreClient {
   public mapPipelineStatus(gitlabStatus: string): PipelineStatus {
     return this.pipelineService.mapPipelineStatus(gitlabStatus);
   }
+
+  public async cancelPipeline(projectPath: string, pipelineId: number): Promise<GitLabPipeline> {
+    return this.pipelineService.cancelPipeline(projectPath, pipelineId);
+  }
+
 } 

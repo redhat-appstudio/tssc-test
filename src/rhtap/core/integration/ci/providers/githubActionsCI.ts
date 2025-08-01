@@ -372,6 +372,12 @@ export class GitHubActionsCI extends BaseCI {
     }
   }
 
+  public override async cancelAllInitialPipelines(): Promise<void> {
+    throw new Error(
+      'GitHub Actions does not support cancelling initial pipeline runs.'
+    );
+  }
+
   public override async waitForAllPipelinesToFinish(
     timeoutMs = 5 * 60 * 1000,
     pollIntervalMs = 5000

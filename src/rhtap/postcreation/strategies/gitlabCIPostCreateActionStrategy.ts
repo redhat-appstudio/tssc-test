@@ -78,7 +78,7 @@ export class GitlabCIPostCreateActionStrategy implements PostCreateActionStrateg
    * @returns Array of Command instances suitable for GitLab integration
    */
   private createCommandsForGitLab(component: Component): Command[] {
-    return [new AddGitlabProjectVariablesCommand(component), new UpdateCIRunnerImage(component)];
+    return [new UpdateCIRunnerImage(component), new AddGitlabProjectVariablesCommand(component)];
   }
 
   /**

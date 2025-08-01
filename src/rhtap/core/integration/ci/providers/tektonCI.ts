@@ -365,6 +365,12 @@ export class TektonCI extends BaseCI {
     }
   }
 
+  public override async cancelAllInitialPipelines(): Promise<void> {
+    throw new Error(
+      'Tekton does not support cancelling initial pipeline runs.'
+    );
+  }
+
   public override async getWebhookUrl(): Promise<string> {
     const tektonWebhookUrl = await this.kubeClient.getOpenshiftRoute(
       'pipelines-as-code-controller',

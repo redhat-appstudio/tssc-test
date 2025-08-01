@@ -26,161 +26,6 @@ spec:
         secretName: konflux-test-infra
     - name: tssc-test-dir
       emptyDir: {}
-  sidecars:
-    - name: upload-test-results
-      image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
-      workingDir: /e2e-test
-      volumeMounts:
-        - name: tssc-test-dir
-          mountPath: /e2e-test
-        - name: konflux-test-infra-volume
-          mountPath: /usr/local/konflux-test-infra
-      env:
-        - name: OCI_CONTAINER
-          value: $(params.oci-container)
-      command: ["/bin/bash"]
-      args:
-        - "-c"
-        - |
-          set -o errexit
-          set -o nounset
-          set -o pipefail
-
-          # Configuration constants
-          readonly REPORT_DIR="./playwright-report"
-          readonly REPORT_FILE="$REPORT_DIR/index.html"
-          readonly RENAMED_REPORT_FILE="$REPORT_DIR/report.html"
-          readonly ANNOTATION_FILE="annotation.json"
-          readonly WAIT_INTERVAL=60
-          readonly MAX_WAIT_ATTEMPTS=40  # 40 minutes total
-          readonly MAX_PUSH_ATTEMPTS=5
-          readonly RETRY_DELAY=5
-
-          # Wait for test report to be available
-          wait_for_test_report() {
-            echo "Waiting for test report at $REPORT_FILE"
-
-            for attempt in $(seq 1 $MAX_WAIT_ATTEMPTS); do
-              if [[ -f "$REPORT_FILE" ]]; then
-                echo "Test report found after $attempt attempts"
-                return 0
-              fi
-
-              echo "Attempt $attempt/$MAX_WAIT_ATTEMPTS - waiting ${WAIT_INTERVAL}s..."
-              sleep $WAIT_INTERVAL
-            done
-
-            echo "ERROR: Test report not found after $((MAX_WAIT_ATTEMPTS * WAIT_INTERVAL)) seconds" >&2
-            return 1
-          }
-
-          # Load OCI credentials from mounted secret
-          load_oci_credentials() {
-            echo "Loading OCI credentials"
-
-            local creds_file="/usr/local/konflux-test-infra/oci-storage"
-            if [[ ! -f "$creds_file" ]]; then
-              echo "ERROR: Credentials file not found: $creds_file" >&2
-              return 1
-            fi
-
-            OCI_STORAGE_USERNAME=$(jq -r '.["quay-username"]' "$creds_file")
-            OCI_STORAGE_TOKEN=$(jq -r '.["quay-token"]' "$creds_file")
-
-            if [[ "$OCI_STORAGE_USERNAME" == "null" || "$OCI_STORAGE_TOKEN" == "null" ]]; then
-              echo "ERROR: Invalid credentials in $creds_file" >&2
-              return 1
-            fi
-          }
-
-          # Create OCI annotation file
-          prepare_oci_annotations() {
-            echo "Preparing OCI annotations"
-
-            local manifests
-            if ! manifests=$(oras manifest fetch "$OCI_CONTAINER" 2>/dev/null | jq .annotations); then
-              echo "ERROR: Failed to fetch manifest from $OCI_CONTAINER" >&2
-              return 1
-            fi
-
-            jq -n --argjson manifest "$manifests" '{"$manifest": $manifest}' > "$ANNOTATION_FILE"
-            echo "Annotation file created: $ANNOTATION_FILE"
-          }
-
-          # Pull OCI container silently
-          pull_oci_container() {
-            echo "Pulling OCI container: $OCI_CONTAINER"
-            oras pull "$OCI_CONTAINER" >/dev/null 2>&1
-          }
-
-          # Push artifacts with retry mechanism
-          push_artifacts_with_retry() {
-            echo "Pushing test artifacts to OCI registry"
-
-            for attempt in $(seq 1 $MAX_PUSH_ATTEMPTS); do
-              if oras push "$OCI_CONTAINER" \
-                  --username="$OCI_STORAGE_USERNAME" \
-                  --password="$OCI_STORAGE_TOKEN" \
-                  --annotation-file "$ANNOTATION_FILE" \
-                  playwright-report/:application/vnd.acme.rocket.docs.layer.v1+tar >/dev/null 2>&1; then
-                echo "Test results uploaded successfully"
-                return 0
-              fi
-
-              if [[ $attempt -lt $MAX_PUSH_ATTEMPTS ]]; then
-                echo "Push attempt $attempt failed, retrying in ${RETRY_DELAY}s..."
-                sleep $RETRY_DELAY
-              fi
-            done
-
-            echo "ERROR: Failed to push artifacts after $MAX_PUSH_ATTEMPTS attempts" >&2
-            return 1
-          }
-
-          # Cleanup temporary files
-          cleanup() {
-            rm -f "$ANNOTATION_FILE"
-            echo "Cleanup completed"
-          }
-
-          # Main execution
-          main() {
-            echo "Starting test report collection"
-
-            # Wait for test completion
-            wait_for_test_report || exit 1
-
-            # Verify report directory structure
-            echo "Current directory: $(pwd)"
-            if [[ -d "$REPORT_DIR" ]]; then
-              echo "Report directory contents:"
-              ls -la "$REPORT_DIR"
-            fi
-
-            # Process and upload test results
-            if [[ ! -f "$REPORT_FILE" ]]; then
-              echo "ERROR: Test report file not found: $REPORT_FILE" >&2
-              exit 1
-            fi
-
-            echo "Processing test report for upload"
-
-            # Rename report file for Artifactory UI compatibility
-            mv "$REPORT_FILE" "$RENAMED_REPORT_FILE"
-            echo "Renamed report file to: $RENAMED_REPORT_FILE"
-
-            # Execute upload workflow
-            load_oci_credentials || exit 1
-            prepare_oci_annotations || exit 1
-            pull_oci_container || exit 1
-            push_artifacts_with_retry || exit 1
-
-            cleanup
-            echo "Report collection completed successfully"
-          }
-
-          # Execute main function
-          main "$@"
   steps:
     - name: copy-tssc-test
       image: $(params.tssc-test-image)
@@ -223,6 +68,7 @@ spec:
     - name: run-tssc-e2e
       image: $(params.tssc-test-image)
       workingDir: /e2e-test
+      onError: continue
       computeResources:
         limits:
           memory: 6Gi
@@ -239,7 +85,6 @@ spec:
           value: '$(params.job-spec)'
       script: |
         #!/usr/bin/env bash
-        set -o errexit
         set -o nounset
         set -o pipefail
 
@@ -277,5 +122,144 @@ spec:
         $(params.ocp-login-command)
 
         source .env
-        FORCE_COLOR=false npm run test:tssc
-        ls -l playwright-report
+        # Run tests and capture exit code
+        TEST_EXIT_CODE=0
+        FORCE_COLOR=false npm run test:tssc || TEST_EXIT_CODE=$?
+
+        echo "Test execution completed with exit code: $TEST_EXIT_CODE"
+
+        exit $TEST_EXIT_CODE
+    - name: upload-test-results
+      image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
+      workingDir: /e2e-test
+      volumeMounts:
+        - name: tssc-test-dir
+          mountPath: /e2e-test
+        - name: konflux-test-infra-volume
+          mountPath: /usr/local/konflux-test-infra
+      env:
+        - name: OCI_CONTAINER
+          value: $(params.oci-container)
+      script: |
+        #!/bin/bash
+        set -o errexit
+        set -o nounset
+        set -o pipefail
+
+        # Configuration constants
+        readonly REPORT_DIR="./playwright-report"
+        readonly REPORT_FILE="$REPORT_DIR/index.html"
+        readonly RENAMED_REPORT_FILE="$REPORT_DIR/report.html"
+        readonly ANNOTATION_FILE="annotation.json"
+        readonly MAX_PUSH_ATTEMPTS=5
+        readonly RETRY_DELAY=5
+
+        # Get the exit code from the previous step
+        PREVIOUS_STEP_EXIT_CODE=$(cat $(steps.step-run-tssc-e2e.exitCode.path))
+
+        echo "Starting test report collection"
+        echo "Previous test step exit code: ${PREVIOUS_STEP_EXIT_CODE}"
+
+        # Load OCI credentials from mounted secret
+        load_oci_credentials() {
+          echo "Loading OCI credentials"
+
+          local creds_file="/usr/local/konflux-test-infra/oci-storage"
+          if [[ ! -f "$creds_file" ]]; then
+            echo "ERROR: Credentials file not found: $creds_file" >&2
+            return 1
+          fi
+
+          OCI_STORAGE_USERNAME=$(jq -r '.["quay-username"]' "$creds_file")
+          OCI_STORAGE_TOKEN=$(jq -r '.["quay-token"]' "$creds_file")
+
+          if [[ "$OCI_STORAGE_USERNAME" == "null" || "$OCI_STORAGE_TOKEN" == "null" ]]; then
+            echo "ERROR: Invalid credentials in $creds_file" >&2
+            return 1
+          fi
+        }
+
+        # Create OCI annotation file
+        prepare_oci_annotations() {
+          echo "Preparing OCI annotations"
+
+          local manifests
+          if ! manifests=$(oras manifest fetch "$OCI_CONTAINER" 2>/dev/null | jq .annotations); then
+            echo "ERROR: Failed to fetch manifest from $OCI_CONTAINER" >&2
+            return 1
+          fi
+
+          jq -n --argjson manifest "$manifests" '{"$manifest": $manifest}' > "$ANNOTATION_FILE"
+          echo "Annotation file created: $ANNOTATION_FILE"
+        }
+
+        # Pull OCI container silently
+        pull_oci_container() {
+          echo "Pulling OCI container: $OCI_CONTAINER"
+          oras pull "$OCI_CONTAINER" >/dev/null 2>&1
+        }
+
+        # Push artifacts with retry mechanism
+        push_artifacts_with_retry() {
+          echo "Pushing test artifacts to OCI registry"
+
+          for attempt in $(seq 1 $MAX_PUSH_ATTEMPTS); do
+            if oras push "$OCI_CONTAINER" \
+                --username="$OCI_STORAGE_USERNAME" \
+                --password="$OCI_STORAGE_TOKEN" \
+                --annotation-file "$ANNOTATION_FILE" \
+                playwright-report/:application/vnd.acme.rocket.docs.layer.v1+tar >/dev/null 2>&1; then
+              echo "Test results uploaded successfully"
+              return 0
+            fi
+
+            if [[ $attempt -lt $MAX_PUSH_ATTEMPTS ]]; then
+              echo "Push attempt $attempt failed, retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+            fi
+          done
+
+          echo "ERROR: Failed to push artifacts after $MAX_PUSH_ATTEMPTS attempts" >&2
+          return 1
+        }
+
+        prepare_report_for_upload() {
+          echo "Preparing report for upload"
+
+          # Show report directory contents for debugging
+          echo "Report directory contents:"
+          if ! ls -la "$REPORT_DIR" 2>/dev/null; then
+            echo "WARNING: Could not list report directory contents"
+            return 1
+          fi
+
+          # Verify source file exists before renaming
+          if [[ ! -f "$REPORT_FILE" ]]; then
+            echo "ERROR: Source report file not found: $REPORT_FILE" >&2
+            return 1
+          fi
+
+          # Rename report file for Artifactory UI compatibility
+          if ! mv "$REPORT_FILE" "$RENAMED_REPORT_FILE"; then
+            echo "ERROR: Failed to rename report file" >&2
+            return 1
+          fi
+
+          echo "Renamed report file to: $RENAMED_REPORT_FILE"
+          return 0
+        }
+
+        # Execute upload workflow
+        prepare_report_for_upload || exit 1
+        load_oci_credentials || exit 1
+        prepare_oci_annotations || exit 1
+        pull_oci_container || exit 1
+        push_artifacts_with_retry || exit 1
+
+        echo "Report collection completed successfully"
+
+        # Final step: if the tests failed, make this step fail too to preserve the overall task status
+        if [[ "${PREVIOUS_STEP_EXIT_CODE}" != "0" ]]; then
+          echo "Tests failed with exit code ${PREVIOUS_STEP_EXIT_CODE}, failing upload step to preserve task status"
+          exit "${PREVIOUS_STEP_EXIT_CODE}"
+        fi
