@@ -71,4 +71,16 @@ export class UiComponent {
   public getGit(): GitPlugin {
     return this.git;
   }
+
+  /**
+   * Gets the component URL for the Developer Hub UI.
+   * Constructs the URL using the Developer Hub base URL and component name.
+   * 
+   * @returns The full URL to the component page in Developer Hub
+   */
+  public getComponentUrl(): string {
+    const developerHubUrl = this.component.getDeveloperHub().getUrl();
+    const componentName = this.component.getName();
+    return `${developerHubUrl}/catalog/default/component/${componentName}`;
+  }
 }

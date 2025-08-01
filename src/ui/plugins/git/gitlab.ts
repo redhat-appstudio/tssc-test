@@ -30,4 +30,4 @@ export class GitlabUiPlugin implements GitPlugin {
         // This would typically involve OAuth flow or token-based authentication
         throw new Error('Method not implemented.');
     }
-} 
+}
