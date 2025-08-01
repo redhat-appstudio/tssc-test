@@ -35,12 +35,14 @@ test.describe('RHTAP UI Test Suite', () => {
     component = await UiComponent.new(componentName, testItem, imageName);
   });
 
-  test.describe('Log In', () => {
+  test.describe('Go to home page', () => {
     test('open developer hub and log in', async ({ page }) => {
-      await page.goto(component.getCoreComponent().getDeveloperHub().getUrl());
-      await component.getGit().login(page);
-      await page.getByRole('heading', { name: CommonPO.welcomeTitle }).waitFor({ state: 'visible' });
+      await page.goto(component.getCoreComponent().getDeveloperHub().getUrl(), {
+        timeout: 20000,
+      });
+      await page
+        .getByRole('heading', { name: CommonPO.welcomeTitle })
+        .waitFor({ state: 'visible', timeout: 20000 });
     });
-
   });
 });

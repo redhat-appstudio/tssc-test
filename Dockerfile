@@ -15,10 +15,12 @@ RUN VERSION=$(curl -L -s https://raw.githubusercontent.com/argoproj/argo-cd/stab
 FROM registry.access.redhat.com/ubi9/nodejs-20:9.6-1753856090
 
 LABEL name="tssc-test" \
-      maintainers="TSSC Team"
+    maintainers="TSSC Team"
 
-# Set working directory
 WORKDIR /tssc-test
+
+# Switch to root
+USER 0
 
 # Copy tools from ose-tools stage
 COPY --from=ose-tools /usr/bin/jq /usr/bin/kubectl /usr/bin/oc /usr/bin/vi /usr/bin/
@@ -37,20 +39,27 @@ RUN echo "=== Verifying tool installations ===" && \
     argocd version --client && \
     echo "=== All tools verified successfully ==="
 
-# Change ownership of working directory to default user
-RUN chown -R 1001:0 /tssc-test && \
-    chmod -R g+w /tssc-test
+# Copy application source code
+COPY . .
 
-# Switch to non-root user for security
+# Install npm packages, system dependencies, and Playwright browsers
+RUN npm install && \
+    npm cache clean --force && \
+    yum update -y && yum install -y --allowerasing \
+    wget \
+    nss at-spi2-atk libdrm gtk3 mesa-libgbm alsa-lib \
+    libXcomposite libXcursor libXdamage libXext libXi \
+    libXrandr libXScrnSaver libXtst pango atk cairo-gobject \
+    gdk-pixbuf2 \
+    && yum clean all && \
+    npx playwright install chromium
+
+# Change ownership of all files to the final user
+RUN chown -R 1001:0 /tssc-test
+
+# Switch to the non-root user
 USER 1001
 
-# Copy application source code with proper ownership
-COPY --chown=1001:0 . .
-
-# Install Node.js dependencies
-RUN npm install && \
-    npm cache clean --force
-
-# Set environment variables
+# Set environment variables for the running application
 ENV KUBECONFIG=/tssc-test/.kube/config \
     NPM_CONFIG_CACHE=/tmp/.npm

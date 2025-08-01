@@ -47,6 +47,9 @@ function loadUIProjects(): Array<{ name: string; testMatch: string; use: { testI
     return [];
   }
   
+  // Authentication file path
+  const authFile = path.join('./playwright/.auth/user.json');
+
   try {
     const exportedData = JSON.parse(readFileSync(exportedTestItemsPath, 'utf-8'));
     
@@ -54,13 +57,22 @@ function loadUIProjects(): Array<{ name: string; testMatch: string; use: { testI
       return [];
     }
     
-    return exportedData.testItems.map((itemData: any) => ({
-      name: `ui-${(itemData as { name: string }).name}`,
-      testMatch: '**/ui.test.ts',
-      use: {
-        testItem: TestItem.fromJSON(itemData),
+    return [...exportedData.testItems.map((itemData: any) => ({
+      name: `ui-${itemData.name}`,
+        testMatch: '**/ui.test.ts',
+        use: {
+          testItem: TestItem.fromJSON(itemData),
+          // State file for authentication
+          storageState: authFile,
+        },
+        // UI tests depend on auth-setup project
+        dependencies: ['auth-setup'],
+      })),
+      {
+        name: 'auth-setup',
+        testMatch: '**/auth.setup.ts',
       },
-    }));
+    ];
   } catch (error) {
     console.warn('Could not load exported test items for UI tests:', error);
     return [];
