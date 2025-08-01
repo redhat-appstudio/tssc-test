@@ -59,9 +59,10 @@ npm test
 
 ### Configuration Generation
 
-- **E2E tests**: Always generate fresh project configurations (new components)
-- **UI-only tests**: Use existing configurations from previous E2E runs (test existing components)
-- **Combined tests**: Generate fresh configurations for the entire workflow
+Configuration generation is controlled by the `generate-config` script. This script will read testplan.json file and generate project configurations for each test combination in `./tmp/project-configs.json` file.
+
+* Running only E2E tests (`npm run test:e2e`) or both E2E and UI  tests (`npm run test:all`) will generate fresh project configurations.
+* Running only UI tests (`npm run test:ui`) will use existing project configurations from previous E2E runs or hand-crafted project configurations in `./tmp/project-configs.json` file.
 
 ## Prerequisites
 
