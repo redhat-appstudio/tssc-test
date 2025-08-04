@@ -170,7 +170,7 @@ export function loadFromEnv(name: string): string {
   if (!value || value.trim() === '') {
     throw new Error(`Environment variable ${name} is not defined or is empty`);
   }
-  console.log(`Loaded environment variable ${name}: ${value}`);
+  console.log(`Loaded environment variable ${name}`);
   return value;
 }
 
