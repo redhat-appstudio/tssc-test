@@ -1,6 +1,6 @@
 /**
  * GitHub UI Plugin
- * 
+ *
  * Implements UI automation for GitHub-specific operations.
  * Handles GitHub login flow including 2FA authentication.
  */
@@ -29,7 +29,7 @@ export class GithubUiPlugin implements GitPlugin {
      * - GitHub credentials input
      * - 2FA authentication
      * - Authorization confirmation
-     * 
+     *
      * @param page - Playwright Page object for UI interactions
      */
     async login(page: Page): Promise<void> {
@@ -47,37 +47,39 @@ export class GithubUiPlugin implements GitPlugin {
         await authorizeAppPage.waitForLoadState();
 
         const token = await this.getGitHub2FAOTP();
-        await authorizeAppPage.locator(GhLoginPO.github2FAField).fill(token);
-
+        // blur the field to avoid 2FA token being captured by screenshot or video
+        const twoFactorField = authorizeAppPage.locator(GhLoginPO.github2FAField);
+        await twoFactorField.evaluate((el) => el.style.filter = 'blur(5px)');
+        await twoFactorField.fill(token);
     }
 
     /**
      * Verifies the GitHub "View Source" link on the component page.
      * Checks that the link is visible, clickable, and accessible.
-     * 
+     *
      * @param page - Playwright Page object for UI interactions
      */
     async checkViewSourceLink(page: Page): Promise<void> {
         const githubLink = page.locator(`${GitPO.githubLinkSelector}:has-text("${GitPO.viewSourceLinkText}")`);
         await githubLink.waitFor({ state: 'visible', timeout: 10000 });
-        
+
         const linkHref = await githubLink.getAttribute('href');
         test.expect(githubLink).toBeTruthy();
-        
+
         const isClickable = await githubLink.isEnabled();
         test.expect(isClickable).toBe(true);
-        
+
         const response = await page.request.head(linkHref!);
         const status = response.status();
         test.expect(status).toBe(200);
-        
+
         console.log(`GitHub URL: ${linkHref}`);
     }
 
     /**
      * Generates a 2FA token for GitHub authentication.
      * Uses the TOTP secret from environment variables.
-     * 
+     *
      * @returns Promise resolving to the generated 2FA token
      */
     private async getGitHub2FAOTP(): Promise<string> {

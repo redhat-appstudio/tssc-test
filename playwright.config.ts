@@ -89,11 +89,7 @@ const e2eProjects = testPlan.getProjectConfigs().map(config => ({
 }));
 
 // Authentication file path
-<<<<<<< HEAD
 const authFile = path.resolve(process.cwd(), 'playwright/.auth/user.json');
-=======
-const authFile = path.join(__dirname, 'playwright/.auth/user.json');
->>>>>>> 432d8bb ([RHTAPUI-85] Adds authentication setup)
 
 // Create UI projects for UI tests from exported test items
 let uiProjects: any[] = [];
