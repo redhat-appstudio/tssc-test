@@ -2,6 +2,8 @@ import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { UiComponent } from '../../src/ui/uiComponent';
 import { loadFromEnv } from '../../src/utils/util';
 import { CommonPO } from '../../src/ui/page-objects/common_po';
+import { DocsUiPlugin } from '../../src/ui/plugins/docs/docsUiPlugin';
+import { expect } from '@playwright/test';
 
 /**
  * Create a basic test fixture with testItem
@@ -24,6 +26,7 @@ const test = createBasicFixture();
 test.describe('RHTAP UI Test Suite', () => {
   // Shared variables for test steps
   let component: UiComponent;
+  let docsPlugin: DocsUiPlugin;
 
   test.beforeAll('', async ({ testItem }) => {
     console.log('Running UI test for:', testItem);
@@ -33,6 +36,7 @@ test.describe('RHTAP UI Test Suite', () => {
 
     // Assign the already created component 
     component = await UiComponent.new(componentName, testItem, imageName);
+    docsPlugin = new DocsUiPlugin(componentName, component.getCoreComponent().getGit().getSourceRepoUrl(), component.getCoreComponent().getGit().getGitOpsRepoUrl());
   });
 
   test.describe('Go to home page', () => {
@@ -57,4 +61,29 @@ test.describe('RHTAP UI Test Suite', () => {
       await component.getGit().checkViewSourceLink(page);
     });
   });
-}); 
+
+  test.describe("Verify Docs", () => {
+    test('test docs', async ({ page }) => {
+      // Navigate to docs page
+      await page.goto(`${component.getCoreComponent().getDeveloperHub().getUrl()}/catalog/default/component/${component.getCoreComponent().getName()}/docs`, {
+        timeout: 20000,
+      });
+
+      await test.step('Check article display', async () => { 
+        await docsPlugin.checkArticle(page);
+      }, {timeout: 30000});
+
+      await test.step('Check component name', async () => { 
+        await docsPlugin.checkComponentName(page);
+      }, {timeout: 20000});
+  
+      await test.step('Check source link', async () => {
+        await docsPlugin.checkSourceLink(page);
+      }, {timeout: 20000});
+
+      await test.step('Check gitops link', async () => {
+        await docsPlugin.checkGitopsLink(page);
+      }, {timeout: 20000});
+    });
+  });
+});
