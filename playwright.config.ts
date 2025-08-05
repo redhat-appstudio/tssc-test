@@ -1,9 +1,7 @@
-import { defineConfig } from '@playwright/test';
-import { existsSync, readFileSync } from 'fs';
-import path from 'path';
-
+import { defineConfig} from '@playwright/test';
 import { TestItem } from './src/playwright/testItem';
-import { TestPlan } from './src/playwright/testplan';
+import { loadProjectConfigurations, ProjectConfig } from './src/utils/projectConfigLoader';
+import path from 'path';
 
 // Extend Playwright types to include testItem
 declare module '@playwright/test' {
@@ -14,90 +12,82 @@ declare module '@playwright/test' {
 
 // Configuration constants
 const DEFAULT_TIMEOUT = 2100000; // 35 minutes
+
+// Environment variable flags to control which tests run
+const ENABLE_E2E_TESTS = process.env.ENABLE_E2E_TESTS !== 'false'; // Default: true
+const ENABLE_UI_TESTS = process.env.ENABLE_UI_TESTS === 'true';    // Default: false
 const DEFAULT_WORKERS = 6;
-const DEFAULT_TESTPLAN_PATH = path.resolve(process.cwd(), 'testplan.json');
 
-/**
- * Load test plan configuration
- */
-function loadTestPlan(): TestPlan {
-  const testPlanPath = process.env.TESTPLAN_PATH || DEFAULT_TESTPLAN_PATH;
-  
-  if (!existsSync(testPlanPath)) {
-    console.warn(`Test plan not found at ${testPlanPath}, using default configuration`);
-    return new TestPlan({ templates: [], tssc: [], tests: [] });
-  }
-  
-  try {
-    const testPlanData = JSON.parse(readFileSync(testPlanPath, 'utf-8'));
-    return new TestPlan(testPlanData);
-  } catch (error) {
-    console.error(`Failed to parse test plan: ${error}`);
-    throw error;
-  }
-}
+let projectConfigs: ProjectConfig[] = [];
+let allProjects: any[] = [];
 
-/**
- * Load exported test items for UI tests
- */
-function loadUIProjects(): Array<{ name: string; testMatch: string; use: { testItem: TestItem } }> {
-  const exportedTestItemsPath = './tmp/test-items.json';
-  
-  if (!existsSync(exportedTestItemsPath)) {
-    return [];
-  }
-  
+try {
+  // Load pre-generated configurations
+  projectConfigs = loadProjectConfigurations();
+
   // Authentication file path
   const authFile = path.join('./playwright/.auth/user.json');
 
-  try {
-    const exportedData = JSON.parse(readFileSync(exportedTestItemsPath, 'utf-8'));
-    
-    if (!exportedData.testItems || !Array.isArray(exportedData.testItems)) {
-      return [];
-    }
-    
-    return [...exportedData.testItems.map((itemData: any) => ({
-      name: `ui-${itemData.name}`,
-        testMatch: '**/ui.test.ts',
-        use: {
-          testItem: TestItem.fromJSON(itemData),
-          // State file for authentication
-          storageState: authFile,
-        },
-        // UI tests depend on auth-setup project
-        dependencies: ['auth-setup'],
-      })),
-      {
-        name: 'auth-setup',
-        testMatch: '**/auth.setup.ts',
+  let e2eProjects: any[] = [];
+  let uiProjects: any[] = [];
+  let authProjects: any[] = [];
+
+  // Create e2e projects if enabled
+  if (ENABLE_E2E_TESTS) {
+    e2eProjects = projectConfigs.map(config => ({
+      name: `e2e-${config.name}`,
+      testMatch: 'tests/tssc/**/*.test.ts',
+      use: {
+        testItem: config.testItem,
       },
-    ];
-  } catch (error) {
-    console.warn('Could not load exported test items for UI tests:', error);
-    return [];
+    }));
   }
+
+  // Create UI projects if enabled
+  if (ENABLE_UI_TESTS) {
+    // Create auth setup project for UI tests
+    authProjects = [{ name: 'auth-setup', testMatch: '**/auth.setup.ts' }];
+    
+    uiProjects = projectConfigs.map(config => ({
+      name: `ui-${config.name}`,
+      testMatch: 'tests/ui/**/*.test.ts',
+      use: {
+        testItem: config.testItem,
+        storageState: authFile,
+      },
+      // Only add dependencies if e2e tests are enabled
+      ...(ENABLE_E2E_TESTS && {
+        // Set dependency behavior based on flag:
+        // By default, UI test depends only on its corresponding e2e test.
+        // If UI_DEPENDS_ON_ALL_E2E is set to 'true', depend on all e2e tests.
+        dependencies: [
+          'auth-setup',
+          ...(process.env.UI_DEPENDS_ON_ALL_E2E === 'true'
+            ? projectConfigs.map(cfg => `e2e-${cfg.name}`)
+            : [`e2e-${config.name}`]
+          )
+        ]
+      })
+    }));
+  }
+
+  allProjects = [
+    ...authProjects,
+    ...e2eProjects,
+    ...uiProjects
+  ];
+
+} catch (error) {
+  // Silent fallback - provide empty projects to prevent complete failure
+  allProjects = [];
 }
-
-// Load configurations
-const testPlan = loadTestPlan();
-const e2eProjects = testPlan.getProjectConfigs().map(config => ({
-  name: config.name,
-  use: {
-    testItem: config.testItem,
-  },
-}));
-
-const uiProjects = loadUIProjects();
-const allProjects = [...e2eProjects, ...uiProjects];
 
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.test.ts',
   workers: DEFAULT_WORKERS,
   timeout: DEFAULT_TIMEOUT,
-  
-  // Use specific projects or fallback to default
+  fullyParallel: false, // This should allow immediate execution when dependencies are met
   projects: allProjects.length ? allProjects : [{ name: 'default' }],
   
   // Reporter configuration
@@ -106,7 +96,6 @@ export default defineConfig({
     ['list'],
     ['junit', { outputFile: 'test-results/junit.xml' }],
   ],
-  
   // Global setup and teardown
   globalSetup: './global-setup.ts',
 });

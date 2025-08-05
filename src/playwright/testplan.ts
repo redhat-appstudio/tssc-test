@@ -11,12 +11,14 @@ export interface TSScConfig {
   registry: ImageRegistryType;
   tpa: string;
   acs: string;
+  name?: string; // Optional name for deterministic TestItem naming
 }
 
 export class TestPlan {
   templates: string[];
   tsscConfigs: TSScConfig[];
   tests: string[];
+  testItems: TestItem[]; // Regular field populated in constructor
 
   constructor(data: any) {
     this.templates = data.templates || [];
@@ -26,8 +28,30 @@ export class TestPlan {
       registry: config.registry || '',
       tpa: config.tpa || '',
       acs: config.acs || '',
+      name: config.name, // Optional name from data
     }));
     this.tests = data.tests || [];
+
+    // Generate TestItems once in constructor
+    this.testItems = [];
+    this.templates.forEach(template => {
+      this.tsscConfigs.forEach(tsscConfig => {
+        // Use provided name or generate random one
+        const itemName = tsscConfig.name || `${template}-${randomString()}`;
+        
+        this.testItems.push(
+          new TestItem(
+            itemName,
+            template as TemplateType,
+            tsscConfig.registry,
+            tsscConfig.git,
+            tsscConfig.ci,
+            tsscConfig.tpa,
+            tsscConfig.acs
+          )
+        );
+      });
+    });
   }
 
   hasTemplate(name: string): boolean {
@@ -39,51 +63,18 @@ export class TestPlan {
   }
 
   getTestItems(): TestItem[] {
-    const testItems: TestItem[] = [];
-    
-    this.templates.forEach(template => {
-      this.tsscConfigs.forEach(tsscConfig => {
-        testItems.push(
-          new TestItem(
-            `${template}-${randomString()}`,
-            template as TemplateType,
-            tsscConfig.registry,
-            tsscConfig.git,
-            tsscConfig.ci,
-            tsscConfig.tpa,
-            tsscConfig.acs
-          )
-        );
-      });
-    });
-    
-    return testItems;
+    // Simply return the TestItems created in constructor
+    return this.testItems;
   }
 
   getProjectConfigs(): Array<{
     name: string;
     testItem: TestItem;
   }> {
-    const projects: Array<{ name: string; testItem: TestItem }> = [];
-    
-    this.templates.forEach(template => {
-      this.tsscConfigs.forEach(tsscConfig => {
-        projects.push({
-          name: `${template}[${tsscConfig.git}-${tsscConfig.ci}-${tsscConfig.registry}]`,
-          testItem: new TestItem(
-            `${template}-${randomString()}`,
-            template as TemplateType,
-            tsscConfig.registry,
-            tsscConfig.git,
-            tsscConfig.ci,
-            tsscConfig.tpa,
-            tsscConfig.acs
-          )
-        });
-      });
-    });
-    
-    return projects;
+    return this.testItems.map(testItem => ({
+      name: `${testItem.getTemplate()}[${testItem.getGitType()}-${testItem.getCIType()}-${testItem.getRegistryType()}]`,
+      testItem
+    }));
   }
 
   // Helper methods for validation

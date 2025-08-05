@@ -59,7 +59,7 @@ export class Component {
         component.kubeClient
       );
       component.registry = await createRegistry(
-        testItem.getregistryType(),
+        testItem.getRegistryType(),
         imageName,
         component.kubeClient
       );
