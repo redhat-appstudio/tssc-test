@@ -15,6 +15,7 @@ declare module '@playwright/test' {
 // Configuration constants
 const DEFAULT_TIMEOUT = 2100000; // 35 minutes
 const DEFAULT_WORKERS = 6;
+const DEFAULT_UI_TIMEOUT = 30000;
 const DEFAULT_TESTPLAN_PATH = path.resolve(process.cwd(), 'testplan.json');
 
 /**
@@ -105,6 +106,9 @@ if (existsSync(exportedTestItemsPath)) {
           testItem: TestItem.fromJSON(itemData),
           // State file for authentication
           storageState: authFile,
+        },
+        expect: {
+          timeout: DEFAULT_UI_TIMEOUT,
         },
         // UI tests depend on auth-setup project
         dependencies: ['auth-setup'],
