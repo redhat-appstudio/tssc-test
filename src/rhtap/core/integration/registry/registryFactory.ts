@@ -51,6 +51,7 @@ export class RegistryFactory {
     let imageOrg;
     switch (imageRegistryType) {
       case ImageRegistryType.QUAY:
+      case ImageRegistryType.QUAY_IO:
         imageOrg = loadFromEnv('QUAY_REGISTRY_ORG');
         const quayRegistry = new QuayRegistry(imageOrg, imageName);
         quayRegistry.setKubeClient(this.kubeClient);
