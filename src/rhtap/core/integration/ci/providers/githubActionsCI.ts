@@ -1,25 +1,22 @@
 import {
-  GitHubActionsClient,
   WorkflowRun,
   WorkflowRunFilter,
-} from '../../../../../api/ci/githubActionsClient';
-import { GitHubClientFactory } from '../../../../../api/git/githubClientFactory';
+} from '../../../../../api/github/types/github.types';
+import { GithubClient } from '../../../../../api/github';
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
 import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
 
 export class GitHubActionsCI extends BaseCI {
-  private githubAction!: GitHubActionsClient;
+  private githubClient!: GithubClient;
   private componentName: string;
   private secret?: Record<string, string>;
-  private clientFactory: GitHubClientFactory;
   private repoOwner!: string;
 
   constructor(componentName: string, kubeClient: KubeClient) {
     super(CIType.GITHUB_ACTIONS, kubeClient);
     this.componentName = componentName;
-    this.clientFactory = GitHubClientFactory.getInstance();
   }
 
   public async getIntegrationSecret(): Promise<Record<string, string>> {
@@ -49,7 +46,7 @@ export class GitHubActionsCI extends BaseCI {
 
   public async initialize(): Promise<void> {
     this.secret = await this.loadSecret();
-    this.githubAction = await this.initGithubActionsClient();
+    this.githubClient = new GithubClient({ token: this.getToken() });
   }
 
   /**
@@ -57,11 +54,7 @@ export class GitHubActionsCI extends BaseCI {
    * @returns Promise with the secret data
    */
   private async loadSecret(): Promise<Record<string, string>> {
-    // First try to get token from the factory
-    const existingToken = this.clientFactory.getTokenForComponent(this.componentName);
-    if (existingToken) {
-      return { token: existingToken };
-    }
+    
 
     // Otherwise load from Kubernetes
     const secret = await this.kubeClient.getSecret('tssc-github-integration', 'tssc');
@@ -71,23 +64,11 @@ export class GitHubActionsCI extends BaseCI {
       );
     }
 
-    // Register the token with the factory
-    if (secret.token) {
-      this.clientFactory.registerToken(this.componentName, secret.token);
-    }
+    
 
     return secret;
   }
 
-  private async initGithubActionsClient(): Promise<GitHubActionsClient> {
-    const githubToken = this.getToken();
-    const githubActionClient = new GitHubActionsClient({
-      token: githubToken,
-      // Use the same client factory across the application
-      // GitHubActionsClient will use this token to get a client from the factory
-    });
-    return githubActionClient;
-  }
 
   public getToken(): string {
     if (!this.secret?.token) {
@@ -142,7 +123,7 @@ export class GitHubActionsCI extends BaseCI {
       }
 
       // Get workflow runs using our comprehensive filter - GitHubActionsClient already has retry logic
-      const response = await this.githubAction.getWorkflowRuns(
+      const response = await this.githubClient.actions.getWorkflowRuns(
         this.getRepoOwner(),
         gitRepository,
         filter
@@ -315,7 +296,7 @@ export class GitHubActionsCI extends BaseCI {
     }
 
     const id = workflowRun.id.toString();
-    const name = workflowRun.name || workflowRun.display_title || `Workflow #${id}`;
+    const name = workflowRun.name || `Workflow #${id}`;
     const status = this.mapGitHubWorkflowStatusToPipelineStatus(workflowRun);
     const url = workflowRun.html_url || '';
 
@@ -351,7 +332,7 @@ export class GitHubActionsCI extends BaseCI {
       if (!pipeline.id || !pipeline.repositoryName) {
         throw new Error('Pipeline ID and repository name are required to check status');
       }
-      const workflowRun = await this.githubAction.findWorkflowRunByCommitSha(
+      const workflowRun = await this.githubClient.actions.findWorkflowRunByCommitSha(
         this.getRepoOwner(),
         pipeline.repositoryName,
         pipeline.sha || ''
@@ -387,7 +368,7 @@ export class GitHubActionsCI extends BaseCI {
     const startTime = Date.now();
 
     while (true) {
-      const response = await this.githubAction.getWorkflowRuns(
+      const response = await this.githubClient.actions.getWorkflowRuns(
         this.getRepoOwner(),
         sourceRepoName,
         { per_page: 100 }
@@ -436,7 +417,7 @@ export class GitHubActionsCI extends BaseCI {
       );
 
       // Use the comprehensive log retrieval method from GitHubActionsClient
-      const logs = await this.githubAction.getWorkflowRunLogs(
+      const logs = await this.githubClient.actions.getWorkflowRunLogs(
         this.getRepoOwner(),
         pipeline.repositoryName,
         parseInt(pipeline.id)
@@ -450,7 +431,7 @@ export class GitHubActionsCI extends BaseCI {
       try {
         console.log(`Falling back to basic job summary for pipeline ${pipeline.id}`);
 
-        const jobsResponse = await this.githubAction.listJobsForWorkflowRun(
+        const jobsResponse = await this.githubClient.actions.listJobsForWorkflowRun(
           this.getRepoOwner(),
           pipeline.repositoryName,
           parseInt(pipeline.id)

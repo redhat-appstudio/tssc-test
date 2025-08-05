@@ -1,4 +1,4 @@
-import { GithubClient } from '../../../src/api/git/githubClient';
+import { GithubClient } from '../../../src/api/github/github.client';
 import test from '@playwright/test';
 
 // Initialize the GitHub client
@@ -48,7 +48,7 @@ test.describe('TektonClient Integration Tests', () => {
     const imagePattern = /(?:^|\s+)-\s+image:(?:\s+(.+)$)?|(^\s+.+$)/gm;
 
     try {
-      const matches = await githubClient.extractContentByRegex(
+      const matches = await githubClient.repository.extractContentByRegex(
         repoOwner,
         gitOpsRepoName,
         filePath,
@@ -100,7 +100,14 @@ test.describe('TektonClient Integration Tests', () => {
       'https://jenkins-jenkins.apps.rosa.rhtap-services.xmdt.p3.openshiftapps.com/github-webhookaa/'; // Replace with your actual webhook URL
 
     try {
-      await githubClient.configWebhook(repoOwner, repoName, webhookUrl);
+      await githubClient.webhooks.configWebhook(repoOwner, repoName, {
+        url: webhookUrl,
+        secret: 'test-secret',
+        contentType: 'json',
+        insecureSSL: false,
+        events: ['push', 'pull_request'],
+        active: true
+      });
       console.log(`Webhook configured successfully`);
     } catch (error) {
       console.error('Error during webhook configuration:', error);
