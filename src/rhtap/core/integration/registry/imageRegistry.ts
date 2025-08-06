@@ -18,6 +18,7 @@ export interface ImageRegistry {
   getDockerConfig(): string;
   getImageRegistryUser(): string;
   getImageRegistryPassword(): string;
+  getRegistryType(): ImageRegistryType;
   getUrl(): string;
 
   // Add KubeClient handling

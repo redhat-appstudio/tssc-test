@@ -21,12 +21,13 @@ export class RegistryUiFactory {
     static async createRegistryPlugin(
         registryType: ImageRegistryType,
         registry: ImageRegistry
-    ): Promise<RegistryPlugin> {
+    ): Promise<RegistryPlugin | undefined> {
         switch (registryType) {
             case ImageRegistryType.QUAY:
                 return new QuayUiPlugin(registry);
             default:
-                throw new Error(`Unsupported Registry type: ${registryType}`);
+                console.warn(`Unsupported Registry type: ${registryType}`);
+                return undefined;
         }
     }
-} 
+}

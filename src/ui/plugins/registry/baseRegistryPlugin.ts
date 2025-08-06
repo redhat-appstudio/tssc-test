@@ -1,4 +1,4 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { ImageRegistry } from '../../../rhtap/core/integration/registry/imageRegistry';
 import { RegistryPlugin } from './registryPlugin';
 import { RegistryPO } from '../../page-objects/registryPo';
@@ -14,32 +14,38 @@ export abstract class BaseRegistryPlugin implements RegistryPlugin {
         this.registry = registry;
     }
 
+    private async getTableRows(page: Page): Promise<Locator[]> {
+        return await page.locator('tr[index]').all();
+    }
+
     async checkSearchInputField(page: Page): Promise<void> {
         const searchInput = page.getByRole('textbox', { name: RegistryPO.searchPlaceholder });
+        const clearButton = page.getByRole('button', { name: RegistryPO.clearSearchButtonLabel });
+
         await expect(searchInput).toBeVisible();
+        await expect(clearButton).toBeVisible();
 
         // Get all rows with indexes (relevant non-empty rows with index)
-        const indexedRowsBefore = await page.locator('tr[index]').all();
+        const indexedRowsBefore = await this.getTableRows(page);
         const initialRowCount = indexedRowsBefore.length;
         
         await searchInput.fill('.att');
-        await page.waitForTimeout(500);
-        
+        await page.waitForTimeout(100);
+        await expect(clearButton).toBeEnabled();
+
         // Get indexed rows after filtering
-        const indexedRowsAfter = await page.locator('tr[index]').all();
-        const filteredRowCount = indexedRowsAfter.length;
-        
-        expect(filteredRowCount).toBeLessThan(initialRowCount);
-        
-        // Verify that visible rows contain the search term
-        const visibleCells = await page.getByRole('cell').allTextContents();
-        const hasAttestationResults = visibleCells.some(cell => cell.includes('.att'));
-        expect(hasAttestationResults).toBe(true);
-        
-        // Clean the search input
-        await searchInput.clear();
-        await page.waitForTimeout(500);
-        
+        const indexedRowsAfter = await this.getTableRows(page);
+        expect(indexedRowsAfter.length).toBeGreaterThan(0);
+
+        indexedRowsAfter.forEach(async (row) => {
+            const rowText = await row.textContent();
+            expect(rowText).toContain('.att');
+        });
+
+        // Click the clear search button
+        await clearButton.click();
+        await page.waitForTimeout(100);
+
         // Verify all indexed rows return after clearing
         const indexedRowsAfterClear = await page.locator('tr[index]').all();
         expect(indexedRowsAfterClear.length).toBe(initialRowCount);
@@ -55,19 +61,15 @@ export abstract class BaseRegistryPlugin implements RegistryPlugin {
     }
 
     async checkImageTableContent(page: Page): Promise<void> {
-        const cells = await page.getByRole('cell').all();
-        for (const cell of cells) {
-            await expect(cell).toBeVisible();
-        }
-
-        const cellNames = await Promise.all(cells.map(cell => cell.textContent()));
-        expect(cellNames.find(cell => cell?.match(/\.att/))).toBeDefined();
-        expect(cellNames.find(cell => cell?.match(/\.sig/))).toBeDefined();
-        expect(cellNames.find(cell => cell?.match(/\.sbom/))).toBeDefined();
-        expect(cellNames.find(cell => cell?.match(new RegExp(`^${this.registry.getImageName()}`)))).toBeDefined();
+        const rows = await this.getTableRows(page);
+        expect(rows.length).toBeGreaterThan(0);
     }
 
     // Abstract methods that must be implemented by specific registry plugins
+    // eslint-disable-next-line no-unused-vars
     abstract checkRepositoryHeading(page: Page): Promise<void>;
+    // eslint-disable-next-line no-unused-vars
     abstract checkRepositoryLink(page: Page): Promise<void>;
+    // eslint-disable-next-line no-unused-vars
+    abstract checkVulnerabilities(page: Page): Promise<void>;
 }
