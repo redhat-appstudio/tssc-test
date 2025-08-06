@@ -1,5 +1,5 @@
-import { TektonClient } from '../../../../../../src/api/ci/tektonClient';
-import { KubeClient } from '../../../../../../src/api/ocp/kubeClient';
+import { TektonClient } from '../../../../../api/tekton';
+import { KubeClient } from '../../../../../api/ocp/kubeClient';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
 import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
@@ -63,7 +63,7 @@ export class TektonCI extends BaseCI {
       }
 
       // Filter pipeline runs by checking if the on-event annotation includes the event type
-      const filteredPipelineRuns = allPipelineRuns.filter(pipelineRun => {
+      const filteredPipelineRuns = allPipelineRuns.filter((pipelineRun: PipelineRunKind) => {
         const annotations = pipelineRun.metadata?.annotations || {};
         const onEvent = annotations['pipelinesascode.tekton.dev/on-event'] || '';
         const commitSha = pipelineRun.metadata?.labels?.['pipelinesascode.tekton.dev/sha'] || '';
@@ -309,7 +309,7 @@ export class TektonCI extends BaseCI {
 
           // Filter pipeline runs by checking the label "pipelinesascode.tekton.dev/state"
           const runningPipelineRuns =
-            allPipelineRuns.filter(pr => {
+            allPipelineRuns.filter((pr: PipelineRunKind) => {
               const state = pr.metadata?.labels?.['pipelinesascode.tekton.dev/state'];
               const name = pr.metadata?.name || 'unknown';
               if (state !== 'completed') {
