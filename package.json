@@ -14,8 +14,7 @@
         "test:report": "playwright show-report",
         "test:tssc": "playwright test tests/tssc/full_workflow.test.ts",
         "test:ui": "UI_TEST=true playwright test --project=ui-*",
-        "test:ui-interactive": "UI_TEST=true playwright test --ui --project=ui-*",
-        "pretest": "npm run validate"
+        "test:ui-interactive": "UI_TEST=true playwright test --ui --project=ui-*"
     },
     "keywords": [
         "typescript",
