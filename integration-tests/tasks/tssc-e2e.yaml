@@ -61,7 +61,7 @@ spec:
         echo "--------------------------------"
 
         # Check if testplan parameter is provided
-        if [[ -n "$TESTPLAN_PARAM" && "$TESTPLAN_PARAM" != "" ]]; then
+        if [[ -n "$TESTPLAN_PARAM" ]]; then
           echo "Using provided testplan parameter (base64 encoded)"
           echo "Decoding base64 testplan and saving to testplan.json"
           echo "$TESTPLAN_PARAM" | base64 -d > testplan.json
