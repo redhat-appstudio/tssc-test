@@ -51,6 +51,17 @@ export class GithubUiPlugin implements GitPlugin {
         const twoFactorField = authorizeAppPage.locator(GhLoginPO.github2FAField);
         await twoFactorField.evaluate((el) => el.style.filter = 'blur(5px)');
         await twoFactorField.fill(token);
+
+        const authorizeButton = authorizeAppPage.getByRole('button', { name: 'authorize' });
+
+        // Click authorize button if app is not authorized, skip otherwise
+        try {
+            await authorizeButton.waitFor({ state: 'visible', timeout: 3000 });
+            await authorizeButton.click();
+            console.log('Authorization button clicked successfully');
+        } catch (error) {
+            console.log('Authorization button not found or not needed, continuing...');
+        }
     }
 
     /**
