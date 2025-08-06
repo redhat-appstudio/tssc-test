@@ -243,6 +243,19 @@ Plugin-related functionality is stored in the `/src/ui/plugins` directory, organ
 
 UI tests should save artifacts to a separate directory from backend E2E tests to prevent overwriting. This is currently not implemented, so please backup your test results if needed before a new test run.
 
+### Security concerns
+
+There are several secrets mounted to the code as environmental variables. It's important to make sure that no secrets are leaking in logs or screenshots. When you use a secret in a test, please make sure that:
+- the secret is not printed in the logs
+- the input field where secret is written is blurred:
+
+```
+const inputFieldLocator = page.locator(fieldPO);
+await inputFieldLocator.evaluate((el) => el.style.filter = 'blur(5px)');
+```
+
+- the logging level is lower then TRACE (trace level catches for example also network requests, which usually contains also secrets) [RHTAP-5351](https://issues.redhat.com/browse/RHTAP-5351)
+
 ## Development
 
 ### High-level Architecture
