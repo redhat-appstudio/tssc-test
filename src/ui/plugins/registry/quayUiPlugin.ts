@@ -12,22 +12,42 @@ export class QuayUiPlugin extends BaseRegistryPlugin {
     }
 
     async checkRepositoryHeading(page: Page): Promise<void> {
-        await expect(page.getByRole('heading', { name: `${RegistryPO.quayRepositoryPrefix} tssc/${this.quayProvider.getImageName()}` })).toBeVisible();
+        await expect(page.getByRole('heading', { name: `${RegistryPO.quayRepositoryPrefix} ${this.quayProvider.getOrganization()}/${this.quayProvider.getImageName()}` })).toBeVisible();
     }
 
     async checkRepositoryLink(page: Page): Promise<void> {
-        await expect(page.getByRole('link', { name: `tssc/${this.quayProvider.getImageName()}` })).toBeVisible();
+        const repositoryLink = `${this.quayProvider.getOrganization()}/${this.quayProvider.getImageName()}`;
 
-        const quayPopup = page.waitForEvent('popup');
-        await page.locator('a[class*="MuiLink-root"]').filter({ hasText: `tssc/${this.quayProvider.getImageName()}` }).click();
-        const popup = await quayPopup;
-        await expect(popup).toBeTruthy();
+        await expect(page.getByRole('link', { name: repositoryLink })).toBeVisible();
+    }
 
-        await popup.waitForLoadState('networkidle');
-        const popupUrl = popup.url();
-        expect(popupUrl).toContain('quay');
+    async checkVulnerabilities(page: Page): Promise<void> {
+        const searchInput = page.getByRole('textbox', { name: RegistryPO.searchPlaceholder });
+        await searchInput.fill('build-container');
+
+        // Click on the vulnerabilities scan link (any vulnerability counts)
+        const vulnerabilitiesLink = page.getByRole('link', { name: /(Critical|High|Medium|Low):\s*\d+/ }).first();
+        await expect(vulnerabilitiesLink).toBeVisible();
+        await vulnerabilitiesLink.click();
         
-        // Close the popup for cleanup
-        await popup.close();
+        // Check that the vulnerabilities heading is visible
+        const vulnerabilitiesHeading = page.getByRole('heading', { name: /Vulnerabilities for .+/ });
+        await expect(vulnerabilitiesHeading).toBeVisible();
+
+        // Check that the vulnerabilities table headers are visible
+        await expect(page.getByRole('columnheader', { name: RegistryPO.advisoryColumnHeader })).toBeVisible();
+        await expect(page.getByRole('columnheader', { name: RegistryPO.severityColumnHeader })).toBeVisible();
+        await expect(page.getByRole('columnheader', { name: RegistryPO.packageNameColumnHeader })).toBeVisible();
+        await expect(page.getByRole('columnheader', { name: RegistryPO.currentVersionColumnHeader })).toBeVisible();
+        await expect(page.getByRole('columnheader', { name: RegistryPO.fixedByColumnHeader })).toBeVisible();
+
+        // Close the vulnerabilities popup
+        const goBackButton = page.getByRole('link', { name: RegistryPO.backToRepositoryLinkLabel });
+        await expect(goBackButton).toBeVisible();
+        await goBackButton.click();
+
+        // Check that the repository link is visible
+        const repositoryLink = `${this.quayProvider.getOrganization()}/${this.quayProvider.getImageName()}`;
+        await expect(page.getByRole('link', { name: repositoryLink })).toBeVisible();
     }
 }

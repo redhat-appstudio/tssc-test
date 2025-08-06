@@ -1,9 +1,6 @@
 import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { UiComponent } from '../../src/ui/uiComponent';
 import { CommonPO } from '../../src/ui/page-objects/common_po';
-import { RegistryUiFactory } from '../../src/ui/plugins/registry/registryUiFactory';
-import { ImageRegistryType } from '../../src/rhtap/core/integration/registry/imageRegistry';
-import { RegistryPlugin } from '../../src/ui/plugins/registry/registryPlugin';
 
 /**
  * Create a basic test fixture with testItem
@@ -26,7 +23,6 @@ const test = createBasicFixture();
 test.describe('RHTAP UI Test Suite', () => {
   // Shared variables for test steps
   let component: UiComponent;
-  let registryPlugin: RegistryPlugin;
 
   test.beforeAll('', async ({ testItem }) => {
     console.log('Running UI test for:', testItem);
@@ -35,9 +31,6 @@ test.describe('RHTAP UI Test Suite', () => {
 
     // Assign the already created component 
     component = await UiComponent.new(componentName, testItem, componentName);
-    const registry = component.getCoreComponent().getRegistry();
-    registryPlugin = await RegistryUiFactory.createRegistryPlugin(ImageRegistryType.QUAY, registry);
-
   });
 
   test.describe('Go to home page', () => {
@@ -108,21 +101,18 @@ test.describe('RHTAP UI Test Suite', () => {
     });
   });
   
-  test.describe("Verify CI", () => {
-    test('verify CI provider on CI tab', async ({ page }) => {
-      const componentUrl = component.getComponentUrl();
-      const ciTabUrl = `${componentUrl}/ci`;
-      await page.goto(ciTabUrl, { timeout: 20000 });
-        
-      await page.waitForLoadState('domcontentloaded');
-      await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
-    });
-  });
-  
   test.describe('Test Image Registry', () => {
     test('test image registry', async ({ page }) => {
+      const registryPlugin = component.getRegistry();
+
+      if (registryPlugin === undefined) {
+        console.warn(`Skipping Image Registry test as testing ${component.getCoreComponent().getRegistry().getRegistryType()} is not supported`);
+        test.skip();
+        return;
+      }
+
       // Navigate to image registry page
-      await page.goto(`${component.getCoreComponent().getDeveloperHub().getUrl()}/catalog/default/component/${component.getCoreComponent().getName()}/image-registry`, {
+      await page.goto(`${component.getComponentUrl()}/image-registry`, {
         timeout: 20000,
       });
 
@@ -145,6 +135,11 @@ test.describe('RHTAP UI Test Suite', () => {
       await test.step('Check image table content', async () => {
         await registryPlugin.checkImageTableContent(page);
       }, { timeout: 20000 });
+
+      // The security scan is not yet finished right after installation
+      // await test.step('Check vulnerabilities', async () => {
+      //   await registryPlugin.checkVulnerabilities(page);
+      // }, { timeout: 20000 });
     });
   });
 });

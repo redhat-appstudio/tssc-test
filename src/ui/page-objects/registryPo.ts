@@ -14,9 +14,18 @@ export const RegistryPO = {
     expiresColumnHeader: 'Expires',
     manifestColumnHeader: 'Manifest',
 
+    // Vulnerabilities table headers
+    advisoryColumnHeader: 'Advisory',
+    severityColumnHeader: 'Severity',
+    packageNameColumnHeader: 'Package Name',
+    currentVersionColumnHeader: 'Current Version',
+    fixedByColumnHeader: 'Fixed By',
+
     // Search elements
     searchPlaceholder: 'Search',
+    clearSearchButtonLabel: 'Clear Search',
 
     // Repository elements
-    quayRepositoryPrefix: 'Quay repository:'
+    quayRepositoryPrefix: 'Quay repository:',
+    backToRepositoryLinkLabel: 'Back to repository'
 }; 

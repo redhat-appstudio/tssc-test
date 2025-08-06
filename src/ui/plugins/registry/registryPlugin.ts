@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { Page } from '@playwright/test';
 
 export interface RegistryPlugin {
@@ -30,4 +31,10 @@ export interface RegistryPlugin {
      * @param page - The page object
      */
     checkTableColumnHeaders(page: Page): Promise<void>;
+
+    /**
+     * Checks vulnerabilities table content
+     * @param page - The page object
+     */
+    checkVulnerabilities(page: Page): Promise<void>;
 }

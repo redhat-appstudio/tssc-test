@@ -17,16 +17,20 @@ import { Component } from '../rhtap/core/component';
 import { GitPlugin } from './plugins/git/gitUiInterface';
 import { GitUiFactory } from './plugins/git/gitUiFactory';
 import { DocsUiPlugin } from './plugins/docs/docsUiPlugin';
+import { RegistryPlugin } from './plugins/registry/registryPlugin';
+import { RegistryUiFactory } from './plugins/registry/registryUiFactory';
 
 export class UiComponent {
   private component: Component;
   private git: GitPlugin | undefined;
   private docs!: DocsUiPlugin;
+  private registry: RegistryPlugin | undefined;
 
-  private constructor(component: Component, git: GitPlugin | undefined, docs: DocsUiPlugin) {
+  private constructor(component: Component, git: GitPlugin | undefined, docs: DocsUiPlugin, registry: RegistryPlugin | undefined) {
     this.component = component;
     this.git = git;
     this.docs = docs;
+    this.registry = registry;
   }
 
   /**
@@ -58,7 +62,11 @@ export class UiComponent {
       component.getGit().getSourceRepoUrl(),
       component.getGit().getGitOpsRepoUrl()
     );
-    return new UiComponent(component, git, docs);
+    const registry = await RegistryUiFactory.createRegistryPlugin(
+      testItem.getRegistryType(),
+      component.getRegistry()
+    );
+    return new UiComponent(component, git, docs, registry);
   }
 
   /**
@@ -88,6 +96,16 @@ export class UiComponent {
    */
   public getDocs(): DocsUiPlugin {
     return this.docs;
+  }
+
+  /**
+   * Gets the UI-specific Registry plugin instance.
+   * This plugin handles UI automation for Registry operations like login.
+   * 
+   * @returns The RegistryPlugin instance for UI automation
+   */
+  public getRegistry(): RegistryPlugin | undefined {
+    return this.registry;
   }
 
   /**
