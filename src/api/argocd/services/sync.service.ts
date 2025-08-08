@@ -1,6 +1,7 @@
 import { exec as execCallback } from 'child_process';
 import { promisify } from 'util';
 import retry from 'async-retry';
+import { KubeClient } from '../../ocp/kubeClient';
 import { ArgoCDConnectionService } from './connection.service';
 import { ArgoCDApplicationService } from './application.service';
 import {
@@ -15,6 +16,7 @@ import {
   ArgoCDSyncError,
   ArgoCDTimeoutError,
   ArgoCDConnectionError,
+  ArgoCDCliError,
 } from '../errors/argocd.errors';
 
 // Promisified exec function
@@ -26,7 +28,8 @@ const exec = promisify(execCallback);
 export class ArgoCDSyncService {
   constructor(
     private readonly connectionService: ArgoCDConnectionService,
-    private readonly applicationService: ArgoCDApplicationService
+    private readonly applicationService: ArgoCDApplicationService,
+    private readonly kubeClient: KubeClient
   ) {}
 
   /**
@@ -56,16 +59,19 @@ export class ArgoCDSyncService {
       const cliConfig = this.connectionService.createCliConfig(connectionInfo);
 
       // Build ArgoCD CLI commands
-      const loginCmd = this.buildLoginCommand(cliConfig);
-      const syncCmd = this.buildSyncCommand(applicationName, options);
+      const loginCmd = await this.buildLoginCommand(cliConfig);
+      const syncCmd = await this.buildSyncCommand(applicationName, options);
 
       console.log(`Attempting to sync application ${applicationName} using ArgoCD CLI...`);
 
       // Execute login command with retries
       await this.executeLogin(loginCmd, applicationName);
 
+      // Get ArgoCD application current details before sync
+      await this.executeGetAppDetails(applicationName);
+
       // Execute sync command
-      await this.executeSync(syncCmd, applicationName);
+      await this.executeSync(syncCmd, applicationName, config.namespace);
 
       // Monitor the sync process
       const result = await this.monitorSyncProcess(
@@ -82,7 +88,6 @@ export class ArgoCDSyncService {
       if (error instanceof ArgoCDSyncError || error instanceof ArgoCDTimeoutError) {
         throw error;
       }
-      
       console.error(
         `Failed to sync application ${applicationName} after ${elapsed}s: ${error instanceof Error ? error.message : String(error)}`
       );
@@ -105,7 +110,15 @@ export class ArgoCDSyncService {
     return `'${arg.replace(/'/g, `'\\''`)}'`;
   }
 
-  private buildLoginCommand(cliConfig: ArgoCDCliConfig): string {
+  /**
+   * Get current context from kubeconfig
+   * Required for running argocd command '--kube-context'
+   */
+  private async getKubeCurrentContext(): Promise<string> {
+    return this.kubeClient.getCurrentK8sContext();
+  }
+
+  private async buildLoginCommand(cliConfig: ArgoCDCliConfig): Promise<string> {
     const { serverUrl, username, password, insecure, skipTestTls, grpcWeb } = cliConfig;
     
     // Build command with properly escaped arguments
@@ -117,25 +130,35 @@ export class ArgoCDSyncService {
     
     args.push('--username', this.escapeShellArg(username));
     args.push('--password', this.escapeShellArg(password));
+    args.push('--kube-context', this.escapeShellArg(await this.getKubeCurrentContext()));
     
     return args.join(' ');
   }
 
-  private buildSyncCommand(applicationName: string, options: SyncOptions): string {
-    // Build command with properly escaped arguments
+  private async buildSyncCommand(applicationName: string, options: SyncOptions): Promise<string> {
+    // Build command with properly escaped argument
     const args = ['argocd', 'app', 'sync', this.escapeShellArg(applicationName), '--insecure'];
     
     if (options.dryRun) args.push('--dry-run');
     if (options.prune) args.push('--prune');
     if (options.force) args.push('--force');
-    
+    args.push('--kube-context', this.escapeShellArg(await this.getKubeCurrentContext()));
+
+    return args.join(' ');
+  }
+
+  private async buildGetAppDetailsCommand(applicationName: string): Promise<string> {
+    // Build command with properly escaped arguments
+    const args = ['argocd', 'app', 'get', this.escapeShellArg(applicationName), '--insecure'];
+    args.push('--kube-context', this.escapeShellArg(await this.getKubeCurrentContext()));
+
     return args.join(' ');
   }
 
   private async executeLogin(loginCmd: string, applicationName: string): Promise<void> {
     const maxRetries = 5;
     
-          await retry(
+    await retry(
       async () => {
         try {
           const { stdout: _, stderr: loginErr } = await exec(loginCmd);
@@ -164,7 +187,7 @@ export class ArgoCDSyncService {
     );
   }
 
-  private async executeSync(syncCmd: string, applicationName: string): Promise<void> {
+  private async executeSync(syncCmd: string, applicationName: string, namespace: string): Promise<void> {
     try {
       console.log(`Executing sync command: ${syncCmd}`);
       const { stdout, stderr } = await exec(syncCmd);
@@ -177,9 +200,35 @@ export class ArgoCDSyncService {
       }
     } catch (syncError: any) {
       console.error(`Error executing sync command: ${syncError.message}`);
+      await this.executeGetAppDetails(applicationName);
+      const latestAppEvents = await this.applicationService.getApplicationEvents(applicationName, namespace);
+      console.error(`Getting latest application events: ${latestAppEvents}`);
       throw new ArgoCDSyncError(
         applicationName,
         `Failed to execute sync command: ${syncError.message}`,
+        syncError
+      );
+    }
+  }
+
+  private async executeGetAppDetails(applicationName: string): Promise<void> {
+    const getAppDetailsCmd = await this.buildGetAppDetailsCommand(applicationName);
+    try {
+      console.log(`Executing command: ${getAppDetailsCmd}`);
+      const { stdout, stderr } = await exec(getAppDetailsCmd);
+
+      if (stderr && stderr.trim()) {
+        console.warn(`ArgoCD get app warnings: ${stderr}`);
+      }
+      if (stdout) {
+        console.log(`ArgoCD get app: ${stdout}`);
+      }
+    } catch (syncError: any) {
+      console.error(`Error executing app details command: ${syncError.message}`);
+      throw new ArgoCDCliError(
+        getAppDetailsCmd,
+        syncError.statusCode,
+        syncError.message,
         syncError
       );
     }
@@ -269,7 +318,10 @@ export class ArgoCDSyncService {
       // Get detailed application status for debugging
       try {
         const status = await this.applicationService.getApplicationStatus(applicationName, namespace);
-        console.log(`Application details: ${status}`);
+        console.log(`Application latest Status: ${status}`);
+        const latestAppEvents = await this.applicationService.getApplicationEvents(applicationName, namespace);
+        console.error(`Getting latest application events: ${latestAppEvents}`);
+
       } catch (statusError) {
         console.error(`Unable to fetch application status: ${statusError}`);
       }

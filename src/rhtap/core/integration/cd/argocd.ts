@@ -58,7 +58,7 @@ export class ArgoCD {
 
     if (!success) {
       const status = await this.getApplicationStatus(environment);
-      console.log(status);
+      console.log(`Getting latest ${applicationName} app status: \n${status}`);
       throw new Error(`Failed to sync application ${applicationName}`);
     }
   }
@@ -90,12 +90,13 @@ export class ArgoCD {
     let finalSyncStatus = 'Unknown';
     let finalHealthStatus = 'Unknown';
     let finalRevision = '';
+    let applicationName = '';
 
     try {
       await retry(
         async () => {
           // Get the application to check its sync status
-          const applicationName = this.getApplicationName(environment);
+          applicationName = this.getApplicationName(environment);
           const application = await this.argoCDClient.getApplication(
             applicationName,
             this.NAMESPACE
@@ -164,6 +165,8 @@ export class ArgoCD {
       console.error(
         `Final sync status: ${finalSyncStatus}, Health status: ${finalHealthStatus}, Revision: ${finalRevision}`
       );
+      const latestAppEvents = await this.argoCDClient.getApplicationEvents(applicationName, this.NAMESPACE);
+      console.error(`Getting latest application events: ${latestAppEvents}`);
 
       // Return detailed information instead of throwing, allowing caller to handle the situation
       return {

@@ -259,4 +259,4 @@ export interface ApplicationSyncResult {
   health: string;
   sync: string;
   operationPhase: string;
-} 
+}

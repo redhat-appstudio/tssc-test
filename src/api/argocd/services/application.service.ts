@@ -150,4 +150,25 @@ export class ArgoCDApplicationService {
     const application = await this.getApplication(applicationName, namespace);
     return application.status?.operationState?.phase || 'Unknown';
   }
-} 
+
+  /**
+   * Get Application Events
+   * @param applicationName The name of the ArgoCD application
+   * @param namespace The namespace where the application exists
+   * @returns Promise<string> The string with ApplicationEvent
+   */
+  public async getApplicationEvents(
+    applicationName: string,
+    namespace: string
+  ): Promise<string> {
+    const eventList = await this.kubeClient.getResourceEvents(namespace, 'Application', applicationName);
+    if (!eventList) {
+      return `No Events found for application ${applicationName}`;
+    }
+    let eventInfo: string = '';
+    eventList.forEach( event => {
+      eventInfo += `LastTimeStamp: ${event.lastTimestamp}\t EventType: ${event.type}\t EventReason: ${event.reason}\t EventMessage: ${event.message}\n`;
+    });
+    return eventInfo;
+  }
+}
