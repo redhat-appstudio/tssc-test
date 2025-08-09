@@ -24,7 +24,7 @@ export class ArgoCDClient {
   constructor(private readonly kubeClient: KubeClient) {
     this.connectionService = new ArgoCDConnectionService(kubeClient);
     this.applicationService = new ArgoCDApplicationService(kubeClient);
-    this.syncService = new ArgoCDSyncService(this.connectionService, this.applicationService);
+    this.syncService = new ArgoCDSyncService(this.connectionService, this.applicationService, kubeClient);
   }
 
   // Connection-related methods
@@ -205,4 +205,18 @@ export class ArgoCDClient {
       };
     }
   }
-} 
+
+  /**
+   * Get the events of Application resource
+   *
+   * @param applicationName The name of the ArgoCD application
+   * @param namespace The namespace where the application exists
+   * @returns Promise<string> The application events
+   */
+  public async getApplicationEvents(
+    applicationName: string,
+    namespace: string
+  ): Promise<string> {
+    return this.applicationService.getApplicationEvents(applicationName, namespace);
+  }
+}
