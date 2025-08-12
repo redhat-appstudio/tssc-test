@@ -17,7 +17,6 @@ declare module '@playwright/test' {
 // Configuration constants
 const DEFAULT_TIMEOUT = 2100000; // 35 minutes
 
-// Environment variable flags to control which tests run
 const DEFAULT_WORKERS = 6;
 const DEFAULT_UI_TIMEOUT = 60000;
 
@@ -82,6 +81,7 @@ try {
 
   let e2eProjects: any[] = [];
   let uiProjects: any[] = [];
+  let importProjects: any[] = [];
   let authProjects: any[] = [];
 
   // Create E2E projects (always created for backend tests)
@@ -186,7 +186,8 @@ try {
   allProjects = [
     ...authProjects,
     ...e2eProjects,
-    ...uiProjects
+    ...uiProjects,
+    ...importProjects
   ];
 
 } catch (error) {
