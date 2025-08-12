@@ -3,12 +3,7 @@ import { TestItem } from './src/playwright/testItem';
 import { loadProjectConfigurations, ProjectConfig } from './src/utils/projectConfigLoader';
 import { getTestMatchPattern } from './src/utils/testFilterLoader';
 import { TestPlan } from './src/playwright/testplan';
-import { LoggerFactory } from './src/logger/logger';
 import path from 'path';
-
-const logger = LoggerFactory.getLogger('playwright.config');
-
-export const AUTH_STORAGE_FILE = path.join('playwright', '.auth', 'user.json');
 
 // Extend Playwright types to include testItem
 declare module '@playwright/test' {
@@ -19,7 +14,6 @@ declare module '@playwright/test' {
 
 // Configuration constants
 const DEFAULT_TIMEOUT = 2100000; // 35 minutes
-
 // Environment variable flags to control which tests run
 const DEFAULT_WORKERS = 10;
 const DEFAULT_UI_TIMEOUT = 60000;
@@ -31,6 +25,9 @@ try {
   // Load pre-generated configurations
   projectConfigs = loadProjectConfigurations();
 
+  // Authentication file path
+  const authFile = path.join('./playwright/.auth/user.json');
+
   // Detect if UI tests are needed based on test plan content
   let hasUITests = false;
   const requestedPlan = process.env.TESTPLAN_NAME;
@@ -38,14 +35,14 @@ try {
   // Special handling for ui-tests plan
   if (requestedPlan === 'ui-tests') {
     hasUITests = true;
-    logger.info('Running UI tests with existing project configuration');
+    console.log('Running UI tests with existing project configuration');
   } else {
     const testPlanPath = process.env.TESTPLAN_PATH || path.resolve(process.cwd(), 'testplan.json');
-    logger.info(`Checking for UI tests in test plan: ${testPlanPath}`);
-
+    console.log(`Checking for UI tests in test plan: ${testPlanPath}`);
+    
     // Check if test plan file exists first
     if (!require('fs').existsSync(testPlanPath)) {
-      logger.warn(`Test plan file not found at ${testPlanPath}, defaulting to E2E tests`);
+      console.warn(`Test plan file not found at ${testPlanPath}, defaulting to E2E tests`);
     } else {
       try {
         const testPlanData = JSON.parse(require('fs').readFileSync(testPlanPath, 'utf-8'));
@@ -59,23 +56,23 @@ try {
           test.toLowerCase().includes('component') ||
           test.toLowerCase().includes('page')
         );
-        logger.info(`UI test detection completed for ${testPlanPath}: ${hasUITests ? 'UI tests found' : 'No UI tests detected'}`);
+        console.log(`UI test detection completed for ${testPlanPath}: ${hasUITests ? 'UI tests found' : 'No UI tests detected'}`);
       } catch (error) {
         if (error instanceof SyntaxError) {
-          logger.error(`Failed to parse JSON from test plan file ${testPlanPath}: ${error}`);
+          console.error(`Failed to parse JSON from test plan file ${testPlanPath}:`, error.message);
           if (error instanceof Error) {
-            logger.error(`JSON parse error stack: ${error}`);
+            console.error('JSON parse error stack:', error.stack);
           } else {
-            logger.error('JSON parse error stack: <unknown error type>');
+            console.error('JSON parse error stack: <unknown error type>');
           }
         } else if (error instanceof Error) {
-          logger.error(`IO error reading test plan file ${testPlanPath}: ${error}`);
-          logger.error(`IO error stack: ${error}`);
+          console.error(`IO error reading test plan file ${testPlanPath}:`, error.message);
+          console.error('IO error stack:', error.stack);
         } else {
-          logger.error(`IO error reading test plan file ${testPlanPath}: <unknown error>`);
-          logger.error('IO error stack: <unknown error type>');
+          console.error(`IO error reading test plan file ${testPlanPath}: <unknown error>`);
+          console.error('IO error stack: <unknown error type>');
         }
-        logger.warn('Defaulting to E2E tests due to test plan parsing error');
+        console.warn('Defaulting to E2E tests due to test plan parsing error');
       }
     }
   }
@@ -94,7 +91,7 @@ try {
   // Special handling for ui-tests plan - use UI-specific patterns
   if (requestedPlan === 'ui-tests') {
     patterns = ['**/*.ui.test.ts', '**/*.ui.test.tsx', '**/ui/**/*.test.ts', '**/ui/**/*.test.tsx'];
-    logger.info('Using UI-specific test patterns for ui-tests plan');
+    console.log('Using UI-specific test patterns for ui-tests plan');
   } else {
     testMatchPattern = getTestMatchPattern();
     
@@ -148,7 +145,7 @@ try {
       testMatch: uiTests,
       use: {
         testItem: config.testItem,
-        storageState: AUTH_STORAGE_FILE,
+        storageState: authFile,
       },
       expect: {
         timeout: DEFAULT_UI_TIMEOUT,
@@ -171,7 +168,7 @@ try {
       testMatch: uiTests,
       use: {
         testItem: config.testItem,
-        storageState: AUTH_STORAGE_FILE,
+        storageState: authFile,
       },
       expect: {
         timeout: DEFAULT_UI_TIMEOUT,
@@ -197,9 +194,6 @@ try {
   allProjects = [];
 }
 
-// Determine JUnit output file from environment variable, default to test-results/devlake-junit.xml
-const junitOutputFile = process.env.JUNIT_OUTPUT_FILE || 'test-results/devlake-junit.xml';
-
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.test.ts',
@@ -213,7 +207,7 @@ export default defineConfig({
   reporter: [
     ['html', { open: 'never', outputFolder: 'playwright-report' }],
     ['list'],
-    ['junit', { outputFile: junitOutputFile }],
+    ['junit', { outputFile: 'devlake-junit.xml' }],
   ],
   // Global setup and teardown
   globalSetup: './global-setup.ts',
@@ -223,6 +217,5 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'off',
-    ignoreHTTPSErrors: true, // Allow self-signed certificates in test environments
   },
 });
