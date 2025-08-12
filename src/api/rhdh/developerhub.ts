@@ -186,4 +186,67 @@ export class DeveloperHub {
       }
     }
   }
+
+  /**
+   * Deletes entities from Developer Hub by selector
+   * @param selector The selector to match entities (e.g., component name)
+   * @returns Promise<boolean> - true if deletion was successful, false otherwise
+   */
+  public async deleteEntitiesBySelector(selector: string): Promise<boolean> {
+    try {
+      console.log(`Deleting entities with selector: ${selector}`);
+
+      // Get all entities and filter them based on the selector
+      const response = await this.axios.get(`${this.url}/api/catalog/entities`);
+      
+      const filteredEntities = response.data.filter((entity: any) => 
+        (entity.kind === 'Component' && entity.metadata?.name?.includes(selector)) || 
+        (entity.kind === 'Resource' && entity.metadata?.name?.includes(selector)) || 
+        (entity.kind === 'Location' && entity.spec?.target?.includes(selector))
+      );
+
+      if (filteredEntities.length === 0) {
+        console.log(`No components found in catalog with the description containing "${selector}".`);
+        return false;
+      }
+
+      // Delete all filtered entities
+      const results = await Promise.all(
+        filteredEntities.map((entity: any) => this.unregisterComponentById(entity.metadata.uid))
+      );
+
+      if (results.every(r => r === true)) {
+        console.log(`Successfully deleted all entities with selector: ${selector}`);
+        return true;
+      } else {
+        console.log(`Some entities with selector ${selector} failed to delete`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`Error deleting entities with selector ${selector}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Unregisters a component by its ID
+   * @param id The component ID to delete
+   * @returns Promise<boolean> - true if deletion was successful, false otherwise
+   */
+  private async unregisterComponentById(id: string): Promise<boolean> {
+    try {
+      const response = await this.axios.delete(`${this.url}/api/catalog/entities/by-uid/${id}`);
+
+      if (response.status === 204) {
+        console.log(`Component ID: ${id} deleted successfully`);
+        return true;
+      } else {
+        console.log(`Failed to delete component: ${response.status} ${response.statusText}`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`Error deleting component with ID ${id}:`, error);
+      return false;
+    }
+  }
 }
