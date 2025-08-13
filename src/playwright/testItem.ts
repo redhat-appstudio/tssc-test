@@ -39,7 +39,7 @@ export class TestItem {
     return this.template;
   }
 
-  public getregistryType(): ImageRegistryType {
+  public getRegistryType(): ImageRegistryType {
     return this.registryType;
   }
 
