@@ -29,7 +29,7 @@ const test = createBasicFixture();
  * 4. Verification of deployments in all environments
  * 5. SBOM validation in Trustification server
  */
-test.describe('TSSC Complete Workflow', () => {
+test.describe.serial('TSSC Complete Workflow', () => {
   // Shared variables for test steps
   let component: Component;
   let cd: ArgoCD;
