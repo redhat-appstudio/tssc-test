@@ -27,13 +27,6 @@
     "registry": "quay",
     "tpa": "remote",
     "acs": "remote"
-  },
-  {
-    "git": "bitbucket",
-    "ci": "tekton",
-    "registry": "quay",
-    "tpa": "remote",
-    "acs": "remote"
   }],
   "tests": ["test1", "test2"]
 }
