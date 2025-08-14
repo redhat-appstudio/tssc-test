@@ -17,6 +17,7 @@ const DEFAULT_TIMEOUT = 2100000; // 35 minutes
 const ENABLE_E2E_TESTS = process.env.ENABLE_E2E_TESTS !== 'false'; // Default: true
 const ENABLE_UI_TESTS = process.env.ENABLE_UI_TESTS === 'true';    // Default: false
 const DEFAULT_WORKERS = 6;
+const DEFAULT_UI_TIMEOUT = 30000;
 
 let projectConfigs: ProjectConfig[] = [];
 let allProjects: any[] = [];
