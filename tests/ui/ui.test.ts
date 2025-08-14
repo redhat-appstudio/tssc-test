@@ -74,4 +74,31 @@ test.describe('RHTAP UI Test Suite', () => {
       await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
     });
   });
+
+  test.describe("Verify Docs", () => {
+    test('test docs', async ({ page }) => {
+      const docsPlugin = component.getDocs();
+
+      // Navigate to docs page
+      await page.goto(`${component.getComponentUrl()}/docs`, {
+        timeout: 20000,
+      });
+
+      await test.step('Check article display', async () => { 
+        await docsPlugin.checkArticle(page);
+      }, {timeout: 30000});
+
+      await test.step('Check component name', async () => { 
+        await docsPlugin.checkComponentName(page);
+      }, {timeout: 20000});
+  
+      await test.step('Check source link', async () => {
+        await docsPlugin.checkSourceLink(page);
+      }, {timeout: 20000});
+
+      await test.step('Check gitops link', async () => {
+        await docsPlugin.checkGitopsLink(page);
+      }, {timeout: 20000});
+    });
+  });
 });
