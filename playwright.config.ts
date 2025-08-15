@@ -17,6 +17,7 @@ const DEFAULT_TIMEOUT = 2100000; // 35 minutes
 const ENABLE_E2E_TESTS = process.env.ENABLE_E2E_TESTS !== 'false'; // Default: true
 const ENABLE_UI_TESTS = process.env.ENABLE_UI_TESTS === 'true';    // Default: false
 const DEFAULT_WORKERS = 6;
+const DEFAULT_UI_TIMEOUT = 30000;
 
 let projectConfigs: ProjectConfig[] = [];
 let allProjects: any[] = [];
@@ -47,13 +48,16 @@ try {
   if (ENABLE_UI_TESTS) {
     // Create auth setup project for UI tests
     authProjects = [{ name: 'auth-setup', testMatch: '**/auth.setup.ts' }];
-    
+
     uiProjects = projectConfigs.map(config => ({
       name: `ui-${config.name}`,
       testMatch: 'tests/ui/**/*.test.ts',
       use: {
         testItem: config.testItem,
         storageState: authFile,
+      },
+      expect: {
+        timeout: DEFAULT_UI_TIMEOUT,
       },
       // Only add dependencies if e2e tests are enabled
       ...(ENABLE_E2E_TESTS && {
@@ -89,7 +93,7 @@ export default defineConfig({
   timeout: DEFAULT_TIMEOUT,
   fullyParallel: false, // This should allow immediate execution when dependencies are met
   projects: allProjects.length ? allProjects : [{ name: 'default' }],
-  
+
   // Reporter configuration
   reporter: [
     ['html', { open: 'never', outputFolder: 'playwright-report' }],
