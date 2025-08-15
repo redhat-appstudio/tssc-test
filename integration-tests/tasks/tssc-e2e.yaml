@@ -209,7 +209,7 @@ spec:
                 --password="$OCI_STORAGE_TOKEN" \
                 --annotation-file "$ANNOTATION_FILE" \
                 playwright-report/:application/vnd.acme.rocket.docs.layer.v1+tar \
-                tmp/test-items.json/:application/json >/dev/null 2>&1; then
+                tmp/test-items.json/:application/json; then
               echo "Test results uploaded successfully"
               return 0
             fi
