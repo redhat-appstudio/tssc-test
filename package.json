@@ -1,7 +1,6 @@
 {
     "name": "tssc-test",
     "version": "1.0.0",
-    "type": "module",
     "description": "TSSC Test is a testing framework for TSSC API using Playwright and TypeScript.",
     "scripts": {
         "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
@@ -10,12 +9,15 @@
         "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"*.json\" \"*.js\" \"*.md\"",
         "type-check": "tsc --noEmit",
         "validate": "npm run type-check && npm run lint && npm run format:check",
-        "test": "playwright test",
+        "generate-config": "npx ts-node scripts/generateProjectConfig.ts",
+        "test": "npm run generate-config && playwright test",
+        "test:e2e": "npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=false playwright test",
+        "test:ui": "ENABLE_E2E_TESTS=false ENABLE_UI_TESTS=true playwright test",
+        "test:ui-interactive": "ENABLE_E2E_TESTS=false ENABLE_UI_TESTS=true playwright test --ui",
+        "test:all": "npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=true playwright test",
         "test:report": "playwright show-report",
-        "test:tssc": "playwright test tests/tssc/full_workflow.test.ts",
-        "test:ui": "UI_TEST=true playwright test --project=ui-*",
-        "test:ui-interactive": "UI_TEST=true playwright test --ui --project=ui-*",
-        "pretest": "npm run validate"
+        "pretest": "npm run validate",
+        "test:tssc": "npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=false playwright test"
     },
     "keywords": [
         "typescript",
