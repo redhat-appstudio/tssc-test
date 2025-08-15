@@ -1,5 +1,5 @@
 import { TaskRunKind } from '@janus-idp/shared-react/dist/index';
-import { CoreV1Api, CustomObjectsApi, KubeConfig } from '@kubernetes/client-node';
+import { CoreV1Api, CustomObjectsApi, CoreV1Event, KubeConfig } from '@kubernetes/client-node';
 import * as k8s from '@kubernetes/client-node';
 
 /**
@@ -309,6 +309,48 @@ export class KubeClient {
       return allLogs.join('\n');
     } catch (error: unknown) {
       throw new Error(`Failed to retrieve logs for pod '${podName}': ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Fetches events related to a Kubernetes resource using fieldSelector.
+   *
+   * @param namespace - The namespace of the resource
+   * @param kind - The kind of the resource (e.g., 'Application')
+   * @param name - The name of the resource
+   * @returns A list of events related to the resource
+   */
+  public async getResourceEvents(
+    namespace: string,
+    kind: string,
+    name: string
+  ): Promise<CoreV1Event[]> {
+    try {
+      const fieldSelector = `involvedObject.kind=${kind},involvedObject.name=${name}`;
+      const res = await this.k8sApi.listNamespacedEvent({
+        namespace: namespace,
+        fieldSelector: fieldSelector,
+      });
+      return res.items;
+    } catch (error) {
+      console.error('Failed to get events:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Gets current context from kubeconfig
+   */
+  public getCurrentK8sContext(): string {
+    try {
+      const kubeCurrentContext = this.kubeConfig.currentContext;
+      if (!kubeCurrentContext) {
+        throw new Error('Current Context not set in Kubeconfig');
+      }
+      return kubeCurrentContext;
+    } catch (error) {
+      console.error(`Error getting current context from kubeconfig: ${error}`);
+      throw error;
     }
   }
 

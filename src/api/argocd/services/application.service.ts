@@ -150,4 +150,50 @@ export class ArgoCDApplicationService {
     const application = await this.getApplication(applicationName, namespace);
     return application.status?.operationState?.phase || 'Unknown';
   }
-} 
+
+  /**
+   * Get Application Events
+   * @param applicationName The name of the ArgoCD application
+   * @param namespace The namespace where the application exists
+   * @returns Promise<string> The string with ApplicationEvent
+   */
+  public async getApplicationEvents(
+    applicationName: string,
+    namespace: string
+  ): Promise<string> {
+    try {
+      const eventList = await this.kubeClient.getResourceEvents(namespace, 'Application', applicationName);
+
+      if (!eventList || eventList.length === 0) {
+        return `No events found for application ${applicationName}`;
+      }
+
+      // Sort events by timestamp (most recent first)
+      const sortedEvents = eventList.sort((a, b) => {
+        const timeA = new Date(a.lastTimestamp || a.firstTimestamp || 0).getTime();
+        const timeB = new Date(b.lastTimestamp || b.firstTimestamp || 0).getTime();
+        return timeB - timeA;
+      });
+
+      // Format events for more readability
+      const eventStrings = sortedEvents.map(event => {
+        const timestamp = event.lastTimestamp || event.firstTimestamp || 'Unknown';
+        const type = event.type || 'Unknown';
+        const reason = event.reason || 'Unknown';
+        const message = event.message || 'No message';
+
+        return `[${timestamp}] ${type}: ${reason} - ${message}`;
+      });
+
+      return eventStrings.join('\n');
+    } catch (error) {
+      console.error(
+        `Error retrieving events for application ${applicationName}`
+      );
+      throw new ArgoCDConnectionError(
+        `Failed to retrieve events for application ${applicationName}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+  }
+}
