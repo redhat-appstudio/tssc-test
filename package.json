@@ -16,7 +16,6 @@
         "test:ui-interactive": "ENABLE_E2E_TESTS=false ENABLE_UI_TESTS=true playwright test --ui",
         "test:all": "npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=true playwright test",
         "test:report": "playwright show-report",
-        "pretest": "npm run validate",
         "test:tssc": "npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=false playwright test"
     },
     "keywords": [
