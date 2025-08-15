@@ -38,9 +38,10 @@ export class GithubActionsService {
 
   constructor(octokit: Octokit, config: GithubActionsServiceConfig = {}) {
     this.octokit = octokit;
+    // Default values. This should correspond to 155 seconds in 5 retries(5, 10, 20, 40, 80 seconds)
     this.maxRetries = config.maxRetries ?? 5;
     this.minTimeout = config.minTimeout ?? 5000;
-    this.maxTimeout = config.maxTimeout ?? 10000;
+    this.maxTimeout = config.maxTimeout ?? 80000;
     this.factor = config.factor ?? 2;
     this.defaultResultsPerPage = config.defaultResultsPerPage ?? 100;
   }
