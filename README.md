@@ -12,6 +12,58 @@
 
 This project is an end-to-end automation testing framework designed to validate the functionality of the [Red Hat Trusted Software Supply Chain CLI](https://github.com/redhat-appstudio/rhtap-cli) (tssc). Built with Playwright and TypeScript, this framework simulates real-world user interactions and backend processes to ensure the reliability and correctness of tssc's core features.
 
+## Test Execution Control
+
+The framework supports environment variables to control which types of tests run:
+
+### Environment Variables
+
+- **`ENABLE_E2E_TESTS`** (default: `true`) - Controls backend E2E test execution
+- **`ENABLE_UI_TESTS`** (default: `false`) - Controls UI test execution
+- **`UI_DEPENDS_ON_ALL_E2E`** (default: `false`) - Controls UI test dependency behavior
+  - When `false`: Each UI test depends only on its corresponding E2E test
+  - When `true`: All UI tests depend on ALL E2E tests (sequential execution)
+
+### Usage Examples
+
+```bash
+# Run only E2E tests (default behavior) - generates fresh config
+npm run test:e2e
+# or
+ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=false npm test
+
+# Run only UI tests - uses existing config from previous E2E runs
+npm run test:ui
+# or
+ENABLE_E2E_TESTS=false ENABLE_UI_TESTS=true playwright test
+
+# Run both E2E and UI tests - generates fresh config, UI depends on E2E
+npm run test:all
+# or
+npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=true npm test
+
+# Run UI tests with dependency on ALL E2E tests (sequential execution)
+UI_DEPENDS_ON_ALL_E2E=true ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=true npm test
+
+# Default: Only E2E tests - generates fresh config
+npm test
+```
+
+### Test Dependencies
+
+- **When both are enabled**: UI tests depend on their corresponding E2E tests (by default)
+  - With `UI_DEPENDS_ON_ALL_E2E=true`: UI tests depend on ALL E2E tests. Even when a single E2E test fails, all UI tests are skipped.
+  - With `UI_DEPENDS_ON_ALL_E2E=false`: Each UI test depends only on its corresponding E2E test.
+- **When only UI enabled**: UI tests run standalone using existing project configurations
+- **When only E2E enabled**: Only backend tests run with fresh configurations
+
+### Configuration Generation
+
+Configuration generation is controlled by the `generate-config` script. This script will read testplan.json file and generate project configurations for each test combination in `./tmp/project-configs.json` file.
+
+* Running only E2E tests (`npm run test:e2e`) or both E2E and UI  tests (`npm run test:all`) will generate fresh project configurations.
+* Running only UI tests (`npm run test:ui`) will use existing project configurations from previous E2E runs or hand-crafted project configurations in `./tmp/project-configs.json` file.
+
 ## Prerequisites
 
 Before using this testing framework, ensure you have:
@@ -120,7 +172,7 @@ npm install
 #### Run Tests
 ```bash
 # Run all tests
-npm run test:tssc
+npm run test:all
 
 # Run a specific test file
 npm test -- tests/tssc/full_workflow.test.ts
@@ -165,7 +217,7 @@ Once inside the container, you can execute any test commands:
 source .env
 
 # Run all tests
-npm run test:tssc
+npm run test:all
 
 # Run a specific test file
 npm test -- tests/tssc/full_workflow.test.ts

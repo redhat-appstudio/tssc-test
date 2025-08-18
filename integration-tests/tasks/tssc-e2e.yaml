@@ -124,7 +124,7 @@ spec:
         source .env
         # Run tests and capture exit code
         TEST_EXIT_CODE=0
-        FORCE_COLOR=false npm run test:tssc || TEST_EXIT_CODE=$?
+        FORCE_COLOR=false npm run test:e2e || TEST_EXIT_CODE=$?
 
         echo "Test execution completed with exit code: $TEST_EXIT_CODE"
 
@@ -209,7 +209,7 @@ spec:
                 --password="$OCI_STORAGE_TOKEN" \
                 --annotation-file "$ANNOTATION_FILE" \
                 playwright-report/:application/vnd.acme.rocket.docs.layer.v1+tar \
-                tmp/test-items.json/:application/json >/dev/null 2>&1; then
+                tmp/project-configs.json:application/json; then
               echo "Test results uploaded successfully"
               return 0
             fi
