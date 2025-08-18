@@ -71,7 +71,7 @@ spec:
           REPO_ORG=$(jq -r '.git.source_repo_org' <<< $JOB_SPEC)
           BRANCH=$(jq -r '.git.source_repo_branch' <<< $JOB_SPEC)
           testplan_file_location="integration-tests/config/testplan.json"
-          echo "downloading testplan.json from $REPO_ORG/$GIT_REPO/refs/heads/$BRANCH/integration-tests/config/testplan.json"
+          echo "downloading testplan.json from $REPO_ORG/$GIT_REPO/refs/heads/$BRANCH/$testplan_file_location"
           curl -o testplan.json https://raw.githubusercontent.com/$REPO_ORG/$GIT_REPO/refs/heads/$BRANCH/$testplan_file_location
         fi
 
