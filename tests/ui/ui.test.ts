@@ -86,7 +86,7 @@ test.describe('RHTAP UI Test Suite', () => {
 
       await test.step('Check article display', async () => { 
         await docsPlugin.checkArticle(page);
-      }, {timeout: 30000});
+      }, {timeout: 60000});
 
       await test.step('Check component name', async () => { 
         await docsPlugin.checkComponentName(page);

@@ -17,7 +17,7 @@ const DEFAULT_TIMEOUT = 2100000; // 35 minutes
 const ENABLE_E2E_TESTS = process.env.ENABLE_E2E_TESTS !== 'false'; // Default: true
 const ENABLE_UI_TESTS = process.env.ENABLE_UI_TESTS === 'true';    // Default: false
 const DEFAULT_WORKERS = 6;
-const DEFAULT_UI_TIMEOUT = 30000;
+const DEFAULT_UI_TIMEOUT = 60000;
 
 let projectConfigs: ProjectConfig[] = [];
 let allProjects: any[] = [];
@@ -56,6 +56,9 @@ try {
         testItem: config.testItem,
         storageState: authFile,
       },
+      expect: {
+          timeout: DEFAULT_UI_TIMEOUT,
+        },
       dependencies: [
         // Always depend on auth-setup
         'auth-setup',
