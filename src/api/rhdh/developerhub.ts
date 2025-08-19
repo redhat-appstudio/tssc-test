@@ -212,7 +212,7 @@ export class DeveloperHub {
 
       // Delete all filtered entities
       const results = await Promise.all(
-        filteredEntities.map((entity: any) => this.unregisterComponentById(entity.metadata.uid))
+        filteredEntities.map((entity: any) => this.unregisterEntityByUid(entity.metadata.uid))
       );
 
       if (results.every(r => r === true)) {
@@ -228,24 +228,24 @@ export class DeveloperHub {
     }
   }
 
+
   /**
-   * Unregisters a component by its ID
-   * @param id The component ID to delete
+   * Unregisters an entity by its UID
+   * @param id The entity UID to delete
    * @returns Promise<boolean> - true if deletion was successful, false otherwise
    */
-  private async unregisterComponentById(id: string): Promise<boolean> {
+  private async unregisterEntityByUid(id: string): Promise<boolean> {
     try {
       const response = await this.axios.delete(`${this.url}/api/catalog/entities/by-uid/${id}`);
-
-      if (response.status === 204) {
-        console.log(`Component ID: ${id} deleted successfully`);
+      if (response.status >= 200 && response.status < 300) {
+        console.log(`Entity UID: ${id} deleted successfully (status ${response.status})`);
         return true;
       } else {
-        console.log(`Failed to delete component: ${response.status} ${response.statusText}`);
+        console.log(`Failed to delete entity UID ${id}: ${response.status} ${response.statusText}`);
         return false;
       }
     } catch (error) {
-      console.error(`Error deleting component with ID ${id}:`, error);
+      console.error(`Error deleting entity with UID ${id}:`, error);
       return false;
     }
   }

@@ -767,7 +767,6 @@ export class GithubProvider extends BaseGitProvider {
     try {
       // Get the contents of the folder
       const folderContents = await this.githubClient.repository.getContent(owner, repoName, folderPath, branch);
-      
       if (!Array.isArray(folderContents)) {
         throw new Error(`Path ${folderPath} is not a folder`);
       }
