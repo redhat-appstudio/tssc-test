@@ -17,7 +17,7 @@
         "test:all": "npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=true playwright test",
         "test:report": "playwright show-report",
         "test:tssc": "npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=false playwright test",
-        "test:import": "playwright test tests/templates/import-templates.test.ts"
+        "test:import": "npm run generate-config && ENABLE_E2E_TESTS=false ENABLE_UI_TESTS=false ENABLE_IMPORT_TESTS=true playwright test tests/templates/import_templates.test.ts"
     },
     "keywords": [
         "typescript",

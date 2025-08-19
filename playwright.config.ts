@@ -16,6 +16,7 @@ const DEFAULT_TIMEOUT = 2100000; // 35 minutes
 // Environment variable flags to control which tests run
 const ENABLE_E2E_TESTS = process.env.ENABLE_E2E_TESTS !== 'false'; // Default: true
 const ENABLE_UI_TESTS = process.env.ENABLE_UI_TESTS === 'true';    // Default: false
+const ENABLE_IMPORT_TESTS = process.env.ENABLE_IMPORT_TESTS === 'true'; // Default: false
 const DEFAULT_WORKERS = 6;
 const DEFAULT_UI_TIMEOUT = 60000;
 
@@ -31,6 +32,7 @@ try {
 
   let e2eProjects: any[] = [];
   let uiProjects: any[] = [];
+  let importProjects: any[] = [];
   let authProjects: any[] = [];
 
   // Create e2e projects if enabled
@@ -76,10 +78,22 @@ try {
     }));
   }
 
+  // Create import template projects if enabled
+  if (ENABLE_IMPORT_TESTS) {
+    importProjects = projectConfigs.map(config => ({
+      name: `import-${config.name}`,
+      testMatch: 'tests/templates/**/*.test.ts',
+      use: {
+        testItem: config.testItem,
+      },
+    }));
+  }
+
   allProjects = [
     ...authProjects,
     ...e2eProjects,
-    ...uiProjects
+    ...uiProjects,
+    ...importProjects
   ];
 
 } catch (error) {
