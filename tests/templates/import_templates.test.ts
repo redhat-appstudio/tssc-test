@@ -106,19 +106,16 @@ test.describe.serial('Import Template Tests', () => {
     if (!component) {
       throw new Error('Component was not created successfully');
     }
-    
+
     const git = component.getGit() as GithubProvider;
     const componentName = component.getName();
-    
+
     // Delete .tekton folder
     await git.deleteFolderInRepository(git.getOrganization(), componentName, '.tekton');
-    
-    // Delete gitops folder
-    //await git.deleteFolderInRepository(git.getOrganization(), componentName, 'gitops');
-    
+
     // Delete catalog-info.yaml file
     await git.deleteFileInRepository(git.getOrganization(), componentName, 'catalog-info.yaml');
-    
+
     console.log(`Deleted .tekton, gitops folders and catalog-info.yaml from ${componentName}`);
   });
 
@@ -131,7 +128,8 @@ test.describe.serial('Import Template Tests', () => {
     const componentName = component.getName();
     
     // Delete entities from Developer Hub
-    await developerHub.deleteEntitiesBySelector(componentName);
+    const deleted = await developerHub.deleteEntitiesBySelector(componentName);
+    expect(deleted).toBeTruthy();
     console.log(`Deleted entities for ${componentName} from Developer Hub`);
   });
 
@@ -183,9 +181,9 @@ test.describe.serial('Import Template Tests', () => {
     }
     
     // Wait for ArgoCD application to be healthy
-    git = component.getGit();
+    git = importedComponent.getGit();
     const commitSha = await git.getGitOpsRepoCommitSha();
-    const cd = component.getCD();
+    const cd = importedComponent.getCD();
     
     // Wait for ArgoCD application to be healthy
     const result = await cd.waitUntilApplicationIsSynced(Environment.DEVELOPMENT, commitSha);
