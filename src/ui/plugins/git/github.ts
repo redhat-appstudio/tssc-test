@@ -6,7 +6,7 @@
  */
 
 import { GitPlugin } from './gitUiInterface';
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { loadFromEnv } from '../../../utils/util';
 import { DHLoginPO, GhLoginPO } from '../../page-objects/login_po';
 import { GitPO } from '../../page-objects/common_po';
@@ -33,7 +33,7 @@ export class GithubUiPlugin implements GitPlugin {
      * @param page - Playwright Page object for UI interactions
      */
     async login(page: Page): Promise<void> {
-        let button = page.getByRole('button', { name: DHLoginPO.signInButtonName });
+        const button = page.getByRole('button', { name: DHLoginPO.signInButtonName });
         await expect(button).toBeVisible({ timeout: 15000 })
 
         const authorizeAppPagePromise = page.context().waitForEvent('page');
@@ -59,7 +59,10 @@ export class GithubUiPlugin implements GitPlugin {
             await authorizeButton.waitFor({ state: 'visible', timeout: 3000 });
             await authorizeButton.click();
             console.log('Authorization button clicked successfully');
-        } catch (error) {
+        } catch (error: unknown) {
+            if (error instanceof Error && !error.message.includes('locator.waitFor')) {
+                throw error;
+            }
             console.log('Authorization button not found or not needed, continuing...');
         }
     }
@@ -72,17 +75,17 @@ export class GithubUiPlugin implements GitPlugin {
      */
     async checkViewSourceLink(page: Page): Promise<void> {
         const githubLink = page.locator(`${GitPO.githubLinkSelector}:has-text("${GitPO.viewSourceLinkText}")`);
-        await githubLink.waitFor({ state: 'visible', timeout: 10000 });
+        await expect(githubLink).toBeVisible({ timeout: 10000 });
 
         const linkHref = await githubLink.getAttribute('href');
-        test.expect(githubLink).toBeTruthy();
+        expect(githubLink).toBeTruthy();
 
         const isClickable = await githubLink.isEnabled();
-        test.expect(isClickable).toBe(true);
+        expect(isClickable).toBe(true);
 
         const response = await page.request.head(linkHref!);
         const status = response.status();
-        test.expect(status).toBe(200);
+        expect(status).toBe(200);
 
         console.log(`GitHub URL: ${linkHref}`);
     }

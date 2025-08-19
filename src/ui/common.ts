@@ -9,9 +9,8 @@ import { expect, Page } from '@playwright/test';
 export async function checkWebsiteStatus(
     page: Page,
     href: string,
-    expectedStatus: number = 200
+    okStatuses: number[] = [200, 204, 301, 302, 307, 308]
 ): Promise<void> {
     const response = await page.request.head(href);
-    const status = response.status();
-    expect(status).toBe(expectedStatus);
+    expect(okStatuses).toContain(response.status());
 }

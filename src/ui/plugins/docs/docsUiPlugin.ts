@@ -33,7 +33,7 @@ export class DocsUiPlugin {
         await expect(sourceLink).toBeVisible();
 
         const href = await sourceLink.getAttribute('href');
-        await checkWebsiteStatus(page, href!, 200);
+        await checkWebsiteStatus(page, href!, [200]);
     }
 
     // Check that the gitops link is visible
@@ -42,6 +42,6 @@ export class DocsUiPlugin {
         await expect(gitOpsLink).toBeVisible();
 
         const href = await gitOpsLink.getAttribute('href');
-        await checkWebsiteStatus(page, href!, 200);
+        await checkWebsiteStatus(page, href!, [200]);
     }
 }
