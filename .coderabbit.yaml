@@ -20,7 +20,7 @@ reviews:
   profile: "assertive"
 
   # Enable request changes workflow
-  request_changes_workflow: true
+  request_changes_workflow: false
 
   # Enable high-level summary
   high_level_summary: true
