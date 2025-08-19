@@ -59,8 +59,8 @@ test.describe('RHTAP UI Test Suite', () => {
         
       await page.waitForLoadState('domcontentloaded');
       await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
-        
-      await component.getGit()?.checkViewSourceLink(page);
+
+      await component.getGit()!.checkViewSourceLink(page);
     });
   });
   
