@@ -1,6 +1,6 @@
 /**
  * GitHub UI Plugin
- * 
+ *
  * Implements UI automation for GitHub-specific operations.
  * Handles GitHub login flow including 2FA authentication.
  */
@@ -9,6 +9,7 @@ import { GitPlugin } from './gitUiInterface';
 import { expect, Page } from '@playwright/test';
 import { loadFromEnv } from '../../../utils/util';
 import { DHLoginPO, GhLoginPO } from '../../page-objects/login_po';
+import { GitPO } from '../../page-objects/common_po';
 import { Git } from '../../../rhtap/core/integration/git/gitInterface';
 import { authenticator } from 'otplib';
 
@@ -28,11 +29,11 @@ export class GithubUiPlugin implements GitPlugin {
      * - GitHub credentials input
      * - 2FA authentication
      * - Authorization confirmation
-     * 
+     *
      * @param page - Playwright Page object for UI interactions
      */
     async login(page: Page): Promise<void> {
-        let button = page.getByRole('button', { name: DHLoginPO.signInButtonName });
+        const button = page.getByRole('button', { name: DHLoginPO.signInButtonName });
         await expect(button).toBeVisible({ timeout: 15000 })
 
         const authorizeAppPagePromise = page.context().waitForEvent('page');
@@ -46,14 +47,53 @@ export class GithubUiPlugin implements GitPlugin {
         await authorizeAppPage.waitForLoadState();
 
         const token = await this.getGitHub2FAOTP();
-        await authorizeAppPage.locator(GhLoginPO.github2FAField).fill(token);
+        // blur the field to avoid 2FA token being captured by screenshot or video
+        const twoFactorField = authorizeAppPage.locator(GhLoginPO.github2FAField);
+        await twoFactorField.evaluate((el) => el.style.filter = 'blur(5px)');
+        await twoFactorField.fill(token);
 
+        const authorizeButton = authorizeAppPage.getByRole('button', { name: 'authorize' });
+
+        // Click authorize button if app is not authorized, skip otherwise
+        try {
+            await authorizeButton.waitFor({ state: 'visible', timeout: 3000 });
+            await authorizeButton.click();
+            console.log('Authorization button clicked successfully');
+        } catch (error: unknown) {
+            if (error instanceof Error && !error.message.includes('locator.waitFor')) {
+                throw error;
+            }
+            console.log('Authorization button not found or not needed, continuing...');
+        }
+    }
+
+    /**
+     * Verifies the GitHub "View Source" link on the component page.
+     * Checks that the link is visible, clickable, and accessible.
+     *
+     * @param page - Playwright Page object for UI interactions
+     */
+    async checkViewSourceLink(page: Page): Promise<void> {
+        const githubLink = page.locator(`${GitPO.githubLinkSelector}:has-text("${GitPO.viewSourceLinkText}")`);
+        await expect(githubLink).toBeVisible({ timeout: 10000 });
+
+        const linkHref = await githubLink.getAttribute('href');
+        expect(githubLink).toBeTruthy();
+
+        const isClickable = await githubLink.isEnabled();
+        expect(isClickable).toBe(true);
+
+        const response = await page.request.head(linkHref!);
+        const status = response.status();
+        expect(status).toBe(200);
+
+        console.log(`GitHub URL: ${linkHref}`);
     }
 
     /**
      * Generates a 2FA token for GitHub authentication.
      * Uses the TOTP secret from environment variables.
-     * 
+     *
      * @returns Promise resolving to the generated 2FA token
      */
     private async getGitHub2FAOTP(): Promise<string> {

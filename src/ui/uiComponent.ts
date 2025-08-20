@@ -16,14 +16,17 @@ import { TestItem } from '../playwright/testItem';
 import { Component } from '../rhtap/core/component';
 import { GitPlugin } from './plugins/git/gitUiInterface';
 import { GitUiFactory } from './plugins/git/gitUiFactory';
+import { DocsUiPlugin } from './plugins/docs/docsUiPlugin';
 
 export class UiComponent {
   private component: Component;
-  private git!: GitPlugin;
+  private git: GitPlugin | undefined;
+  private docs!: DocsUiPlugin;
 
-  private constructor(component: Component, git: GitPlugin) {
+  private constructor(component: Component, git: GitPlugin | undefined, docs: DocsUiPlugin) {
     this.component = component;
     this.git = git;
+    this.docs = docs;
   }
 
   /**
@@ -50,7 +53,12 @@ export class UiComponent {
       testItem.getGitType(),
       component.getGit()
     );
-    return new UiComponent(component, git);
+    const docs = new DocsUiPlugin(
+      name,
+      component.getGit().getSourceRepoUrl(),
+      component.getGit().getGitOpsRepoUrl()
+    );
+    return new UiComponent(component, git, docs);
   }
 
   /**
@@ -68,7 +76,29 @@ export class UiComponent {
    * 
    * @returns The GitPlugin instance for UI automation
    */
-  public getGit(): GitPlugin {
+  public getGit(): GitPlugin | undefined {
     return this.git;
+  }
+
+  /**
+   * Gets the UI-specific Docs plugin instance.
+   * This plugin handles UI automation for Docs tests.
+   * 
+   * @returns The DocsUiPlugin instance for UI automation
+   */
+  public getDocs(): DocsUiPlugin {
+    return this.docs;
+  }
+
+  /**
+   * Gets the component URL for the Developer Hub UI.
+   * Constructs the URL using the Developer Hub base URL and component name.
+   * 
+   * @returns The full URL to the component page in Developer Hub
+   */
+  public getComponentUrl(): string {
+    const developerHubUrl = this.component.getDeveloperHub().getUrl();
+    const componentName = this.component.getName();
+    return `${developerHubUrl}/catalog/default/component/${componentName}`;
   }
 }
