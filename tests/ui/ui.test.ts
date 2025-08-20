@@ -1,6 +1,5 @@
 import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { UiComponent } from '../../src/ui/uiComponent';
-import { loadFromEnv } from '../../src/utils/util';
 import { CommonPO } from '../../src/ui/page-objects/common_po';
 
 /**
@@ -43,6 +42,63 @@ test.describe('RHTAP UI Test Suite', () => {
       await page
         .getByRole('heading', { name: CommonPO.welcomeTitle })
         .waitFor({ state: 'visible', timeout: 20000 });
+    });
+  });
+
+  test.describe("Verify Git", () => {
+    test('verify "View Source" link', async ({ page }) => {
+      // Skip test for not yet supported git providers
+      if (component.getGit() === undefined) {
+        console.warn(`Skipping Git test as testing ${component.getCoreComponent().getGit().getGitType()} is not supported`);
+        test.skip();
+        return;
+      }
+
+      const componentUrl = component.getComponentUrl();
+      await page.goto(componentUrl, { timeout: 20000 });
+        
+      await page.waitForLoadState('domcontentloaded');
+      await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
+
+      await component.getGit()!.checkViewSourceLink(page);
+    });
+  });
+  
+  test.describe("Verify CI", () => {
+    test('verify CI provider on CI tab', async ({ page }) => {
+      const componentUrl = component.getComponentUrl();
+      const ciTabUrl = `${componentUrl}/ci`;
+      await page.goto(ciTabUrl, { timeout: 20000 });
+        
+      await page.waitForLoadState('domcontentloaded');
+      await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
+    });
+  });
+
+  test.describe("Verify Docs", () => {
+    test('test docs', async ({ page }) => {
+      const docsPlugin = component.getDocs();
+
+      // Navigate to docs page
+      await page.goto(`${component.getComponentUrl()}/docs`, {
+        timeout: 20000,
+      });
+
+      await test.step('Check article display', async () => { 
+        await docsPlugin.checkArticle(page);
+      }, {timeout: 60000});
+
+      await test.step('Check component name', async () => { 
+        await docsPlugin.checkComponentName(page);
+      }, {timeout: 20000});
+  
+      await test.step('Check source link', async () => {
+        await docsPlugin.checkSourceLink(page);
+      }, {timeout: 20000});
+
+      await test.step('Check gitops link', async () => {
+        await docsPlugin.checkGitopsLink(page);
+      }, {timeout: 20000});
     });
   });
 });
