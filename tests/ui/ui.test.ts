@@ -3,6 +3,8 @@ import { UiComponent } from '../../src/ui/uiComponent';
 import { CommonPO } from '../../src/ui/page-objects/common_po';
 import { hideQuickStartIfVisible } from '../../src/ui/common';
 import { CIType } from '../../src/rhtap/core/integration/ci';
+import { waitForPageLoad } from '../../src/ui/common';
+import { DependenciesUiPlugin } from '../../src/ui/plugins/dependencies/dependenciesUiPlugin';
 
 /**
  * Create a basic test fixture with testItem
@@ -13,7 +15,7 @@ const test = createBasicFixture();
  * A complete test scenario for RHTAP UI plugins test:
  *
  * This test suite check the plugin in the UI and uses the component from backend e2e test.
- * This test should not 
+ * This test should not
  * 1. Login to the UI
  * TODO:
  * 2. Find a component in the UI
@@ -31,7 +33,7 @@ test.describe('RHTAP UI Test Suite', () => {
     const componentName = testItem.getName();
     console.log(`Creating component: ${componentName}`);
 
-    // Assign the already created component 
+    // Assign the already created component
     component = await UiComponent.new(componentName, testItem, componentName);
   });
 
@@ -55,16 +57,15 @@ test.describe('RHTAP UI Test Suite', () => {
         return;
       }
 
-      const componentUrl = component.getComponentUrl();
-      await page.goto(componentUrl, { timeout: 20000 });
-        
+      await page.goto(component.getComponentUrl(), { timeout: 20000 });
+
       await page.waitForLoadState('domcontentloaded');
-      await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
+      await waitForPageLoad(page, component.getCoreComponent().getName());
 
       await component.getGit()!.checkViewSourceLink(page);
     });
   });
-  
+
   test.describe("Verify CI", () => {
     test('verify CI provider on CI tab', async ({ page }) => {
       if (component.getCoreComponent().getCI().getCIType() === CIType.GITHUB_ACTIONS) {
@@ -73,12 +74,8 @@ test.describe('RHTAP UI Test Suite', () => {
         return;
       }
 
-      const componentUrl = component.getComponentUrl();
-      const ciTabUrl = `${componentUrl}/ci`;
-      await page.goto(ciTabUrl, { timeout: 20000 });
-
-      await page.waitForLoadState('domcontentloaded');
-      await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
+      await page.goto(`${component.getComponentUrl()}/ci`, { timeout: 20000 });
+      await waitForPageLoad(page, component.getCoreComponent().getName());
     });
   });
 
@@ -90,6 +87,7 @@ test.describe('RHTAP UI Test Suite', () => {
       await page.goto(`${component.getComponentUrl()}/docs`, {
         timeout: 20000,
       });
+      await waitForPageLoad(page, component.getCoreComponent().getName());
 
       // Hide Quick start side panel
       // WORKAROUND FOR: https://issues.redhat.com/browse/RHDHBUGS-1946
@@ -97,14 +95,14 @@ test.describe('RHTAP UI Test Suite', () => {
         await hideQuickStartIfVisible(page);
       }, { timeout: 20000 });
 
-      await test.step('Check article display', async () => { 
+      await test.step('Check article display', async () => {
         await docsPlugin.checkArticle(page);
       }, {timeout: 60000});
 
-      await test.step('Check component name', async () => { 
+      await test.step('Check component name', async () => {
         await docsPlugin.checkComponentName(page);
       }, {timeout: 20000});
-  
+
       await test.step('Check source link', async () => {
         await docsPlugin.checkSourceLink(page);
       }, {timeout: 20000});
@@ -154,6 +152,45 @@ test.describe('RHTAP UI Test Suite', () => {
       // await test.step('Check vulnerabilities', async () => {
       //   await registryPlugin.checkVulnerabilities(page);
       // }, { timeout: 20000 });
+    });
+  });
+
+  test.describe("Check dependencies tab and gitops dependency", () => {
+    let dependencies: DependenciesUiPlugin;
+
+    test.beforeAll(async () => {
+      dependencies = await component.getDependencies();
+    });
+
+    test('test dependency', async ({ page }) => {
+      await page.goto(`${component.getComponentUrl()}/dependencies`, {
+        timeout: 20000,
+      });
+      await waitForPageLoad(page, component.getCoreComponent().getName());
+
+      await test.step('Check all boxes', async () => {
+        await dependencies.checkAllBoxesPresent(page);
+      }, {timeout: 30000});
+
+      await test.step('Check nodes and go to gitops dependency', async () => {
+        await dependencies.checkRelationsTitle(page);
+        await dependencies.checkNodesPresent(page);
+        await dependencies.goToGitopsDependency(page);
+      }, {timeout: 30000});
+
+      await test.step('Check gitops git link', async () => {
+        await component.getGit()?.checkViewSourceLink(page);
+      });
+
+      await test.step('Check CI tab', async () => {
+        // TBD
+      });
+
+      await test.step('Test Docs', async () => {
+        const docsPlugin = component.getDocs();
+        await page.goto(`${component.getComponentUrl()}/docs`, { timeout: 20000 });
+        await docsPlugin.checkArticle(page);
+      });
     });
   });
 });
