@@ -14,3 +14,14 @@ export async function checkWebsiteStatus(
     const response = await page.request.head(href);
     expect(okStatuses).toContain(response.status());
 }
+
+export async function waitForPageLoad(page: Page, name: string) {
+    await page.getByRole('progressbar').waitFor({ state: 'hidden', timeout: 20000 });
+
+    await expect(page.getByTestId('sidebar-root')).toBeAttached();
+
+    await page.getByRole('heading', { name: name }).waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForLoadState();
+    await page.waitForTimeout(500);
+
+}

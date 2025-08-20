@@ -1,14 +1,14 @@
 /**
  * UI Component Module
- * 
+ *
  * This module provides the main UI automation interface for RHTAP components.
  * It serves as a bridge between the core backend functionality and UI-specific operations.
- * 
+ *
  * Key responsibilities:
  * - Wraps core Component functionality for UI testing
  * - Manages UI-specific Git provider implementations
  * - Provides access to Developer Hub URLs and Git operations
- * 
+ *
  * @module UiComponent
  */
 
@@ -19,29 +19,32 @@ import { GitUiFactory } from './plugins/git/gitUiFactory';
 import { DocsUiPlugin } from './plugins/docs/docsUiPlugin';
 import { RegistryPlugin } from './plugins/registry/registryPlugin';
 import { RegistryUiFactory } from './plugins/registry/registryUiFactory';
+import { DependenciesUiPlugin } from './plugins/dependencies/dependenciesUiPlugin';
 
 export class UiComponent {
   private component: Component;
   private git: GitPlugin | undefined;
   private docs!: DocsUiPlugin;
   private registry: RegistryPlugin | undefined;
+  private dependencies!: DependenciesUiPlugin;
 
-  private constructor(component: Component, git: GitPlugin | undefined, docs: DocsUiPlugin, registry: RegistryPlugin | undefined) {
+  private constructor(component: Component, git: GitPlugin | undefined, docs: DocsUiPlugin, registry: RegistryPlugin | undefined, dependencies: DependenciesUiPlugin) {
     this.component = component;
     this.git = git;
     this.docs = docs;
     this.registry = registry;
+    this.dependencies = dependencies;
   }
 
   /**
    * Creates a new UI Component instance for UI automation testing.
    * This factory method initializes both the core providers and its UI-specific components.
-   * 
+   *
    * @param name - The name of the component to be created
    * @param testItem - Test configuration containing Git type and other test-specific settings
    * @param imageName - Name of the container image to be used
    * @returns A Promise resolving to a new UiComponent instance
-   * 
+   *
    * The method performs the following steps:
    * 1. Creates a core Component instance (skip actual creation as component from backend e2e test is reused)
    * 2. Creates a Git UI plugin based on the test configuration (GitHub/GitLab)
@@ -66,12 +69,17 @@ export class UiComponent {
       testItem.getRegistryType(),
       component.getRegistry()
     );
-    return new UiComponent(component, git, docs, registry);
+    const dependencies = new DependenciesUiPlugin(
+      name,
+      component.getGit().getSourceRepoUrl(),
+      component.getGit().getGitOpsRepoUrl()
+    );
+    return new UiComponent(component, git, docs, registry, dependencies);
   }
 
   /**
    * Gets the core component instance.
-   * 
+   *
    * @returns The core component instance
    */
   public getCoreComponent(): Component {
@@ -81,7 +89,7 @@ export class UiComponent {
   /**
    * Gets the UI-specific Git plugin instance.
    * This plugin handles UI automation for Git operations like login.
-   * 
+   *
    * @returns The GitPlugin instance for UI automation
    */
   public getGit(): GitPlugin | undefined {
@@ -91,7 +99,7 @@ export class UiComponent {
   /**
    * Gets the UI-specific Docs plugin instance.
    * This plugin handles UI automation for Docs tests.
-   * 
+   *
    * @returns The DocsUiPlugin instance for UI automation
    */
   public getDocs(): DocsUiPlugin {
@@ -101,7 +109,7 @@ export class UiComponent {
   /**
    * Gets the UI-specific Registry plugin instance.
    * This plugin handles UI automation for Registry operations like login.
-   * 
+   *
    * @returns The RegistryPlugin instance for UI automation
    */
   public getRegistry(): RegistryPlugin | undefined {
@@ -111,12 +119,22 @@ export class UiComponent {
   /**
    * Gets the component URL for the Developer Hub UI.
    * Constructs the URL using the Developer Hub base URL and component name.
-   * 
+   *
    * @returns The full URL to the component page in Developer Hub
    */
   public getComponentUrl(): string {
     const developerHubUrl = this.component.getDeveloperHub().getUrl();
     const componentName = this.component.getName();
     return `${developerHubUrl}/catalog/default/component/${componentName}`;
+  }
+
+  /**
+   * Gets the UI-specific Dependencies plugin instance.
+   * This plugin handles UI automation for testing Dependencies tab and gitops dependency component
+   *
+   * @returns The DependenciesUiPlugin instance for UI automation
+   */
+  getDependencies(): DependenciesUiPlugin {
+    return this.dependencies
   }
 }
