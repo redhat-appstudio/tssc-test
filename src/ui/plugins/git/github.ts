@@ -12,6 +12,7 @@ import { DHLoginPO, GhLoginPO } from '../../page-objects/login_po';
 import { GitPO } from '../../page-objects/common_po';
 import { Git } from '../../../rhtap/core/integration/git/gitInterface';
 import { authenticator } from 'otplib';
+import retry from 'async-retry';
 
 export class GithubUiPlugin implements GitPlugin {
     private githubProvider: Git;
@@ -46,11 +47,29 @@ export class GithubUiPlugin implements GitPlugin {
         await authorizeAppPage.locator(GhLoginPO.githubSignInButton).click();
         await authorizeAppPage.waitForLoadState();
 
-        const token = await this.getGitHub2FAOTP();
-        // blur the field to avoid 2FA token being captured by screenshot or video
         const twoFactorField = authorizeAppPage.locator(GhLoginPO.github2FAField);
-        await twoFactorField.evaluate((el) => el.style.filter = 'blur(5px)');
-        await twoFactorField.fill(token);
+
+        // Retry inserting 2FA token for cases when it was already used
+        const maxRetries = 5;
+        const timeout = 30000; // token resets every 30 seconds
+        await retry(
+            async (): Promise<void> => {
+                const token = await this.getGitHub2FAOTP();
+                // blur the field to avoid 2FA token being captured by screenshot or video
+                await twoFactorField.evaluate((el) => el.style.filter = 'blur(5px)');
+                await twoFactorField.fill(token);
+                // The field should detach after successful auth
+                await twoFactorField.waitFor({ state: 'detached', timeout: 5000 });
+            },
+            {
+                retries: maxRetries,
+                minTimeout: timeout,
+                maxTimeout: timeout,
+                onRetry: (_error: Error, attemptNumber: number) => {
+                    console.log(`[GITHUB-RETRY ${attemptNumber}/${maxRetries}] 🔄 2FA token entry failed, waiting ${timeout}ms before retrying...`);
+                },  
+            }
+        );
 
         const authorizeButton = authorizeAppPage.getByRole('button', { name: 'authorize' });
 
