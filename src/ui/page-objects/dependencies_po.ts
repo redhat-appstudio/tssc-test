@@ -1,9 +1,9 @@
 /**
- * Git-related Page Objects
+ * Dependencies Page Objects
  *
- * Contains locators for Git provider UI elements (GitHub, GitLab)
+ * Contains locators for Dependencies tab UI elements
  */
 export const DependenciesPO = {
-    titelsArray: ['Depends on components', 'Depends on resources', 'Has subcomponents', 'Provided APIs', 'Consumed APIs'],
+    titles: ['Depends on components', 'Depends on resources', 'Has subcomponents', 'Provided APIs', 'Consumed APIs'],
     relationsTitle: 'Relations',
 }

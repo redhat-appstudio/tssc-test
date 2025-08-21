@@ -1,23 +1,18 @@
 import { expect, Page } from '@playwright/test';
 import { DependenciesPO } from '../../page-objects/dependencies_po';
+import { waitForPageLoad } from '../../common';
 
 export class DependenciesUiPlugin {
     private readonly componentName: string;
-    private readonly sourceRepoUrl: string;
-    private readonly gitOpsRepoUrl: string;
 
     constructor(
         componentName: string,
-        sourceRepoUrl: string,
-        gitOpsRepoUrl: string
     ) {
         this.componentName = componentName;
-        this.sourceRepoUrl = sourceRepoUrl;
-        this.gitOpsRepoUrl = gitOpsRepoUrl;
     }
 
     async checkAllBoxesPresent(page: Page) {
-        for (const title of DependenciesPO.titelsArray) {
+        for (const title of DependenciesPO.titles) {
             await expect(page.getByRole('heading', { name: title })).toBeVisible();
         }
     }
@@ -36,6 +31,6 @@ export class DependenciesUiPlugin {
         const nodeLocator = page.getByTestId("node").filter({ hasText: `${this.componentName}-gitops` });
         await expect(nodeLocator).toBeVisible();
         await nodeLocator.click();
-        await expect(page.getByRole('heading', { name: this.componentName })).toBeVisible();
+        await waitForPageLoad(page, `${this.componentName}-gitops`);
     }
 }
