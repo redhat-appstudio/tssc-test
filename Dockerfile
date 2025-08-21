@@ -11,12 +11,6 @@ RUN VERSION=$(curl -L -s https://raw.githubusercontent.com/argoproj/argo-cd/stab
     && rm argocd-linux-amd64 \
     && argocd version --client
 
-# Install yq
-ARG YQ_VERSION=4.47.1
-RUN curl --proto "=https" --tlsv1.2 -sSf -L "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_amd64" -o /usr/local/bin/yq \
-    && chmod +x /usr/local/bin/yq \
-    && yq --version
-
 # Final stage
 FROM registry.access.redhat.com/ubi9/nodejs-20:9.6-1755505073
 
@@ -36,13 +30,10 @@ COPY --from=ose-tools /usr/lib64/libjq.so.1 /usr/lib64/libonig.so.5 /usr/lib64/
 COPY --from=ose-tools /usr/libexec/vi /usr/libexec/
 # Copy ArgoCD CLI from builder stage
 COPY --from=builder /usr/local/bin/argocd /usr/local/bin/argocd
-# Copy yq from builder stage
-COPY --from=builder /usr/local/bin/yq /usr/local/bin/yq
 
 # Verify tools installation (fail fast if tools are broken)
 RUN echo "=== Verifying tool installations ===" && \
     jq --version && \
-    yq --version && \
     kubectl version --client && \
     oc version --client && \
     argocd version --client && \
