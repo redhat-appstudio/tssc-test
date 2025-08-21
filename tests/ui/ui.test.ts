@@ -1,8 +1,8 @@
 import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { UiComponent } from '../../src/ui/uiComponent';
 import { CommonPO } from '../../src/ui/page-objects/common_po';
-import { hideQuickStartIfVisible } from '../../src/ui/common';
 import { CIType } from '../../src/rhtap/core/integration/ci';
+import { hideQuickStartIfVisible, openTab } from '../../src/ui/common';
 import { waitForPageLoad } from '../../src/ui/common';
 import { DependenciesUiPlugin } from '../../src/ui/plugins/dependencies/dependenciesUiPlugin';
 
@@ -38,7 +38,7 @@ test.describe('RHTAP UI Test Suite', () => {
   });
 
   test.describe('Go to home page', () => {
-    test('open developer hub and log in', async ({ page }) => {
+    test('open developer hub', async ({ page }) => {
       await page.goto(component.getCoreComponent().getDeveloperHub().getUrl(), {
         timeout: 20000,
       });
@@ -58,8 +58,6 @@ test.describe('RHTAP UI Test Suite', () => {
       }
 
       await page.goto(component.getComponentUrl(), { timeout: 20000 });
-
-      await page.waitForLoadState('domcontentloaded');
       await waitForPageLoad(page, component.getCoreComponent().getName());
 
       await component.getGit()!.checkViewSourceLink(page);
@@ -179,16 +177,23 @@ test.describe('RHTAP UI Test Suite', () => {
       }, {timeout: 30000});
 
       await test.step('Check gitops git link', async () => {
-        await component.getGit()?.checkViewSourceLink(page);
+        // Skip test for not yet supported git providers
+        if (component.getGit() === undefined) {
+          console.warn(`Skipping Git test as testing ${component.getCoreComponent().getGit().getGitType()} is not supported`);
+          test.skip();
+          return;
+        }
+        await component.getGit()!.checkViewSourceLink(page);
       });
 
-      await test.step('Check CI tab', async () => {
+      await test.step('Check Gitops CI tab', async () => {
         // TBD
       });
 
-      await test.step('Test Docs', async () => {
+      await test.step('Test Gitops Docs', async () => {
         const docsPlugin = component.getDocs();
-        await page.goto(`${component.getComponentUrl()}/docs`, { timeout: 20000 });
+        await openTab(page, 'Docs');
+        await waitForPageLoad(page, `${component.getCoreComponent().getName()}-gitops`);
         await docsPlugin.checkArticle(page);
       });
     });

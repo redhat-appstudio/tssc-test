@@ -69,11 +69,7 @@ export class UiComponent {
       testItem.getRegistryType(),
       component.getRegistry()
     );
-    const dependencies = new DependenciesUiPlugin(
-      name,
-      component.getGit().getSourceRepoUrl(),
-      component.getGit().getGitOpsRepoUrl()
-    );
+    const dependencies = new DependenciesUiPlugin(name);
     return new UiComponent(component, git, docs, registry, dependencies);
   }
 
@@ -134,7 +130,7 @@ export class UiComponent {
    *
    * @returns The DependenciesUiPlugin instance for UI automation
    */
-  getDependencies(): DependenciesUiPlugin {
+  public getDependencies(): DependenciesUiPlugin {
     return this.dependencies
   }
 }

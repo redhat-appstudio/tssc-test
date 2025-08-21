@@ -39,12 +39,21 @@ export async function hideQuickStartIfVisible(page: Page): Promise<void> {
 }
 
 export async function waitForPageLoad(page: Page, name: string) {
-    await page.getByRole('progressbar').waitFor({ state: 'hidden', timeout: 20000 });
+    const progressBars = page.getByRole('progressbar');
+    // Get all progressbar elements and wait until all are hidden
+    const bars = await progressBars.all();
+    if (bars.length > 0) {
+        await Promise.all(
+            bars.map(bar => expect(bar).toBeHidden({ timeout: 10000 }))
+        );
+    }
 
-    await expect(page.getByTestId('sidebar-root')).toBeAttached();
-
-    await page.getByRole('heading', { name: name }).waitFor({ state: 'visible', timeout: 20000 });
+    await expect(page.getByTestId('sidebar-root')).toBeAttached({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: name })).toBeVisible({ timeout: 20000 });
     await page.waitForLoadState();
-    await page.waitForTimeout(500);
+}
 
+export async function openTab(page: Page, tabName: string) {
+    const tab = page.getByRole('tablist').getByText(tabName);
+    await tab.click();
 }

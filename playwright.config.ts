@@ -72,9 +72,7 @@ try {
             )
           : []
         )
-      ],
-      screenshot: 'only-on-failure',
-      video: 'retain-on-failure',
+      ]
     }));
   }
 
