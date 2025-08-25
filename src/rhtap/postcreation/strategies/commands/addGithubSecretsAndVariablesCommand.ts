@@ -31,7 +31,7 @@ export class AddGithubSecretsAndVariablesCommand extends BaseCommand {
       IMAGE_REGISTRY: imageRegistry.getRegistryHost(),
       ROX_CENTRAL_ENDPOINT: this.acs.getRoxCentralEndpoint(),
       IMAGE_REGISTRY_USER: imageRegistry.getImageRegistryUser(),
-      REKOR_HOST: this.tas.getRokorServerURL(),
+      REKOR_HOST: this.tas.getRekorServerURL(),
       TUF_MIRROR: this.tas.getTufMirrorURL(),
       COSIGN_PUBLIC_KEY: await this.credentialService.getCosignPublicKey(),
     };
@@ -61,7 +61,7 @@ export class AddGithubSecretsAndVariablesCommand extends BaseCommand {
       TRUSTIFICATION_OIDC_CLIENT_ID: this.tpa.getOidc_client_id(),
       TRUSTIFICATION_SUPPORTED_CYCLONEDX_VERSION: this.tpa.getSupported_cyclonedx_version(),
       IMAGE_REGISTRY_USER: imageRegistry.getImageRegistryUser(),
-      REKOR_HOST: this.tas.getRokorServerURL(),
+      REKOR_HOST: this.tas.getRekorServerURL(),
       TUF_MIRROR: this.tas.getTufMirrorURL(),
     };
 

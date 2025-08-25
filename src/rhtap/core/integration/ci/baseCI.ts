@@ -68,7 +68,7 @@ export abstract class BaseCI implements CI {
         }
 
         // Implement status checking logic specific to each CI type in subclasses
-        status = await this.checkPipelineStatus(pipeline);
+        status = await this.checkPipelinerunStatus(pipeline);
         pipeline.updateStatus(status);
 
         console.log(`Pipeline ${pipeline.getDisplayName()} status: ${status}`);
@@ -114,9 +114,9 @@ export abstract class BaseCI implements CI {
    * Abstract method to check the status of a pipeline
    * This should be implemented by each CI provider subclass
    */
-  protected abstract checkPipelineStatus(pipeline: Pipeline): Promise<PipelineStatus>;
+  protected abstract checkPipelinerunStatus(pipeline: Pipeline): Promise<PipelineStatus>;
 
-  public abstract waitForAllPipelinesToFinish(): Promise<void>;
+  public abstract waitForAllPipelineRunsToFinish(): Promise<void>;
 
   public abstract cancelAllInitialPipelines(): Promise<void>;
 
