@@ -27,11 +27,10 @@ test.describe('RHTAP UI Test Suite', () => {
   test.beforeAll('', async ({ testItem }) => {
     console.log('Running UI test for:', testItem);
     const componentName = testItem.getName();
-    const imageName = `${componentName}`;
     console.log(`Creating component: ${componentName}`);
 
     // Assign the already created component 
-    component = await UiComponent.new(componentName, testItem, imageName);
+    component = await UiComponent.new(componentName, testItem, componentName);
   });
 
   test.describe('Go to home page', () => {
@@ -99,6 +98,48 @@ test.describe('RHTAP UI Test Suite', () => {
       await test.step('Check gitops link', async () => {
         await docsPlugin.checkGitopsLink(page);
       }, {timeout: 20000});
+    });
+  });
+  
+  test.describe('Test Image Registry', () => {
+    test('test image registry', async ({ page }) => {
+      const registryPlugin = component.getRegistry();
+
+      if (registryPlugin === undefined) {
+        console.warn(`Skipping Image Registry test as testing ${component.getCoreComponent().getRegistry().getRegistryType()} is not supported`);
+        test.skip();
+        return;
+      }
+
+      // Navigate to image registry page
+      await page.goto(`${component.getComponentUrl()}/image-registry`, {
+        timeout: 20000,
+      });
+
+      await test.step('Check repository heading', async () => {
+        await registryPlugin.checkRepositoryHeading(page);
+      }, { timeout: 20000 });
+
+      await test.step('Check repository link', async () => {
+        await registryPlugin.checkRepositoryLink(page);
+      }, { timeout: 20000 });
+
+      await test.step('Check search input field', async () => {
+        await registryPlugin.checkSearchInputField(page);
+      }, { timeout: 20000 });
+
+      await test.step('Check table column headers', async () => {
+        await registryPlugin.checkTableColumnHeaders(page);
+      }, { timeout: 20000 });
+
+      await test.step('Check image table content', async () => {
+        await registryPlugin.checkImageTableContent(page);
+      }, { timeout: 20000 });
+
+      // The security scan is not yet finished right after installation
+      // await test.step('Check vulnerabilities', async () => {
+      //   await registryPlugin.checkVulnerabilities(page);
+      // }, { timeout: 20000 });
     });
   });
 });
