@@ -4,6 +4,7 @@ import { IGitLabPipelineService } from '../interfaces/gitlab.interfaces';
 import {
   GitLabPipeline,
   GitLabPipelineSearchParams,
+  GitLabJob
 } from '../types/gitlab.types';
 import { createGitLabErrorFromResponse } from '../errors/gitlab.errors';
 
@@ -78,17 +79,113 @@ export class GitLabPipelineService implements IGitLabPipelineService {
     }
   }
 
-  public async getPipelineLogs(projectPath: string, jobId: number): Promise<string> {
+  public async getPipelineJobsInfo(projectPath: string, pipelineId: number): Promise<GitLabJob[]> {
     try {
-      // GitLab API endpoint for job traces is GET /projects/:id/jobs/:job_id/trace
-      const encodedProjectPath = encodeURIComponent(projectPath);
-      const url = `projects/${encodedProjectPath}/jobs/${jobId}/trace`;
-
-      // Make the request using the underlying requester
-      const jobTrace = await this.gitlabClient.requester.get(url);
-      return jobTrace as unknown as string;
+      return await retry(
+        async (_, attempt) => {
+          try {
+            const jobsInfo = await this.gitlabClient.Jobs.all(projectPath, { pipelineId });
+            if (jobsInfo.length === 0) {
+              console.error(
+                `Got empty jobs array on attempt ${attempt} for pipeline ${pipelineId}, will retry if attempts remain`,
+              );
+              throw new Error('Empty jobs array received');
+            }
+            return jobsInfo as GitLabJob[];
+          } catch (error) {
+            // Throw error to trigger retry mechanism
+            throw error;
+          }
+        },
+        {
+          retries: 5,
+          minTimeout: 5000,
+          maxTimeout: 15000,
+          onRetry: (error: Error, attempt: number) => {
+            console.log(
+              `[GITLAB-RETRY ${attempt}/5] 🔄 Project: ${projectPath}, Pipeline: ${pipelineId} | Status: Failed | Reason: ${error.message}`,
+            );
+          },
+        },
+      );
     } catch (error) {
-      console.error(`Failed to get logs for job ${jobId} in project ${projectPath}:`, error);
+      console.error(`Failed to get jobs for pipeline ${pipelineId} in project ${projectPath} after multiple retries:`, error);
+      return [];
+    }
+  }
+
+  public async getJobLogs(projectPath: string, jobId: number, jobName: string): Promise<string> {
+    const log = `--- Job: #${jobId} ${jobName} ---`;
+    try {
+      return await retry(
+        async (_, attempt) => {
+          try {
+            // Use the requester to get job trace directly
+            const encodedProjectPath = encodeURIComponent(projectPath);
+            const traceUrl = `projects/${encodedProjectPath}/jobs/${jobId}/trace`;
+            const jobTrace = await this.gitlabClient.requester.get(traceUrl);
+
+            if (!jobTrace || !jobTrace.body) {
+              console.error(
+                `Got empty job log on attempt ${attempt} for job ${jobId}, will retry if attempts remain`,
+              );
+              throw new Error('Empty job log received');
+            }
+
+            return `${log} ${String(jobTrace.body)}`;
+          } catch (error) {
+            // Throw error to trigger retry mechanism
+            throw error;
+          }
+        },
+        {
+          retries: 5,
+          minTimeout: 5000,
+          maxTimeout: 15000,
+          onRetry: (error: Error, attempt: number) => {
+            console.log(
+              `[GITLAB-RETRY ${attempt}/10] 🔄 Project: ${projectPath}, Job: ${jobId} | Status: Failed | Reason: ${error.message}`,
+            );
+          },
+        },
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage === 'Empty job log received') {
+        console.warn(
+          `Job ${jobId} in project ${projectPath} has an empty log after multiple retries. Continuing without its logs.`
+        );
+        return `${log} Log is empty`;
+      }
+      console.error(`Failed to get logs for job ${jobId} in project ${projectPath} after multiple retries:`, error);
+      throw error;
+    }
+  }
+
+  public async getPipelineLogs(projectPath: string, pipelineId: number): Promise<string> {
+    try {
+      const allJobs = await this.getPipelineJobsInfo(projectPath, pipelineId);
+      if (!allJobs){
+        throw new Error(`No Jobs found in project ${projectPath} for pipeline #${pipelineId}`);
+      }
+
+      // Sort jobs by ID to ensure chronological order of logs
+      allJobs.sort((a: GitLabJob, b: GitLabJob) => (a.id) - (b.id));
+
+      const jobLogPromises = (allJobs as GitLabJob[]).map((job) => {
+        if (!job.id && !job.name) {
+          console.error(
+            `Job in pipeline ${pipelineId} is missing an ID or name. Skipping Job: ${JSON.stringify(job)}`,
+          );
+          return Promise.resolve('');
+        }
+        return this.getJobLogs(projectPath, job.id, job.name);
+      });
+
+      const logs = await Promise.all(jobLogPromises);
+      return logs.join('');
+    } catch (error) {
+      console.error(`Failed to get logs for pipeline ${pipelineId} in project ${projectPath}:`, error);
       return 'Failed to retrieve job logs';
     }
   }
