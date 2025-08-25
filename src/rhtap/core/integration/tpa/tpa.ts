@@ -106,7 +106,7 @@ export class TPA implements IntegrationSecret {
    * @param name The name to search for
    * @returns A promise that resolves to an array of SBOM results
    */
-  public async searchSBOM(name: string): Promise<SBOMResult[]> {
+  public async searchSBOMByName(name: string): Promise<SBOMResult[]> {
     console.log(`Searching for SBOM with name: ${name}`);
 
     if (!this.initialized) {
@@ -146,6 +146,30 @@ export class TPA implements IntegrationSecret {
       return result;
     } catch (error) {
       console.log({ err: error }, `Failed to get SBOM by SHA: ${sha256}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Searches for SBOM files by name and document ID
+   * @param name Name of the SBOM to search for
+   * @param documentId Document ID of the SBOM to search for
+   * @returns A promise that resolves to the SBOM result or null if not found
+   * @throws Error if the TPA client is not initialized or if the search fails
+   */
+  public async searchSBOMByNameAndDocID(name: string, documentId: string): Promise<SBOMResult | null> {
+    console.log(`Searching for SBOM with name ${name} and document ID ${documentId}`);
+    if (!this.initialized) {
+      await this.initClient();
+    }
+    if (!this.tpaClient) {
+      throw new Error('TPA client is not initialized');
+    }
+    try {
+      const result = await this.tpaClient.findSBOMsByNameAndDocID(name, documentId);
+      return result;
+    } catch (error) {
+      console.error({ err: error }, `Failed to get SBOM by document ID: ${documentId}`);
       throw error;
     }
   }
