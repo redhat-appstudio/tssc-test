@@ -1,6 +1,7 @@
 import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { UiComponent } from '../../src/ui/uiComponent';
 import { CommonPO } from '../../src/ui/page-objects/common_po';
+import { hideQuickStartIfVisible } from '../../src/ui/common';
 
 /**
  * Create a basic test fixture with testItem
@@ -83,6 +84,12 @@ test.describe('RHTAP UI Test Suite', () => {
         timeout: 20000,
       });
 
+      // Hide Quick start side panel
+      // WORKAROUND FOR: https://issues.redhat.com/browse/RHDHBUGS-1946
+      await test.step('Hide Quick start side panel', async () => {
+        await hideQuickStartIfVisible(page);
+      }, { timeout: 20000 });
+
       await test.step('Check article display', async () => { 
         await docsPlugin.checkArticle(page);
       }, {timeout: 60000});
@@ -100,7 +107,7 @@ test.describe('RHTAP UI Test Suite', () => {
       }, {timeout: 20000});
     });
   });
-  
+
   test.describe('Test Image Registry', () => {
     test('test image registry', async ({ page }) => {
       const registryPlugin = component.getRegistry();
