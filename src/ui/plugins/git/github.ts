@@ -6,7 +6,7 @@
  */
 
 import { GitPlugin } from './gitUiInterface';
-import { expect, Page } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 import { loadFromEnv } from '../../../utils/util';
 import { DHLoginPO, GhLoginPO } from '../../page-objects/login_po';
 import { GitPO } from '../../page-objects/common_po';
