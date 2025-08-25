@@ -1,14 +1,18 @@
 import { Component } from '../../src/rhtap/core/component';
 import { ArgoCD, Environment } from '../../src/rhtap/core/integration/cd/argocd';
-import { CI, CIType } from '../../src/rhtap/core/integration/ci';
+import { CI, CIType, Pipeline } from '../../src/rhtap/core/integration/ci';
 import { Git } from '../../src/rhtap/core/integration/git';
 import { TPA } from '../../src/rhtap/core/integration/tpa';
+import { ImageRegistry } from '../../src/rhtap/core/integration/registry';
 import { ComponentPostCreateAction } from '../../src/rhtap/postcreation/componentPostCreateAction';
 import {
+  runAndWaitforAppSync,
+  getSbomIDFromCIPipelineLogs,
   handleInitialPipelineRuns,
   handleSourceRepoCodeChanges,
-  promoteToEnvironmentWithPR,
-  promoteToEnvironmentWithoutPR,
+  promoteWithPRAndGetPipeline,
+  promoteWithoutPRAndGetPipeline,
+  searchSBOMByDocumentIdList,
 } from '../../src/utils/test/common';
 import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { expect } from '@playwright/test';
@@ -35,6 +39,8 @@ test.describe.serial('TSSC Complete Workflow', () => {
   let ci: CI;
   let git: Git;
   let image: string = '';
+  let promotionPipelineInfo: Pipeline;
+  const sbomDocumentIdList: string[] = [];
 
   test.describe('Component Creation', () => {
     test('should create a component successfully', async ({ testItem }) => {
@@ -86,11 +92,10 @@ test.describe.serial('TSSC Complete Workflow', () => {
 
       // Get latest git commit and sync application
       const commitSha = await git.getGitOpsRepoCommitSha();
-      await cd.syncApplication(Environment.DEVELOPMENT);
 
       // Verify sync was successful
-      const result = await cd.waitUntilApplicationIsSynced(Environment.DEVELOPMENT, commitSha);
-      expect(result.synced).toBe(true);
+      const syncResult = await runAndWaitforAppSync(cd, Environment.DEVELOPMENT, commitSha);
+      expect(syncResult).toBe(true);
       console.log('Application deployed correctly in the development environment!');
     });
 
@@ -101,13 +106,14 @@ test.describe.serial('TSSC Complete Workflow', () => {
 
       // Promote to stage environment using PR workflow
       if (ci.getCIType() === CIType.JENKINS) {
-        await promoteToEnvironmentWithoutPR(git, cd, Environment.STAGE, image);
+        promotionPipelineInfo = await promoteWithoutPRAndGetPipeline(git, ci, cd, Environment.STAGE, image);
       } else {
-        await promoteToEnvironmentWithPR(git, ci, cd, Environment.STAGE, image);
+        promotionPipelineInfo = await promoteWithPRAndGetPipeline(git, ci, cd, Environment.STAGE, image);
       }
       console.log('Image promoted to stage environment successfully!');
 
-      // Additional verification for stage environment could be added here
+      // Get Sbom Document ID from promotion pipeline logs
+      sbomDocumentIdList.push(await getSbomIDFromCIPipelineLogs(ci, promotionPipelineInfo));
     });
 
     test('should promote and verify deployment to production environment', async () => {
@@ -117,32 +123,29 @@ test.describe.serial('TSSC Complete Workflow', () => {
 
       // Promote to production environment using PR workflow
       if (ci.getCIType() === CIType.JENKINS) {
-        await promoteToEnvironmentWithoutPR(git, cd, Environment.PROD, image);
+        promotionPipelineInfo = await promoteWithoutPRAndGetPipeline(git, ci, cd, Environment.PROD, image);
       } else {
-        await promoteToEnvironmentWithPR(git, ci, cd, Environment.PROD, image);
+        promotionPipelineInfo = await promoteWithPRAndGetPipeline(git, ci, cd, Environment.PROD, image);
       }
       console.log('Image promoted to production environment successfully!');
 
-      // Additional verification for production environment could be added here
+      // Get Sbom Document ID from promotion pipeline logs
+      sbomDocumentIdList.push(await getSbomIDFromCIPipelineLogs(ci, promotionPipelineInfo));
     });
   });
 
   test.describe('Security and Compliance', () => {
     test('should verify SBOM is uploaded to Trustification server', async () => {
-      // Skip if no image to verify
-      test.skip(!image, 'No image available to verify SBOM');
-
-      // Extract image digest from image URL
-      const imageDigest = image.split(':').pop() || '';
-      expect(imageDigest).toBeTruthy();
+      // Skip if no SBOM documentID to verify
+      test.skip(!sbomDocumentIdList.length, 'No SBOM document ID available to verify SBOM');
 
       // Get TPA instance and search for SBOM
       const tpa = await TPA.initialize(component.getKubeClient());
-      const sbom = await tpa.searchSBOMBySha256(imageDigest);
+      const sbom = await searchSBOMByDocumentIdList(tpa, sbomDocumentIdList);
 
       // Verify SBOM results exist
-      expect(sbom).toBeDefined();
-      console.log(`SBOM verification successful! Found SBOM for image: ${imageDigest}`);
+      expect(sbom).toBe(true);
+      console.log(`SBOM verification successful for ${sbomDocumentIdList}!`);
     });
   });
 });

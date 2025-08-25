@@ -151,6 +151,29 @@ export class TPA implements IntegrationSecret {
   }
 
   /**
+   * Searches for SBOM files by document ID
+   * @param documentId Document ID of the SBOM to search for
+   * @returns A promise that resolves to the SBOM result or null if not found
+   * @throws Error if the TPA client is not initialized or if the search fails
+   */
+  public async searchSBOMByDocumentId(documentId: string): Promise<SBOMResult | null> {
+    console.log(`Searching for SBOM with document ID: ${documentId}`);
+    if (!this.initialized) {
+      await this.initClient();
+    }
+    if (!this.tpaClient) {
+      throw new Error('TPA client is not initialized');
+    }
+    try {
+      const result = await this.tpaClient.findSBOMByDocumentId(documentId);
+      return result;
+    } catch (error) {
+      console.error({ err: error }, `Failed to get SBOM by document ID: ${documentId}`);
+      throw error;
+    }
+  }
+
+  /**
    * For testing purposes only - allows resetting the singleton
    */
   public static reset(): void {
