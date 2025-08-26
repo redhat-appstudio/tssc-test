@@ -17,7 +17,7 @@ enable_free_tier: true
 # Review configuration
 reviews:
   # Use assertive profile for more thorough feedback
-  profile: "assertive"
+  profile: "chill"
 
   # Enable request changes workflow
   request_changes_workflow: false
