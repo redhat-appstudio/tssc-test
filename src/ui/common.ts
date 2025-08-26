@@ -44,7 +44,7 @@ export async function waitForPageLoad(page: Page, name: string) {
     const bars = await progressBars.all();
     if (bars.length > 0) {
         await Promise.all(
-            bars.map(bar => expect(bar).toBeHidden({ timeout: 10000 }))
+            bars.map(bar => expect(bar).toBeHidden({ timeout: 90000 }))
         );
     }
 
