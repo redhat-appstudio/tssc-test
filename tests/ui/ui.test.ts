@@ -190,6 +190,12 @@ test.describe('RHTAP UI Test Suite', () => {
         // TBD
       });
 
+      // Hide Quick start side panel
+      // WORKAROUND FOR: https://issues.redhat.com/browse/RHDHBUGS-1946
+      await test.step('Hide Quick start side panel', async () => {
+        await hideQuickStartIfVisible(page);
+      }, { timeout: 20000 });
+
       await test.step('Test Gitops Docs', async () => {
         const docsPlugin = component.getDocs();
         await openTab(page, 'Docs');
