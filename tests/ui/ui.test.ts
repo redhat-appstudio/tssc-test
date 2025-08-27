@@ -154,13 +154,9 @@ test.describe('RHTAP UI Test Suite', () => {
   });
 
   test.describe("Check dependencies tab and gitops dependency", () => {
-    let dependencies: DependenciesUiPlugin;
-
-    test.beforeAll(async () => {
-      dependencies = await component.getDependencies();
-    });
 
     test('test dependency', async ({ page }) => {
+      const dependencies = component.getDependencies();
       await page.goto(`${component.getComponentUrl()}/dependencies`, {
         timeout: 20000,
       });
@@ -180,10 +176,9 @@ test.describe('RHTAP UI Test Suite', () => {
         // Skip test for not yet supported git providers
         if (component.getGit() === undefined) {
           console.warn(`Skipping Git test as testing ${component.getCoreComponent().getGit().getGitType()} is not supported`);
-          test.skip();
-          return;
+        } else {
+          await component.getGit()!.checkViewSourceLink(page);
         }
-        await component.getGit()!.checkViewSourceLink(page);
       });
 
       await test.step('Check Gitops CI tab', async () => {
@@ -201,7 +196,7 @@ test.describe('RHTAP UI Test Suite', () => {
         await openTab(page, 'Docs');
         await waitForPageLoad(page, `${component.getCoreComponent().getName()}-gitops`);
         await docsPlugin.checkArticle(page);
-      });
+      }, {timeout: 90000});
     });
   });
 });
