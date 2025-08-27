@@ -166,6 +166,7 @@ test.describe('Component UI Test Suite', () => {
     });
   });
 
+<<<<<<< HEAD:tests/ui/component.test.ts
   test.describe("Check dependencies tab and gitops dependency", () => {
 
     test('test dependency', async ({ page }) => {
@@ -186,3 +187,27 @@ test.describe('Component UI Test Suite', () => {
     });
   });
 });
+=======
+  test.describe("Verify Pipeline Runs", () => {
+    test('verify pipeline runs table', async ({ page }) => {
+      const ciTabUrl = `${component.getComponentUrl()}/ci`;
+      await page.goto(ciTabUrl, { timeout: 20000 });
+      await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
+
+      // Check shield icon next to name
+      await expect(page.locator('svg[data-testid="ErrorOutlineIcon"]')).toBeVisible();
+      // Check vulnerabilities are shown
+      await expect(page.getByText('VULNERABILITIES')).toBeVisible();
+      // Check status is Succeeded with tick icon
+      await expect(page.getByText('Succeeded')).toBeVisible();
+      await expect(page.locator('svg[data-testid="CheckCircleIcon"]')).toBeVisible();
+      // Check started column has date/time format
+      await expect(page.getByText(/\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+(AM|PM)/)).toBeVisible();
+      // Check task status has visible progress bar
+      await expect(page.locator('[role="progressbar"]')).toBeVisible();
+      // Check duration is visible
+      await expect(page.getByText(/\d+\s+minutes?\s+\d+\s+seconds?/)).toBeVisible();
+    });
+  });
+});
+>>>>>>> fbf9b85 (tests(ui): add Verify Pipeline Runs test for RHTAPUI-101):tests/ui/ui.test.ts
