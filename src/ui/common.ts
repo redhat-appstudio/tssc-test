@@ -39,7 +39,7 @@ export async function hideQuickStartIfVisible(page: Page): Promise<void> {
 }
 
 export async function waitForPageLoad(page: Page, name: string) {
-    const progressBars = page.getByRole('progressbar');
+    const progressBars = page.getByRole('main').getByRole('progressbar');
     // Get all progressbar elements and wait until all are hidden
     const bars = await progressBars.all();
     if (bars.length > 0) {
@@ -48,7 +48,7 @@ export async function waitForPageLoad(page: Page, name: string) {
         );
     }
 
-    await expect(page.getByTestId('sidebar-root')).toBeAttached({ timeout: 5000 });
+    await expect(page.getByTestId('sidebar-root')).toBeAttached({ timeout: 10000 });
     await expect(page.getByRole('heading', { name: name })).toBeVisible({ timeout: 20000 });
     await page.waitForLoadState();
 }
