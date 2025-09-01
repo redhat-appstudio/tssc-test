@@ -5,10 +5,10 @@ import { Git } from '../../src/rhtap/core/integration/git';
 import { TPA } from '../../src/rhtap/core/integration/tpa';
 import { ComponentPostCreateAction } from '../../src/rhtap/postcreation/componentPostCreateAction';
 import {
+  runAndWaitforAppSync,
   handleInitialPipelineRuns,
   handleSourceRepoCodeChanges,
-  promoteToEnvironmentWithPR,
-  promoteToEnvironmentWithoutPR,
+  handlePromotionToEnvironment
 } from '../../src/utils/test/common';
 import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { expect } from '@playwright/test';
@@ -86,11 +86,10 @@ test.describe.serial('TSSC Complete Workflow', () => {
 
       // Get latest git commit and sync application
       const commitSha = await git.getGitOpsRepoCommitSha();
-      await cd.syncApplication(Environment.DEVELOPMENT);
 
-      // Verify sync was successful
-      const result = await cd.waitUntilApplicationIsSynced(Environment.DEVELOPMENT, commitSha);
-      expect(result.synced).toBe(true);
+       // Verify sync was successful
+      const syncResult = await runAndWaitforAppSync(cd, Environment.DEVELOPMENT, commitSha);
+      expect(syncResult).toBe(true);
       console.log('Application deployed correctly in the development environment!');
     });
 
@@ -99,12 +98,8 @@ test.describe.serial('TSSC Complete Workflow', () => {
       image = await git.extractApplicationImage(Environment.DEVELOPMENT);
       expect(image).toBeTruthy();
 
-      // Promote to stage environment using PR workflow
-      if (ci.getCIType() === CIType.JENKINS) {
-        await promoteToEnvironmentWithoutPR(git, cd, Environment.STAGE, image);
-      } else {
-        await promoteToEnvironmentWithPR(git, ci, cd, Environment.STAGE, image);
-      }
+      // Promote to stage environment
+      await handlePromotionToEnvironment(git, ci, cd, Environment.STAGE, image);
       console.log('Image promoted to stage environment successfully!');
 
       // Additional verification for stage environment could be added here
@@ -115,12 +110,8 @@ test.describe.serial('TSSC Complete Workflow', () => {
       image = await git.extractApplicationImage(Environment.STAGE);
       expect(image).toBeTruthy();
 
-      // Promote to production environment using PR workflow
-      if (ci.getCIType() === CIType.JENKINS) {
-        await promoteToEnvironmentWithoutPR(git, cd, Environment.PROD, image);
-      } else {
-        await promoteToEnvironmentWithPR(git, ci, cd, Environment.PROD, image);
-      }
+      // Promote to production environment
+      await handlePromotionToEnvironment(git, ci, cd, Environment.PROD, image);
       console.log('Image promoted to production environment successfully!');
 
       // Additional verification for production environment could be added here
