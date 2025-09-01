@@ -1,6 +1,7 @@
 import { TestItem } from '../../playwright/testItem';
 import { ArgoCD, Environment } from '../../rhtap/core/integration/cd/argocd';
 import { CI, CIType, PipelineStatus } from '../../rhtap/core/integration/ci';
+import { Pipeline } from '../../rhtap/core/integration/ci/pipeline';
 import { EventType } from '../../rhtap/core/integration/ci';
 import { Git, PullRequest } from '../../rhtap/core/integration/git';
 import { sleep } from '../util';
@@ -37,7 +38,6 @@ export async function promoteToEnvironmentWithPR(
   image: string
 ): Promise<void> {
   console.log(`Promoting application to ${environment} environment with pull request...`);
-  const ciType = ci.getCIType();
   try {
     // Step 1: Check if target environment's application exists
     const application = await cd.getApplication(environment);
@@ -50,33 +50,11 @@ export async function promoteToEnvironmentWithPR(
     console.log(`Created promotion PR #${pr.pullNumber} in ${git.getGitOpsRepoName()} repository`);
 
     // Step 3: Wait for pipeline triggered by the promotion PR to complete
-    const pipeline = await retry(
-      async () => {
-        const p = await ci.getPipeline(pr, PipelineStatus.RUNNING, EventType.PULL_REQUEST);
-        if (!p) {
-          throw new Error('Pipeline not found or not yet running. Retrying...');
-        }
-        return p;
-      },
-      {
-        retries: 5,
-        minTimeout: 10000,
-        maxTimeout: 30000,
-        onRetry: (error: Error, attempt: number) => {
-          console.log(`Attempt ${attempt} failed: ${error.message}`);
-        },
-      }
-    );
-    if (!pipeline) {
-      throw new Error('No pipeline was triggered by the promotion PR');
-    }
-    console.log(`Pipeline ${pipeline.getDisplayName()} was triggered by the promotion PR`);
-
-    const pipelineStatus = await ci.waitForPipelineToFinish(pipeline);
-    console.log(`Pipeline completed with status: ${pipelineStatus}`);
-    await expectPipelineSuccess(pipeline, ci);
-    console.log(
-      `${ciType} pipeline ${pipeline.getDisplayName()} was successful. Merging pull request #${pr.pullNumber}...`
+    await getPipelineAndWaitForCompletion(
+      ci,
+      pr,
+      EventType.PULL_REQUEST,
+      `promotion PR #${pr.pullNumber} in ${pr.repository}`
     );
 
     // Step 4: Merge the PR when pipeline was successful
@@ -84,15 +62,10 @@ export async function promoteToEnvironmentWithPR(
     console.log(`Merged promotion PR #${mergedPR.pullNumber} with SHA: ${mergedPR.sha}`);
 
     // Step 5: Sync and wait for the application to be ready
-    console.log(`Syncing application in ${environment} environment`);
-    await cd.syncApplication(environment);
+    const syncResult = await runAndWaitforAppSync(cd, environment, mergedPR.sha);
+    expect(syncResult).toBe(true);
 
-    console.log(`Waiting for application to sync in ${environment} environment...`);
-    const syncResult = await cd.waitUntilApplicationIsSynced(environment, mergedPR.sha);
-    if (!syncResult.synced) {
-      throw new Error(`Failed to sync application: ${syncResult.message}`);
-    }
-    console.log(`Application successfully promoted to ${environment}: ${syncResult.message}`);
+    console.log(`Application successfully promoted to ${environment}`);
   } catch (error) {
     console.error(
       `Error promoting application to ${environment}: ${error instanceof Error ? error.message : String(error)}`
@@ -120,6 +93,7 @@ export async function promoteToEnvironmentWithPR(
  */
 export async function promoteToEnvironmentWithoutPR(
   git: Git,
+  ci: CI,
   cd: ArgoCD,
   environment: Environment,
   image: string
@@ -136,21 +110,109 @@ export async function promoteToEnvironmentWithoutPR(
     const commitSha = await git.createPromotionCommitOnGitOpsRepo(environment, image);
     console.log(`Created commit with SHA: ${commitSha}`);
 
-    // Step 3: Sync and wait for the application to be ready
-    console.log(`Syncing application in ${environment} environment...`);
+    // Create a pull request object for pipeline reference only
+    // Note: This is not an actual PR, just a reference object with the commit SHA
+    const commitRef = new PullRequest(0, commitSha, git.getGitOpsRepoName());
+
+    // Step 3: Wait for pipeline triggered by the promotion PR to complete
+    await getPipelineAndWaitForCompletion(
+      ci,
+      commitRef,
+      EventType.PUSH,
+      `commit ${commitSha} on main branch in ${commitRef.repository}`
+    );
+
+    // Step 4: Sync and wait for the application to be ready
+    const syncResult = await runAndWaitforAppSync(cd, environment, commitSha);
+    expect(syncResult).toBe(true);
+
+    console.log(`Application successfully promoted to ${environment}`);
+  } catch (error) {
+    console.error(
+      `Error directly promoting application to ${environment}: ${error instanceof Error ? error.message : String(error)}`
+    );
+    throw error;
+  }
+}
+
+export async function runAndWaitforAppSync(
+  cd: ArgoCD,
+  environment: Environment,
+  commitSha: string
+): Promise<boolean> {
+  try{
+    // Sync and wait for the application to be ready
+    console.log(`Syncing application in ${environment} environment`);
     await cd.syncApplication(environment);
 
     console.log(`Waiting for application to sync in ${environment} environment...`);
     const syncResult = await cd.waitUntilApplicationIsSynced(environment, commitSha);
-
     if (!syncResult.synced) {
-      throw new Error(`Failed to sync application: ${syncResult.message}`);
+      throw new Error(`Failed to sync application. Status: ${syncResult.status}. Reason: ${syncResult.message}`);
     }
-
-    console.log(`Application successfully promoted to ${environment}: ${syncResult.message}`);
+    console.log(`Application successfully synced to ${environment}: ${syncResult.message}`);
+    return syncResult.synced;
   } catch (error) {
     console.error(
-      `Error directly promoting application to ${environment}: ${error instanceof Error ? error.message : String(error)}`
+      `Error syncing and waiting for application to sync to ${environment} with commitSha ${commitSha}: ${error instanceof Error ? error.message : String(error)}`
+    );
+    throw error;
+  }
+}
+
+/**
+ * Helper function to get pipeline and wait for completion with consistent error handling
+ * @param ci CI provider instance
+ * @param reference Pull request or commit reference
+ * @param eventType Event type (PULL_REQUEST or PUSH)
+ * @param operationDescription Description for logging
+ * @returns Promise<Pipeline> The completed pipeline
+ */
+export async function getPipelineAndWaitForCompletion(
+  ci: CI,
+  prReference: PullRequest,
+  eventType: EventType,
+  operationDescription: string
+): Promise<Pipeline> {
+  const ciType = ci.getCIType();
+
+  try{
+    console.log(`🔍 Getting ${ciType} pipeline for ${operationDescription}...`);
+    const pipeline = await retry(
+      async () => {
+        const p = await ci.getPipeline(prReference, PipelineStatus.RUNNING, eventType);
+        if (!p) {
+          throw new Error('Pipeline not found or not yet running. Retrying...');
+        }
+        return p;
+      },
+      {
+        retries: 5,
+        minTimeout: 10000,
+        maxTimeout: 30000,
+        onRetry: (error: Error, attempt: number) => {
+          console.error(`Attempt ${attempt} failed: ${error.message}`);
+        },
+      }
+    );
+
+    if (!pipeline) {
+      console.error(`No ${ciType} pipeline was triggered by ${operationDescription}`);
+      throw new Error('Expected a pipeline to be triggered but none was found');
+    }
+
+    console.log(`Pipeline ${pipeline.getDisplayName()} was triggered by ${operationDescription}`);
+
+    const pipelineStatus = await ci.waitForPipelineToFinish(pipeline);
+    console.log(`${ciType} pipeline completed with status: ${pipelineStatus}`);
+
+    await expectPipelineSuccess(pipeline, ci);
+    console.log(`${ciType} pipeline ${pipeline.getDisplayName()} was successful`);
+
+    return pipeline;
+  } catch (error) {
+    console.error(
+      `Error waiting for pipeline: ${error instanceof Error ? error.message : String(error)}`
     );
     throw error;
   }
@@ -230,83 +292,61 @@ export async function handleSourceRepoCodeChanges(git: Git, ci: CI): Promise<voi
  * @throws Error if the build or deployment process fails
  */
 export async function fastMovingToBuildApplicationImage(git: Git, ci: CI): Promise<void> {
-  const ciType = ci.getCIType();
   const gitType = git.getGitType();
-  console.log(`Creating a direct commit on source repo on ${gitType} repository ...`);
-  // Step 1: Create a direct commit to the main branch
-  const commitSha = await git.createSampleCommitOnSourceRepo();
-  console.log(`Created commit with SHA: ${commitSha}`);
-  await sleep(10000);
-  // Create a pull request object for pipeline reference only
-  // Note: This is not an actual PR, just a reference object with the commit SHA
-  const commitRef = new PullRequest(0, commitSha, git.getSourceRepoName());
-  const pipeline = await ci.getPipeline(commitRef, PipelineStatus.RUNNING, EventType.PUSH);
-  if (!pipeline) {
-    console.warn(
-      `No ${ciType} pipeline was triggered by the commit ${commitSha} on the main branch`
+  try {
+    console.log(`Creating a direct commit on source repo on ${gitType} repository ...`);
+
+    // Step 1: Create a direct commit to the main branch
+    const commitSha = await git.createSampleCommitOnSourceRepo();
+    console.log(`Created commit with SHA: ${commitSha}`);
+    await sleep(10000);
+
+    // Create a pull request object for pipeline reference only
+    // Note: This is not an actual PR, just a reference object with the commit SHA
+    const commitRef = new PullRequest(0, commitSha, git.getSourceRepoName());
+
+    // Step 2: Wait for pipeline to complete after commit
+    await getPipelineAndWaitForCompletion(
+      ci,
+      commitRef,
+      EventType.PUSH,
+      `commit ${commitSha} on main branch in ${commitRef.repository}`
     );
-    throw new Error('Expected a pipeline to be triggered but none was found');
+  } catch (error) {
+    console.error(
+      `Error handling source repo code changes: ${error instanceof Error ? error.message : String(error)}`
+    );
+    throw error;
   }
-  const pipelineStatus = await ci.waitForPipelineToFinish(pipeline);
-  console.log(`${ciType} pipeline completed with status: ${pipelineStatus}`);
-  await expectPipelineSuccess(pipeline, ci);
-  console.log(`${ciType} pipeline ${pipeline.getDisplayName()} was successful.`);
 }
 
 export async function buildApplicationImageWithPR(git: Git, ci: CI): Promise<void> {
-  const ciType = ci.getCIType();
   const gitType = git.getGitType();
   try {
     console.log(`Creating a pull request on source repo on ${gitType} repository ...`);
+
     // Step 1: Create a PR which triggers a pipeline
     const pullRequest = await git.createSamplePullRequestOnSourceRepo();
     console.log(`Created PR ${pullRequest.url} with SHA: ${pullRequest.sha}`);
 
-    // Step 2: Get the pipeline triggered by the PR
-    console.log(`Getting ${ciType} pipeline for Open Pull Request...`);
-    const pipeline = await ci.getPipeline(
+    // Step 2: Get the pipeline triggered by the PR and wait for complete
+    await getPipelineAndWaitForCompletion(
+      ci,
       pullRequest,
-      PipelineStatus.RUNNING,
-      EventType.PULL_REQUEST
-    );
-    if (!pipeline) {
-      console.warn(
-        `No ${ciType} pipeline was triggered by the pull request #${pullRequest.pullNumber}`
-      );
-      throw new Error('Expected a pipeline to be triggered but none was found');
-    }
-
-    // Step 3: Wait for the PR pipeline to complete
-    console.log(`Waiting for ${ciType} pipeline ${pipeline.getDisplayName()} to finish...`);
-    const pipelineStatus = await ci.waitForPipelineToFinish(pipeline);
-    console.log(`${ciType} pipeline completed with status: ${pipelineStatus}`);
-
-    // Step 4: If PR pipeline is successful, merge it and wait for the push pipeline
-    // Import the expectPipelineSuccess helper instead of using expect directly
-    await expectPipelineSuccess(pipeline, ci);
-    console.log(
-      `${ciType} pipeline ${pipeline.getDisplayName()} was successful. Merging pull request #${pullRequest.pullNumber}...`
+      EventType.PULL_REQUEST,
+      `promotion PR #${pullRequest.pullNumber} in ${pullRequest.repository}`
     );
 
     // TODO: Uncomment the following line when mergePullRequest is implemented
+    //Step 3: If PR pipeline is successful, merge it and wait for the push pipeline
     const mergedPR = await git.mergePullRequest(pullRequest);
 
-    // Step 5: Wait for the push pipeline triggered by the merge
-    console.log(`Getting on-push pipeline for Merged PR #${mergedPR.pullNumber}...`);
-    const pushPipeline = await ci.getPipeline(mergedPR, PipelineStatus.RUNNING, EventType.PUSH);
-
-    if (!pushPipeline) {
-      console.warn(`No push pipeline was triggered after merging the PR #${mergedPR.pullNumber}`);
-      throw new Error('Expected a push pipeline to be triggered but none was found');
-    }
-
-    console.log(`Waiting for on-push pipeline ${pushPipeline.getDisplayName()} to finish...`);
-    const pushStatus = await ci.waitForPipelineToFinish(pushPipeline);
-    console.log(`On-push pipeline completed with status: ${pushStatus}`);
-
-    await expectPipelineSuccess(pipeline, ci);
-    console.log(
-      `On-push pipeline ${pushPipeline.getDisplayName()} was successful. Merging pull request #${pullRequest.pullNumber}...`
+    //Step 4: Wait for Pipeline to complete after merged PR
+    await getPipelineAndWaitForCompletion(
+      ci,
+      mergedPR,
+      EventType.PUSH,
+      `on-push pipeline after merging #${mergedPR.pullNumber} in ${mergedPR.repository}`
     );
   } catch (error) {
     console.error(
@@ -326,5 +366,21 @@ export async function handleInitialPipelineRuns(ci: CI): Promise<void> {
     // For other CI providers, wait for the initial pipelines to complete.
     console.log(`CI Provider is ${ci.getCIType()} - waiting for initial pipelines to finish`);
     await ci.waitForAllPipelineRunsToFinish();
+  }
+}
+
+export async function handlePromotionToEnvironment(
+  git: Git,
+  ci: CI,
+  cd: ArgoCD,
+  environment: Environment,
+  image: string
+): Promise<void> {
+  // If CI is Jenkins, promote with directly creating commit
+  // Else, promote with creating PR
+  if (ci.getCIType() === CIType.JENKINS) {
+    await promoteToEnvironmentWithoutPR(git, ci, cd, environment, image);
+  } else {
+    await promoteToEnvironmentWithPR(git, ci, cd, environment, image);
   }
 }
