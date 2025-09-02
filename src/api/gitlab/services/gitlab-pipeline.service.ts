@@ -1,4 +1,4 @@
-import { Gitlab } from '@gitbeaker/rest';
+import { Gitlab, JobSchema } from '@gitbeaker/rest';
 import retry from 'async-retry';
 import { IGitLabPipelineService } from '../interfaces/gitlab.interfaces';
 import {
@@ -78,17 +78,46 @@ export class GitLabPipelineService implements IGitLabPipelineService {
     }
   }
 
-  public async getPipelineLogs(projectPath: string, jobId: number): Promise<string> {
+  public async getPipelineJobsInfo(projectPath: string, pipelineId: number): Promise<JobSchema[]> {
     try {
-      // GitLab API endpoint for job traces is GET /projects/:id/jobs/:job_id/trace
-      const encodedProjectPath = encodeURIComponent(projectPath);
-      const url = `projects/${encodedProjectPath}/jobs/${jobId}/trace`;
-
-      // Make the request using the underlying requester
-      const jobTrace = await this.gitlabClient.requester.get(url);
-      return jobTrace as unknown as string;
+      // GitLab API endpoint for listing jobs in a pipeline
+      const jobs = await this.gitlabClient.Jobs.all(projectPath, { pipelineId });
+      return jobs as JobSchema[];
     } catch (error) {
-      console.error(`Failed to get logs for job ${jobId} in project ${projectPath}:`, error);
+      console.error(`Failed to get jobs for pipeline ${pipelineId} in project ${projectPath}:`, error);
+      throw error;
+    }
+  }
+
+  public async getJobLogs(projectPath: string, jobId: number, jobName: string): Promise<string> {
+    try {
+      const log = `\n--- Job: #${jobId} ${jobName} ---\n`;
+      // Use the requester to get job trace directly
+      const encodedProjectPath = encodeURIComponent(projectPath);
+      const traceUrl = `projects/${encodedProjectPath}/jobs/${jobId}/trace`;
+      const jobTrace = await this.gitlabClient.requester.get(traceUrl);
+
+      return `${log} ${String(jobTrace.body)}`;
+    } catch (error) {
+      console.error(`Error while getting job logs for Job ${jobId}: ${error}`);
+      throw error;
+    }
+  }
+
+  public async getPipelineLogs(projectPath: string, pipelineId: number): Promise<string> {
+    try {
+      const allJobs = await this.getPipelineJobsInfo(projectPath, pipelineId);
+      let pipelineLogs: string = '';
+
+      await Promise.all(
+        allJobs.map(async (job: JobSchema) => {
+            const jobLogs = await this.getJobLogs(projectPath, job.id, job.name);
+            pipelineLogs += jobLogs;
+        })
+      );
+      return pipelineLogs;
+    } catch (error) {
+      console.error(`Failed to get logs for pipeline ${pipelineId} in project ${projectPath}:`, error);
       return 'Failed to retrieve job logs';
     }
   }

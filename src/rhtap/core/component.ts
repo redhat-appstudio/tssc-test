@@ -71,9 +71,9 @@ export class Component {
       );
 
       component.cd = new ArgoCD(component.name, component.kubeClient);
+
       // Initialize developer hub and create component
       component.developerHub = await component.createDeveloperHub();
-
       const componentOptions = component.createComponentOptions(
         testItem,
         component.registry,
