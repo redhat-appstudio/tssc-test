@@ -2,6 +2,7 @@ import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { UiComponent } from '../../src/ui/uiComponent';
 import { CommonPO } from '../../src/ui/page-objects/common_po';
 import { hideQuickStartIfVisible } from '../../src/ui/common';
+import { CIType } from '../../src/rhtap/core/integration/ci';
 
 /**
  * Create a basic test fixture with testItem
@@ -66,10 +67,16 @@ test.describe('RHTAP UI Test Suite', () => {
   
   test.describe("Verify CI", () => {
     test('verify CI provider on CI tab', async ({ page }) => {
+      if (component.getCoreComponent().getCI().getCIType() === CIType.GITHUB_ACTIONS) {
+        console.warn(`Skipping CI test as testing ${component.getCoreComponent().getCI().getCIType} is not supported`);
+        test.skip();
+        return;
+      }
+
       const componentUrl = component.getComponentUrl();
       const ciTabUrl = `${componentUrl}/ci`;
       await page.goto(ciTabUrl, { timeout: 20000 });
-        
+
       await page.waitForLoadState('domcontentloaded');
       await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
     });
