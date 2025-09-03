@@ -1,5 +1,5 @@
 import { CIType } from '../../core/integration/ci';
-import { ComponentActionStrategy } from '../../postcreation/strategies/componentActionStrategy';
+import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
 import { AzureCICleanupActionStrategy } from './azureCICleanupActionStrategy';
 import { DummyCleanupActionStrategy } from './dummyStrategy';
 

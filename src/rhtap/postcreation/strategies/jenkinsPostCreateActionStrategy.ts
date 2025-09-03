@@ -6,7 +6,7 @@ import { CreateWebhookCommand } from './commands/createWebhookCommand';
 import { JenkinsfileAndEnvModificationsOnGitopsRepoCommand } from './commands/jenkinsfileAndEnvModificationsOnGitopsRepoCommand';
 import { JenkinsfileAndEnvModificationsOnSourceRepoCommand } from './commands/jenkinsfileAndEnvModificationsOnSourceRepoCommand';
 import { TriggerJenkinsJobCommand } from './commands/triggerJenkinsJobCommand';
-import { ComponentActionStrategy } from './componentActionStrategy';
+import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
 
 /**
  * Jenkins-specific implementation of post-creation action strategy

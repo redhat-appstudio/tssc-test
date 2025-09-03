@@ -1,5 +1,5 @@
 import { Component } from '../../core/component';
-import { ComponentActionStrategy } from '../../postcreation/strategies/componentActionStrategy';
+import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
 
 /**
  * Dummy strategy to serve as placeholder for not yet implemented action strategies

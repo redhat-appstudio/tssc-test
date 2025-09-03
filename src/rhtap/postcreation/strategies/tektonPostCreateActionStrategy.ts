@@ -2,7 +2,7 @@ import { Component } from '../../core/component';
 import { GitType } from '../../core/integration/git';
 import { Command } from './commands/command';
 import { CreateWebhookCommand } from './commands/createWebhookCommand';
-import { ComponentActionStrategy } from './componentActionStrategy';
+import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
 
 /**
  * Implementation of PostCreateActionStrategy for Tekton CI
