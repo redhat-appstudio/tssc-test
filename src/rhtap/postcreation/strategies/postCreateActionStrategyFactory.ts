@@ -1,6 +1,6 @@
 import { CIType } from '../../core/integration/ci';
 import { AzureCIPostCreateActionStrategy } from './azureCIPostCreateActionStrategy';
-import { ComponentActionStrategy } from './componentActionStrategy';
+import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
 import { GithubActionsPostCreateActionStrategy } from './githubActionsPostCreateActionStrategy';
 import { GitlabCIPostCreateActionStrategy } from './gitlabCIPostCreateActionStrategy';
 import { JenkinsPostCreateActionStrategy } from './jenkinsPostCreateActionStrategy';

@@ -4,7 +4,7 @@ import { AddAzureVarsAndSecrets } from './commands/addAzureSecrets';
 import { AuthorizeAzurePipelines } from './commands/authorizeAzurePipeline';
 import { CreateAzurePipelines } from './commands/createAzurePipelines';
 import { ModifyAzureFiles } from './commands/modifyAzureFiles';
-import { ComponentActionStrategy } from './componentActionStrategy';
+import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
 
 /**
  * Azure-specific implementation of post-creation action strategy

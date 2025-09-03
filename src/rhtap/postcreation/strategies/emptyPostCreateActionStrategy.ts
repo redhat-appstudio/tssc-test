@@ -1,5 +1,5 @@
 import { Component } from '../../core/component';
-import { ComponentActionStrategy } from './componentActionStrategy';
+import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
 
 /**
  * A "null object" implementation of PostCreateActionStrategy

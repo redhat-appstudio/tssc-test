@@ -3,7 +3,7 @@ import { GitType } from '../../core/integration/git';
 import { AddGithubSecretsAndVariablesCommand } from './commands/addGithubSecretsAndVariablesCommand';
 import { Command } from './commands/command';
 import { UpdateCIRunnerImage } from './commands/updateCIRunnerImage';
-import { ComponentActionStrategy } from './componentActionStrategy';
+import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
 
 export class GithubActionsPostCreateActionStrategy implements ComponentActionStrategy {
   private readonly gitProviderHandlers: Partial<

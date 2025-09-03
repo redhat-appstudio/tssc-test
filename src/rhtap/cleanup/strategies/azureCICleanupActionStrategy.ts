@@ -1,5 +1,5 @@
 import { Component } from '../../core/component';
-import { ComponentActionStrategy } from '../../postcreation/strategies/componentActionStrategy';
+import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
 import { RemoveServiceConnection } from './commands/removeServiceConnection';
 import { RemoveVarsAndSecrets } from './commands/removeVarsAndSecrets';
 
