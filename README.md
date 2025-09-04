@@ -118,7 +118,7 @@ The testplan.json file supports defining multiple TSSC combinations, allowing yo
 
 - **`tssc`**: Array of TSSC configuration objects, each containing:
   - `git`: Git provider - `["github", "gitlab", "bitbucket"]`
-  - `ci`: CI provider - `["tekton", "jenkins", "gitlabci", "githubactions"]`
+  - `ci`: CI provider - `["tekton", "jenkins", "gitlabci", "githubactions", "azure"]`
   - `registry`: Image registry - `["quay","artifactory", "nexus"]`
   - `acs`: ACS configuration - `["local", "remote"]`
   - `tpa`: TPA configuration - `["local", "remote"]`

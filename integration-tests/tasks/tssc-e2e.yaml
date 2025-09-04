@@ -117,6 +117,10 @@ spec:
         # When using Bitbucket as git repository, set the following variables
         export BITBUCKET_WORKSPACE="rhtap-test"
         export BITBUCKET_PROJECT="RHTAP"
+
+        # ========================== CI ======================================
+        # When using Azure pipelines, set the following variables
+        export AZURE_PROJECT="shared-public"
         EOF
 
         # Set CI_TEST_RUNNER_IMAGE if CI running for tssc-dev-multi-ci repo

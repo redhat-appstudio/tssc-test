@@ -3,8 +3,10 @@ import { ArgoCD, Environment } from '../../rhtap/core/integration/cd/argocd';
 import { CI, CIType, PipelineStatus } from '../../rhtap/core/integration/ci';
 import { EventType } from '../../rhtap/core/integration/ci';
 import { Git, PullRequest } from '../../rhtap/core/integration/git';
+import { sleep } from '../util';
 import { expectPipelineSuccess } from './assertionHelpers';
 import { expect } from '@playwright/test';
+import retry from 'async-retry';
 
 /**
  * Promotes an application to a specific environment using a pull request workflow
@@ -48,8 +50,23 @@ export async function promoteToEnvironmentWithPR(
     console.log(`Created promotion PR #${pr.pullNumber} in ${git.getGitOpsRepoName()} repository`);
 
     // Step 3: Wait for pipeline triggered by the promotion PR to complete
-    // return ci.getPipeline(pullRequest, PipelineStatus.RUNNING, eventType);
-    const pipeline = await ci.getPipeline(pr, PipelineStatus.RUNNING, EventType.PULL_REQUEST);
+    const pipeline = await retry(
+      async () => {
+        const p = await ci.getPipeline(pr, PipelineStatus.RUNNING, EventType.PULL_REQUEST);
+        if (!p) {
+          throw new Error('Pipeline not found or not yet running. Retrying...');
+        }
+        return p;
+      },
+      {
+        retries: 5,
+        minTimeout: 10000,
+        maxTimeout: 30000,
+        onRetry: (error: Error, attempt: number) => {
+          console.log(`Attempt ${attempt} failed: ${error.message}`);
+        },
+      }
+    );
     if (!pipeline) {
       throw new Error('No pipeline was triggered by the promotion PR');
     }
@@ -180,7 +197,7 @@ export async function handleSourceRepoCodeChanges(git: Git, ci: CI): Promise<voi
   const ciType = ci.getCIType();
   const gitType = git.getGitType();
 
-  if (ciType === CIType.GITHUB_ACTIONS || ciType === CIType.JENKINS) {
+  if (ciType === CIType.GITHUB_ACTIONS || ciType === CIType.JENKINS || ciType === CIType.AZURE) {
     console.log(`Using ${ciType} for ${gitType} repository`);
     // For GitHub Actions, we create a direct commit to the main branch
     return fastMovingToBuildApplicationImage(git, ci);
@@ -219,7 +236,7 @@ export async function fastMovingToBuildApplicationImage(git: Git, ci: CI): Promi
   // Step 1: Create a direct commit to the main branch
   const commitSha = await git.createSampleCommitOnSourceRepo();
   console.log(`Created commit with SHA: ${commitSha}`);
-
+  await sleep(10000);
   // Create a pull request object for pipeline reference only
   // Note: This is not an actual PR, just a reference object with the commit SHA
   const commitRef = new PullRequest(0, commitSha, git.getSourceRepoName());
@@ -308,6 +325,6 @@ export async function handleInitialPipelineRuns(ci: CI): Promise<void> {
   } else {
     // For other CI providers, wait for the initial pipelines to complete.
     console.log(`CI Provider is ${ci.getCIType()} - waiting for initial pipelines to finish`);
-    await ci.waitForAllPipelinesToFinish();
+    await ci.waitForAllPipelineRunsToFinish();
   }
 }
