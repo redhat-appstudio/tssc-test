@@ -8,7 +8,7 @@
     "acs": "remote"
   },
   {
-    "git": "gitlab",
+    "git": "github",
     "ci": "tekton",
     "registry": "nexus",
     "tpa": "remote",
