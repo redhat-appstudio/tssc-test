@@ -252,9 +252,7 @@ The framework includes UI automation tests that validate the tssc user interface
 
 - Complete all backend test setup steps above
 - Component should be created manually or during backend tests
-- Component name should be set as an environment variable
 - Set UI-specific variables in the `.env` file
-- GitHub App authentication: Ensure user has authenticated the application manually (this step is not part of the UI tests)
 
 ### Running UI Tests
 
@@ -264,7 +262,7 @@ The framework includes UI automation tests that validate the tssc user interface
 npm run test:ui
 
 # Run UI tests in UI mode (interactive)
-npm run ui
+npm run test:ui-interactive
 ```
 
 #### Container Execution
@@ -273,7 +271,7 @@ npm run ui
 npm run test:ui
 ```
 
-**Note:** UI mode (`npm run ui`) opens the Playwright UI interface and allows developers to see test execution and UI behavior, read the DOM, watch page networking, etc. This mode is only available for local execution.
+**Note:** UI mode (`npm run test:ui-interactive`) opens the Playwright UI interface and allows developers to see test execution and UI behavior, read the DOM, watch page networking, etc. This mode is only available for local execution.
 
 ### UI Test Structure
 
@@ -293,7 +291,7 @@ Plugin-related functionality is stored in the `/src/ui/plugins` directory, organ
 
 ### UI Test Artifacts
 
-UI tests should save artifacts to a separate directory from backend E2E tests to prevent overwriting. This is currently not implemented, so please backup your test results if needed before a new test run.
+UI tests save screenshots and videos to the same directories as the backend E2E tests. However, those artifacts are not yet archived from the CI runs.
 
 ### Security concerns
 
