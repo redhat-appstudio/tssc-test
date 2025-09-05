@@ -186,4 +186,67 @@ export class DeveloperHub {
       }
     }
   }
+
+  /**
+   * Deletes entities from Developer Hub by selector
+   * @param selector The selector to match entities (e.g., component name)
+   * @returns Promise<boolean> - true if deletion was successful, false otherwise
+   */
+  public async deleteEntitiesBySelector(selector: string): Promise<boolean> {
+    try {
+      console.log(`Deleting entities with selector: ${selector}`);
+
+      // Get all entities and filter them based on the selector
+      const response = await this.axios.get(`${this.url}/api/catalog/entities`);
+      
+      const filteredEntities = response.data.filter((entity: any) => 
+        (entity.kind === 'Component' && entity.metadata?.name?.includes(selector)) || 
+        (entity.kind === 'Resource' && entity.metadata?.name?.includes(selector)) || 
+        (entity.kind === 'Location' && entity.spec?.target?.includes(selector))
+      );
+
+      if (filteredEntities.length === 0) {
+        console.log(`No components found in catalog with the description containing "${selector}".`);
+        return false;
+      }
+
+      // Delete all filtered entities
+      const results = await Promise.all(
+        filteredEntities.map((entity: any) => this.unregisterEntityByUid(entity.metadata.uid))
+      );
+
+      if (results.every(r => r === true)) {
+        console.log(`Successfully deleted all entities with selector: ${selector}`);
+        return true;
+      } else {
+        console.log(`Some entities with selector ${selector} failed to delete`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`Error deleting entities with selector ${selector}:`, error);
+      return false;
+    }
+  }
+
+
+  /**
+   * Unregisters an entity by its UID
+   * @param id The entity UID to delete
+   * @returns Promise<boolean> - true if deletion was successful, false otherwise
+   */
+  private async unregisterEntityByUid(id: string): Promise<boolean> {
+    try {
+      const response = await this.axios.delete(`${this.url}/api/catalog/entities/by-uid/${id}`);
+      if (response.status >= 200 && response.status < 300) {
+        console.log(`Entity UID: ${id} deleted successfully (status ${response.status})`);
+        return true;
+      } else {
+        console.log(`Failed to delete entity UID ${id}: ${response.status} ${response.statusText}`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`Error deleting entity with UID ${id}:`, error);
+      return false;
+    }
+  }
 }
