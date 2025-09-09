@@ -4,12 +4,13 @@ import { ScaffolderOptionsBuilder } from '../../api/rhdh/scaffoldOptionsBuilder'
 import { DEFAULT_APP_NAMESPACE } from '../../constants';
 import { TestItem } from '../../playwright/testItem';
 import { ArgoCD } from '../core/integration/cd/argocd';
-import { CI, CIFactory } from '../core/integration/ci';
+import { CI, CIFactory, CIType } from '../core/integration/ci';
 import { Git, GitType, GithubProvider, GitlabProvider } from '../core/integration/git';
 import { createGit } from '../core/integration/git';
 import { BitbucketProvider } from '../core/integration/git';
 import { ImageRegistry, createRegistry } from '../core/integration/registry';
-import { ScaffolderScaffoldOptions } from '@backstage/plugin-scaffolder-react';
+import { ScaffolderScaffoldOptions, ScaffolderTask } from '@backstage/plugin-scaffolder-react';
+import { AzureCI } from './integration/ci/providers/azureCI';
 
 export class Component {
   private name: string;
@@ -150,11 +151,11 @@ export class Component {
     git: Git
   ): ScaffolderScaffoldOptions {
     const template = testItem.getTemplate();
-
+    let builder: any;
     switch (testItem.getGitType()) {
       case GitType.GITHUB:
         const github = git as unknown as GithubProvider;
-        return ScaffolderOptionsBuilder(GitType.GITHUB)
+        builder = ScaffolderOptionsBuilder(GitType.GITHUB)
           .withTemplateName(template)
           .withName(git.getSourceRepoName())
           .withImageConfig(
@@ -164,11 +165,11 @@ export class Component {
           )
           .withCIType(ci.getCIType())
           .withNamespace(DEFAULT_APP_NAMESPACE)
-          .forGitRepo(github.getOrganization(), github.getSourceRepoName())
-          .build();
+          .forGitRepo(github.getOrganization(), github.getSourceRepoName());
+        break;
       case GitType.GITLAB:
         const gitlab = git as unknown as GitlabProvider;
-        return ScaffolderOptionsBuilder(GitType.GITLAB)
+        builder = ScaffolderOptionsBuilder(GitType.GITLAB)
           .withTemplateName(template)
           .withName(git.getSourceRepoName())
           .withImageConfig(
@@ -178,15 +179,15 @@ export class Component {
           )
           .withCIType(ci.getCIType())
           .withNamespace(DEFAULT_APP_NAMESPACE)
-          .forGitRepo(gitlab.getGroup(), gitlab.getSourceRepoName())
-          .build();
+          .forGitRepo(gitlab.getGroup(), gitlab.getSourceRepoName());
+        break;
       case GitType.BITBUCKET:
         const bitbucket = git as unknown as BitbucketProvider;
         const repoName = bitbucket.getSourceRepoName();
         const workspaceName = bitbucket.getWorkspace();
         const projectName = bitbucket.getProject();
         const username = bitbucket.getUsername();
-        return ScaffolderOptionsBuilder(GitType.BITBUCKET)
+        builder = ScaffolderOptionsBuilder(GitType.BITBUCKET)
           .withTemplateName(template)
           .withName(repoName)
           .withImageConfig(
@@ -196,11 +197,17 @@ export class Component {
           )
           .withCIType(ci.getCIType())
           .withNamespace(DEFAULT_APP_NAMESPACE)
-          .forGitRepo(username, workspaceName, projectName, repoName)
-          .build();
+          .forGitRepo(username, workspaceName, projectName, repoName);
+        break;
       default:
         throw new Error(`Unsupported git type: ${testItem.getGitType()}`);
     }
+
+    if (ci.getCIType() == CIType.AZURE) {
+      builder.withAzureProject('shared-public');
+    }
+
+    return builder.build();
   }
 
   public getCI(): CI {

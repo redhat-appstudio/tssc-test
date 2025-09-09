@@ -133,7 +133,7 @@ test.describe.serial('TSSC Complete Workflow', () => {
       test.skip(!image, 'No image available to verify SBOM');
 
       // Extract image digest from image URL
-      const imageDigest = image.split(':').pop() || '';
+      const imageDigest = image.split(':').slice(-1)[0];
       expect(imageDigest).toBeTruthy();
 
       // Get TPA instance and search for SBOM

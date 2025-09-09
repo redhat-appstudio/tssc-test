@@ -61,7 +61,7 @@ export class TAS {
    * Gets the Rekor server URL
    * @returns Promise resolving to the Rekor server URL
    */
-  public getRokorServerURL(): string {
+  public getRekorServerURL(): string {
     if (!this.secret) {
       throw new Error('TAS not properly initialized');
     }

@@ -163,4 +163,6 @@ export abstract class BaseGitProvider implements Git {
     filePath: string,
     branch: string
   ): Promise<string>;
+
+  public abstract getToken(): string;
 }
