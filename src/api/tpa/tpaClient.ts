@@ -210,24 +210,44 @@ export class TPAClient {
     // Define the operation to retry
     const operation = async (): Promise<SBOMResult[]> => {
       try {
-        const searchParams = name ? { q: name } : {};
+        const allItems: any[] = [];
+        const limit = 100;  // Number of items to fetch per API request (page size)
+        let offset = 0;     // Starting index for pagination; increases by 'limit' each loop
+        let moreItems = true;
 
         interface SearchResponse {
           total: number;
           items: any[];
         }
 
-        const response = await this.makeAuthenticatedRequest<SearchResponse>({
-          method: 'GET',
-          url: searchUrl,
-          params: searchParams,
-        });
+        while (moreItems) {
+          const searchParams = {
+            ...(name ? { q: name } : {}),
+            limit,
+            offset,
+          };
 
-        if (response.total > 0) {
-          console.log(`SBOM search for '${name}' successful. Found ${response.total} result(s).`);
-          return response.items.map(item => this.normalizeSBOMResult(item));
+          const response = await this.makeAuthenticatedRequest<SearchResponse>({
+            method: 'GET',
+            url: `${this.config.bombasticApiUrl}/api/v2/sbom`,
+            params: searchParams,
+          });
+
+          allItems.push(...response.items);
+
+          if (response.items.length < limit) {
+            moreItems = false;
+            break;
+          };
+          offset += limit;
         }
+        allItems.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
 
+        if (allItems.length > 0) {
+          console.log(`SBOM search for '${name}' successful. Found ${allItems.length} result(s).`);
+          const sbomResponse = allItems.map(item => this.normalizeSBOMResult(item));
+          return sbomResponse;
+        }
         console.log(`No SBOMs found for '${name}'.`);
         return [];
       } catch (error) {
@@ -290,11 +310,31 @@ export class TPAClient {
     const sbom = allSBOMs.find(sbom =>
       sbom.described_by?.some(component => component.version.includes(sha256))
     );
-
     if (!sbom) {
       console.log(`No SBOM found with SHA256: ${sha256}`);
     }
 
+    return sbom || null;
+  }
+
+  /**
+   * Finds an SBOM by its document ID
+   *
+   * @param documentId - The document ID to search for
+   * @returns A promise that resolves to the matching SBOM or null if not found
+   * @throws {TPAError} if all retries fail
+   */
+  public async findSBOMByDocumentId(documentId: string): Promise<SBOMResult | null> {
+    console.log(`Searching TPA for SBOM with document ID: ${documentId}...`);
+    if (!documentId) {
+      throw new TPAError('Document ID cannot be empty');
+    }
+    const allSBOMs = await this.findAllSBOMs();
+    const sbom = allSBOMs.find(sbom => sbom.document_id === documentId);
+
+    if (!sbom) {
+      console.log(`No SBOM found with document ID: ${documentId}`);
+    }
     return sbom || null;
   }
 }

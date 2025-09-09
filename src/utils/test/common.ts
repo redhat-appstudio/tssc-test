@@ -1,8 +1,11 @@
 import { TestItem } from '../../playwright/testItem';
 import { ArgoCD, Environment } from '../../rhtap/core/integration/cd/argocd';
 import { CI, CIType, PipelineStatus } from '../../rhtap/core/integration/ci';
+import { Pipeline } from '../../rhtap/core/integration/ci/pipeline';
 import { EventType } from '../../rhtap/core/integration/ci';
 import { Git, PullRequest } from '../../rhtap/core/integration/git';
+import { TPA } from '../../rhtap/core/integration/tpa';
+import { SBOMResult } from '../../api/tpa/tpaClient';
 import { expectPipelineSuccess } from './assertionHelpers';
 import { expect } from '@playwright/test';
 
@@ -27,13 +30,13 @@ import { expect } from '@playwright/test';
  * @returns Promise that resolves when promotion is complete
  * @throws Error if any step in the promotion process fails
  */
-export async function promoteToEnvironmentWithPR(
+export async function promoteWithPRAndGetPipeline(
   git: Git,
   ci: CI,
   cd: ArgoCD,
   environment: Environment,
   image: string
-): Promise<void> {
+): Promise<Pipeline> {
   console.log(`Promoting application to ${environment} environment with pull request...`);
   const ciType = ci.getCIType();
   try {
@@ -48,7 +51,6 @@ export async function promoteToEnvironmentWithPR(
     console.log(`Created promotion PR #${pr.pullNumber} in ${git.getGitOpsRepoName()} repository`);
 
     // Step 3: Wait for pipeline triggered by the promotion PR to complete
-    // return ci.getPipeline(pullRequest, PipelineStatus.RUNNING, eventType);
     const pipeline = await ci.getPipeline(pr, PipelineStatus.RUNNING, EventType.PULL_REQUEST);
     if (!pipeline) {
       throw new Error('No pipeline was triggered by the promotion PR');
@@ -67,15 +69,11 @@ export async function promoteToEnvironmentWithPR(
     console.log(`Merged promotion PR #${mergedPR.pullNumber} with SHA: ${mergedPR.sha}`);
 
     // Step 5: Sync and wait for the application to be ready
-    console.log(`Syncing application in ${environment} environment`);
-    await cd.syncApplication(environment);
+    const syncResult = await runAndWaitforAppSync(cd, environment, mergedPR.sha);
+    expect(syncResult).toBe(true);
+    console.log(`Application successfully promoted to ${environment}`);
 
-    console.log(`Waiting for application to sync in ${environment} environment...`);
-    const syncResult = await cd.waitUntilApplicationIsSynced(environment, mergedPR.sha);
-    if (!syncResult.synced) {
-      throw new Error(`Failed to sync application: ${syncResult.message}`);
-    }
-    console.log(`Application successfully promoted to ${environment}: ${syncResult.message}`);
+    return pipeline;
   } catch (error) {
     console.error(
       `Error promoting application to ${environment}: ${error instanceof Error ? error.message : String(error)}`
@@ -101,12 +99,13 @@ export async function promoteToEnvironmentWithPR(
  * @param image The container image URL to deploy
  * @returns Promise that resolves when promotion is complete
  */
-export async function promoteToEnvironmentWithoutPR(
+export async function promoteWithoutPRAndGetPipeline(
   git: Git,
+  ci: CI,
   cd: ArgoCD,
   environment: Environment,
   image: string
-): Promise<void> {
+): Promise<Pipeline> {
   console.log(`Promoting application to ${environment} environment with direct commit...`);
 
   try {
@@ -114,26 +113,61 @@ export async function promoteToEnvironmentWithoutPR(
     const application = await cd.getApplication(environment);
     expect(application).not.toBeNull();
     console.log(`Application exists in ${environment} environment`);
+    const ciType = ci.getCIType();
 
     // Step 2: Create a promotion commit to the gitops repository
     const commitSha = await git.createPromotionCommitOnGitOpsRepo(environment, image);
     console.log(`Created commit with SHA: ${commitSha}`);
 
+    // Create a pull request object for pipeline reference only
+    // Note: This is not an actual PR, just a reference object with the commit SHA
+    const commitRef = new PullRequest(0, commitSha, git.getGitOpsRepoName());
+    const pipeline = await ci.getPipeline(commitRef, PipelineStatus.RUNNING, EventType.PUSH);
+    if (!pipeline) {
+      console.warn(
+        `No ${ciType} pipeline was triggered by the commit ${commitSha} on the main branch`
+      );
+      throw new Error('Expected a pipeline to be triggered but none was found');
+    }
+    const pipelineStatus = await ci.waitForPipelineToFinish(pipeline);
+    console.log(`${ciType} pipeline completed with status: ${pipelineStatus}`);
+    await expectPipelineSuccess(pipeline, ci);
+    console.log(`${ciType} pipeline ${pipeline.getDisplayName()} was successful.`);
+
     // Step 3: Sync and wait for the application to be ready
-    console.log(`Syncing application in ${environment} environment...`);
+    const syncResult = await runAndWaitforAppSync(cd, environment, commitSha)
+    expect(syncResult).toBe(true);
+    console.log(`Application successfully promoted to ${environment}`);
+
+    return pipeline;
+  } catch (error) {
+    console.error(
+      `Error directly promoting application to ${environment}: ${error instanceof Error ? error.message : String(error)}`
+    );
+    throw error;
+  }
+}
+
+export async function runAndWaitforAppSync(
+  cd: ArgoCD,
+  environment: Environment,
+  commitSha: string
+): Promise<boolean> {
+  try{
+    // Sync and wait for the application to be ready
+    console.log(`Syncing application in ${environment} environment`);
     await cd.syncApplication(environment);
 
     console.log(`Waiting for application to sync in ${environment} environment...`);
     const syncResult = await cd.waitUntilApplicationIsSynced(environment, commitSha);
-
     if (!syncResult.synced) {
       throw new Error(`Failed to sync application: ${syncResult.message}`);
     }
-
-    console.log(`Application successfully promoted to ${environment}: ${syncResult.message}`);
+    console.log(`Application successfully synced to ${environment}: ${syncResult.message}`);
+    return syncResult.synced;
   } catch (error) {
     console.error(
-      `Error directly promoting application to ${environment}: ${error instanceof Error ? error.message : String(error)}`
+      `Error syncing and waiting for application to sync to ${environment} with commitSha ${commitSha}: ${error instanceof Error ? error.message : String(error)}`
     );
     throw error;
   }
@@ -310,4 +344,78 @@ export async function handleInitialPipelineRuns(ci: CI): Promise<void> {
     console.log(`CI Provider is ${ci.getCIType()} - waiting for initial pipelines to finish`);
     await ci.waitForAllPipelinesToFinish();
   }
+}
+
+export async function getSbomIDFromCIPipelineLogs(ci: CI, pipeline: Pipeline): Promise<string> {
+  try {
+    console.log(`Getting ${ci.getCIType()} Pipeline ${pipeline.id} logs to find SBOM document ID`);
+    const pipelineLogs = await ci.getPipelineLogs(pipeline);
+
+    const documentIdMatch = pipelineLogs.match(/"document_id"\s*:\s*"([^"]+)"/);
+    if (!documentIdMatch) {
+      throw new Error('No document ID for SBOM found in pipeline logs');
+    }
+
+    // Get the value "document_id" from match string
+    const documentId = documentIdMatch[1];
+    console.log(`SBOM Document ID ${documentId} found from Promotion Pipeline ${pipeline.id} logs`);
+    return documentId;
+  } catch (error) {
+    console.error(`Error getting pipeline Logs`, error);
+    throw error;
+  }
+}
+
+/**
+ * Searches for SBOM in TPA portal using document ID list
+ *
+ * @param documentIdList Array of document IDs to search for
+ * @param tpa TPA instance for searching
+ * @param component Component instance (optional, for additional context)
+ * @returns Promise<SBOMResult | null> The first SBOM found or null if none found
+ * @throws Error if TPA search fails or no valid document IDs provided
+ */
+export async function searchSBOMByDocumentIdList(
+  tpa: TPA,
+  documentIdList: string[],
+): Promise<boolean> {
+  // Validate input parameters
+  if (!documentIdList || documentIdList.length === 0) {
+    throw new Error('Document ID list cannot be empty');
+  }
+
+  if (!tpa) {
+    throw new Error('TPA instance is not initialised');
+  }
+
+  const foundSbom: SBOMResult[] = [];
+  const notFoundSbom: string[] = [];
+  let sbom: SBOMResult | null = null;
+
+  // Try to find SBOM using each document ID - search all for verification
+  for (const documentId of documentIdList) {
+    console.log(`Attempting to search with document ID: ${documentId}`);
+
+    try {
+      sbom = await tpa.searchSBOMByDocumentId(documentId);
+
+      if (!sbom) {
+        notFoundSbom.push(documentId);
+        continue;
+      }
+      foundSbom.push(sbom);
+      console.log(`✅ SBOM found with document ID: ${documentId}`);
+      console.log(`SBOM details: Name: ${sbom.name}, Published: ${sbom.published}, SHA256: ${sbom.sha256}`);
+
+    } catch (error) {
+      console.error(`❌ Error searching with document ID ${documentId}:`, error);
+      throw error;
+    }
+  }
+  if (notFoundSbom.length > 0) {
+    console.error(`⚠️ Failed to find SBOM Document ID ${notFoundSbom} in TPA`);
+    return false;
+  }
+  console.log (`✅ All SBOMS ${documentIdList} found in TPA!!!`);
+  return true;
 }
