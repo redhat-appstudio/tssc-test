@@ -3,13 +3,13 @@ import { GitType } from '../../core/integration/git';
 import { AddGitlabProjectVariablesCommand } from './commands/addGitlabProjectVariablesCommand';
 import { Command } from './commands/command';
 import { UpdateCIRunnerImage } from './commands/updateCIRunnerImage';
-import { PostCreateActionStrategy } from './postCreateActionStrategy';
+import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
 
 /**
  * GitLab-specific implementation of post-creation action strategy
  * Uses command pattern to organize and execute different actions
  */
-export class GitlabCIPostCreateActionStrategy implements PostCreateActionStrategy {
+export class GitlabCIPostCreateActionStrategy implements ComponentActionStrategy {
   /**
    * Map of Git provider types to their handler functions
    * This allows for easy extension with new Git providers

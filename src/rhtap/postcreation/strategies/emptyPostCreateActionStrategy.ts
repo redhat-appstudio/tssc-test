@@ -1,11 +1,11 @@
 import { Component } from '../../core/component';
-import { PostCreateActionStrategy } from './postCreateActionStrategy';
+import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
 
 /**
  * A "null object" implementation of PostCreateActionStrategy
  * Used for CI types that don't require any post-creation actions (like Tekton)
  */
-export class EmptyPostCreateActionStrategy implements PostCreateActionStrategy {
+export class EmptyPostCreateActionStrategy implements ComponentActionStrategy {
   /**
    * No-op implementation - doesn't perform any post-creation actions
    * @param component The component to process

@@ -8,6 +8,7 @@ export enum PipelineStatus {
   FAILURE = 'failure',
   RUNNING = 'running',
   PENDING = 'pending',
+  CANCELLED = 'cancelled',
   UNKNOWN = 'unknown',
 }
 
