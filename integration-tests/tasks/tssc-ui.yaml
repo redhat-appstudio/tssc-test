@@ -135,6 +135,10 @@ spec:
         export BITBUCKET_WORKSPACE="rhtap-test"
         export BITBUCKET_PROJECT="RHTAP"
 
+        # ========================== CI ======================================
+        # When using Azure pipelines, set the following variables
+        export AZURE_PROJECT="shared-public"
+
         # ========================== GITHUB CREDENTIALS ==========================
         export GH_USERNAME="$GH_USERNAME"
         export GH_PASSWORD="$GH_PASSWORD"
