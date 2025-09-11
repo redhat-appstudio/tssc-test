@@ -128,6 +128,15 @@ export class BitbucketProvider extends BaseGitProvider {
     }
   }
 
+  public getToken(): string {
+    if (!this.secret?.appPassword) {
+      throw new Error(
+        'Bitbucket token not found in the secret. Please ensure the token is provided.'
+      );
+    }
+    return this.secret.token;
+  }
+
   /**
    * Creates a sample pull request in the specified repository
    *

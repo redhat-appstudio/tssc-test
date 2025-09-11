@@ -47,7 +47,7 @@ export class AddGitlabProjectVariablesCommand extends BaseCommand {
 
   private async addRokorServerURLVariables(): Promise<void> {
     const gitlab = this.git as unknown as GitlabProvider;
-    const rekorHost = this.tas.getRokorServerURL();
+    const rekorHost = this.tas.getRekorServerURL();
 
     await Promise.all([
       gitlab.setProjectVariableOnSourceRepo({

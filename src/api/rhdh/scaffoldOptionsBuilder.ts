@@ -69,6 +69,14 @@ export abstract class BaseScaffolderOptionsBuilder<T extends BaseScaffolderOptio
   }
 
   /**
+   * Sets the Azure project
+   */
+  withAzureProject(azureProject: string): T {
+    this.options.values.azureProject = azureProject;
+    return this as unknown as T;
+  }
+
+  /**
    * Builds and returns the final ScaffolderScaffoldOptions
    */
   build(): ScaffolderScaffoldOptions {
