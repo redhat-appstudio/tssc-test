@@ -36,4 +36,4 @@ export async function hideQuickStartIfVisible(page: Page): Promise<void> {
     }
 
     await expect(welcomeParagraph).toBeHidden({ timeout: 10000 });
-  }
+}

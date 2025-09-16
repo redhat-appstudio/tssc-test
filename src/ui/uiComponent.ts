@@ -19,18 +19,22 @@ import { GitUiFactory } from './plugins/git/gitUiFactory';
 import { DocsUiPlugin } from './plugins/docs/docsUiPlugin';
 import { RegistryPlugin } from './plugins/registry/registryPlugin';
 import { RegistryUiFactory } from './plugins/registry/registryUiFactory';
+import { CIPlugin } from './plugins/ci/ciPlugin';
+import { CIFactory } from './plugins/ci/ciFactory';
 
 export class UiComponent {
   private component: Component;
   private git: GitPlugin | undefined;
   private docs!: DocsUiPlugin;
   private registry: RegistryPlugin | undefined;
+  private ci: CIPlugin | undefined;
 
-  private constructor(component: Component, git: GitPlugin | undefined, docs: DocsUiPlugin, registry: RegistryPlugin | undefined) {
+  private constructor(component: Component, git: GitPlugin | undefined, docs: DocsUiPlugin, registry: RegistryPlugin | undefined, ci: CIPlugin | undefined) {
     this.component = component;
     this.git = git;
     this.docs = docs;
     this.registry = registry;
+    this.ci = ci;
   }
 
   /**
@@ -66,7 +70,13 @@ export class UiComponent {
       testItem.getRegistryType(),
       component.getRegistry()
     );
-    return new UiComponent(component, git, docs, registry);
+    const ci = await CIFactory.createCiPlugin(
+      name,
+      // strip https:// from the url
+      `${component.getRegistry().getUrl().replace('https://', '')}${component.getRegistry().getOrganization()}`,
+      testItem.getCIType(),
+    );
+    return new UiComponent(component, git, docs, registry, ci);
   }
 
   /**
@@ -106,6 +116,16 @@ export class UiComponent {
    */
   public getRegistry(): RegistryPlugin | undefined {
     return this.registry;
+  }
+
+  /**
+   * Gets the UI-specific CI plugin instance.
+   * This plugin handles UI automation for CI operations
+   * 
+   * @returns The CIPlugin instance for UI automation
+   */
+  public getCI(): CIPlugin | undefined {
+    return this.ci;
   }
 
   /**
