@@ -54,7 +54,7 @@ COPY . .
 # Install npm packages, system dependencies, and Playwright browsers
 RUN npm install && \
     npm cache clean --force && \
-    yum update -y && yum install -y --allowerasing \
+    yum install -y \
     wget \
     nss at-spi2-atk libdrm gtk3 mesa-libgbm alsa-lib \
     libXcomposite libXcursor libXdamage libXext libXi \
