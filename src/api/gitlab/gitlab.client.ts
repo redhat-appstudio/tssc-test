@@ -291,8 +291,8 @@ export class GitLabClient implements IGitLabCoreClient {
    * @param jobId The job ID for which to retrieve logs
    * @returns A promise that resolves to the job logs as a string
    */
-  public async getPipelineLogs(projectPath: string, jobId: number): Promise<string> {
-    return this.pipelineService.getPipelineLogs(projectPath, jobId);
+  public async getPipelineLogs(projectPath: string, pipelineId: number): Promise<string> {
+    return this.pipelineService.getPipelineLogs(projectPath, pipelineId);
   }
 
   public async cancelPipeline(projectPath: string, pipelineId: number): Promise<GitLabPipeline> {

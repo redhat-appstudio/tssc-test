@@ -107,6 +107,20 @@ export interface GitLabPipeline {
   readonly project_id: number;
 }
 
+// Job related type
+export interface GitLabJob {
+  readonly id: number;
+  readonly name: string;
+  readonly status: string;
+  readonly stage: string;
+  readonly ref: string;
+  readonly web_url: string;
+  readonly created_at: string;
+  readonly started_at: string;
+  readonly finished_at: string;
+  readonly allow_failure: boolean;
+}
+
 export interface GitLabPipelineSearchParams {
   readonly sha?: string;
   readonly status?: string;
