@@ -238,3 +238,12 @@ export function getRunnerImageFromCIFile(fileContent: string): string {
   console.log(`Old Image Value: ${oldImageValue}`);
   return oldImageValue;
 }
+
+/**
+ * Escapes special characters in a string to be used in a regular expression
+ * @param s - The string to escape
+ * @returns The escaped string
+ */
+export function escapeRegex(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}

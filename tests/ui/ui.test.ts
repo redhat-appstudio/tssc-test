@@ -1,6 +1,6 @@
 import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { UiComponent } from '../../src/ui/uiComponent';
-import { CommonPO } from '../../src/ui/page-objects/common_po';
+import { CommonPO } from '../../src/ui/page-objects/commonPo';
 import { hideQuickStartIfVisible } from '../../src/ui/common';
 import { CIType } from '../../src/rhtap/core/integration/ci';
 
@@ -67,18 +67,30 @@ test.describe('RHTAP UI Test Suite', () => {
   
   test.describe("Verify CI", () => {
     test('verify CI provider on CI tab', async ({ page }) => {
-      if (component.getCoreComponent().getCI().getCIType() === CIType.GITHUB_ACTIONS) {
-        console.warn(`Skipping CI test as testing ${component.getCoreComponent().getCI().getCIType} is not supported`);
+      const ciPlugin = component.getCI();
+
+      if (ciPlugin === undefined) {
+        console.warn(`Skipping CI test as testing ${component.getCoreComponent().getCI().getCIType()} is not supported`);
         test.skip();
         return;
       }
 
-      const componentUrl = component.getComponentUrl();
-      const ciTabUrl = `${componentUrl}/ci`;
-      await page.goto(ciTabUrl, { timeout: 20000 });
+      // Navigate to CI tab
+      await page.goto(`${component.getComponentUrl()}/ci`, {
+        timeout: 20000,
+      });
 
-      await page.waitForLoadState('domcontentloaded');
-      await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
+      await test.step('Hide Quick start side panel', async () => {
+        await hideQuickStartIfVisible(page);
+      }, { timeout: 20000 });
+
+      await test.step("Check CI heading", async () => {
+        await ciPlugin.checkCIHeading(page);
+      }, {timeout: 20000});
+
+      await test.step("Check CI table content", async () => {
+        await ciPlugin!.checkActions(page);
+      }, {timeout: 40000});
     });
   });
 

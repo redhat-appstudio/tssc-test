@@ -93,6 +93,10 @@ export default defineConfig({
   workers: DEFAULT_WORKERS,
   timeout: DEFAULT_TIMEOUT,
   fullyParallel: false, // This should allow immediate execution when dependencies are met
+  use: {
+    viewport: { width: 1920, height: 1080 },
+  },
+
   projects: allProjects.length ? allProjects : [{ name: 'default' }],
 
   // Reporter configuration
