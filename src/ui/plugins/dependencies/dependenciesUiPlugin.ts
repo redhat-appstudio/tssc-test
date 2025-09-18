@@ -27,6 +27,7 @@ export class DependenciesUiPlugin {
         await expect(page.getByTestId("node").filter({ hasText: `${this.componentName}-gitops` })).toBeVisible();
     }
 
+    //IS IT USED?
     async goToGitopsDependency(page: Page) {
         const nodeLocator = page.getByTestId("node").filter({ hasText: `${this.componentName}-gitops` });
         await expect(nodeLocator).toBeVisible();
