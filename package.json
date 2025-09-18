@@ -12,7 +12,7 @@
         "generate-config": "npx ts-node scripts/generateProjectConfig.ts",
         "test": "npm run generate-config && playwright test",
         "test:e2e": "npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=false playwright test",
-        "test:ui": "ENABLE_E2E_TESTS=false ENABLE_UI_TESTS=true playwright test",
+        "test:ui": "ENABLE_E2E_TESTS=false ENABLE_UI_TESTS=true playwright test --workers=1",
         "test:ui-interactive": "ENABLE_E2E_TESTS=false ENABLE_UI_TESTS=true playwright test --ui",
         "test:all": "npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=true playwright test",
         "test:report": "playwright show-report"

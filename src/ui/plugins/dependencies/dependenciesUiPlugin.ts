@@ -26,11 +26,4 @@ export class DependenciesUiPlugin {
         await expect(componentNode).toBeVisible();
         await expect(page.getByTestId("node").filter({ hasText: `${this.componentName}-gitops` })).toBeVisible();
     }
-
-    async goToGitopsDependency(page: Page) {
-        const nodeLocator = page.getByTestId("node").filter({ hasText: `${this.componentName}-gitops` });
-        await expect(nodeLocator).toBeVisible();
-        await nodeLocator.click();
-        await waitForPageLoad(page, `${this.componentName}-gitops`);
-    }
 }

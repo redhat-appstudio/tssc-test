@@ -107,5 +107,6 @@ export default defineConfig({
   use: {
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    trace: 'off',
   },
 });

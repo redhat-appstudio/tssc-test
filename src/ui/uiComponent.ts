@@ -124,6 +124,18 @@ export class UiComponent {
     return `${developerHubUrl}/catalog/default/component/${componentName}`;
   }
 
+    /**
+   * Gets the gitops resource URL for the Developer Hub UI.
+   * Constructs the URL using the Developer Hub base URL and component name.
+   *
+   * @returns The full URL to the gitops resource page in Developer Hub
+   */
+    public getGitopsResourceUrl(): string {
+      const developerHubUrl = this.component.getDeveloperHub().getUrl();
+      const componentName = this.component.getName();
+      return `${developerHubUrl}/catalog/default/resource/${componentName}-gitops`;
+    }
+
   /**
    * Gets the UI-specific Dependencies plugin instance.
    * This plugin handles UI automation for testing Dependencies tab and gitops dependency component
