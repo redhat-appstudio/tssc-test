@@ -103,4 +103,9 @@ export default defineConfig({
   ],
   // Global setup and teardown
   globalSetup: './global-setup.ts',
+
+  use: {
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+  },
 });
