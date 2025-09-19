@@ -34,7 +34,7 @@ export class JenkinsPostCreateActionStrategy implements ComponentActionStrategy 
         new CreateWebhookCommand(component),
         //First run must be triggered manually:
         // https://stackoverflow.com/questions/56714213/jenkins-not-triggered-by-github-webhook#comment109322558_60625199 
-        new TriggerJenkinsJobCommand(component),
+        // new TriggerJenkinsJobCommand(component),// 18/09/2025:  We decided to trigger the Jenkins job manually without using Jenkins Plugins
       ];
 
       // Execute commands sequentially

@@ -1,6 +1,6 @@
 import { TestItem } from '../../playwright/testItem';
 import { ArgoCD, Environment } from '../../rhtap/core/integration/cd/argocd';
-import { CI, CIType, PipelineStatus } from '../../rhtap/core/integration/ci';
+import { CI, CIType, JenkinsCI, PipelineStatus } from '../../rhtap/core/integration/ci';
 import { Pipeline } from '../../rhtap/core/integration/ci/pipeline';
 import { EventType } from '../../rhtap/core/integration/ci';
 import { Git, PullRequest } from '../../rhtap/core/integration/git';
@@ -114,6 +114,12 @@ export async function promoteWithoutPRAndGetPipeline(
     const commitSha = await git.createPromotionCommitOnGitOpsRepo(environment, image);
     console.log(`Created commit with SHA: ${commitSha}`);
 
+        //TODO: Remove this once we are using Jenkins Plugins in the future
+    if (ci.getCIType() === CIType.JENKINS) {
+      // Step 2: Trigger the Jenkins job because we are not using Jenkins Plugins
+      await (ci as JenkinsCI).triggerPipeline(git.getGitOpsRepoName()); 
+    }
+  
     // Create a pull request object for pipeline reference only
     // Note: This is not an actual PR, just a reference object with the commit SHA
     const commitRef = new PullRequest(0, commitSha, git.getGitOpsRepoName());
@@ -306,6 +312,12 @@ export async function fastMovingToBuildApplicationImage(git: Git, ci: CI): Promi
     const commitSha = await git.createSampleCommitOnSourceRepo();
     console.log(`Created commit with SHA: ${commitSha}`);
     await sleep(10000);
+
+    //TODO: Remove this once we are using Jenkins Plugins in the future
+    if (ci.getCIType() === CIType.JENKINS) {
+      // Step 2: Trigger the Jenkins job because we are not using Jenkins Plugins
+      await (ci as JenkinsCI).triggerPipeline(git.getSourceRepoName()); 
+    }
 
     // Create a pull request object for pipeline reference only
     // Note: This is not an actual PR, just a reference object with the commit SHA
