@@ -36,8 +36,8 @@
     "acs": "remote"
   },
   {
-    "git": "github",
-    "ci": "azure",
+    "git": "gitlab",
+    "ci": "jenkins",
     "registry": "quay",
     "tpa": "remote",
     "acs": "remote"
