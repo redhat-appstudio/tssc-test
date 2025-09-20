@@ -87,6 +87,7 @@ export class GitLabCI extends BaseCI {
         [PipelineStatus.FAILURE]: 'failed',
         [PipelineStatus.RUNNING]: 'running',
         [PipelineStatus.PENDING]: 'pending',
+        [PipelineStatus.CANCELLED]: 'canceled',
         [PipelineStatus.UNKNOWN]: null, // No direct mapping, will fetch all statuses
       };
 
@@ -94,10 +95,12 @@ export class GitLabCI extends BaseCI {
       const gitlabStatus = gitlabStatusMap[pipelineStatus];
 
       // Fetch pipelines for the repository and commit SHA
-      let pipelines = await this.gitlabCIClient.getPipelines(
+      let pipelines = await this.gitlabCIClient.pipelines.getPipelines(
         `${this.getGroup()}/${pullRequest.repository}`,
-        pullRequest.sha,
-        gitlabStatus === null ? undefined : gitlabStatus
+        {
+          sha: pullRequest.sha,
+          ...(gitlabStatus && { status: gitlabStatus })
+        }
       );
 
       if (!pipelines || pipelines.length === 0) {
@@ -173,7 +176,7 @@ export class GitLabCI extends BaseCI {
       }
 
       // Get updated pipeline information from GitLab
-      const gitlabPipeline = await this.gitlabCIClient.getPipelineById(
+      const gitlabPipeline = await this.gitlabCIClient.pipelines.getPipelineById(
         `${this.getGroup()}/${pipeline.repositoryName}`,
         pipelineId
       );
@@ -211,7 +214,7 @@ export class GitLabCI extends BaseCI {
       // Define the operation to check for running pipelines
       const checkPipelines = async (): Promise<boolean> => {
         // Get all pipelines for the component repository
-        const allPipelines = await this.gitlabCIClient.getAllPipelines(
+        const allPipelines = await this.gitlabCIClient.pipelines.getAllPipelines(
           `${this.getGroup()}/${this.sourceRepoName}`
         );
 
@@ -272,7 +275,7 @@ export class GitLabCI extends BaseCI {
 
   public override async cancelAllInitialPipelines(): Promise<void> {
     try{
-      const allPipelines = await this.gitlabCIClient.getAllPipelines(
+      const allPipelines = await this.gitlabCIClient.pipelines.getAllPipelines(
         `${this.getGroup()}/${this.sourceRepoName}`
       );
       if (!allPipelines || allPipelines.length === 0) {
@@ -286,7 +289,7 @@ export class GitLabCI extends BaseCI {
         .filter(pipeline => pipeline.status !== 'failed')
         .map(pipeline => {
           console.log(`Cancelling initial pipeline ${pipeline.id} with status ${pipeline.status}`);
-          return this.gitlabCIClient.cancelPipeline(
+          return this.gitlabCIClient.pipelines.cancelPipeline(
             `${this.getGroup()}/${this.sourceRepoName}`,
             pipeline.id
           );
@@ -311,7 +314,7 @@ export class GitLabCI extends BaseCI {
     if (isNaN(pipelineId)) {
       throw new Error(`Invalid pipeline ID: ${pipeline.id}`);
     }
-    return this.gitlabCIClient.getPipelineLogs(
+    return this.gitlabCIClient.pipelines.getPipelineLogs(
       `${this.getGroup()}/${pipeline.repositoryName}`,
       pipelineId
     );

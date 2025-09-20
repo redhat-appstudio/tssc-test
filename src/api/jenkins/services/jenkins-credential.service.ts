@@ -30,10 +30,10 @@ export class JenkinsCredentialService {
       
       // Determine the path based on whether folder is specified
       const path = JenkinsPathBuilder.buildCredentialPath(folderName);
-      
-      const response = await this.httpClient.post(path, credentialXml, JenkinsConfig.HEADERS.XML);
-      
-      return response;
+
+      const response = await this.httpClient.post(path, credentialXml, { headers: JenkinsConfig.HEADERS.XML });
+
+      return response as JenkinsApiResponse;
     } catch (error) {
       throw new JenkinsCredentialError(
         credentialId,
@@ -64,10 +64,10 @@ export class JenkinsCredentialService {
         : `credentials/store/system/domain/_/credential/${encodeURIComponent(credentialId)}`;
       
       const path = `${basePath}/config.xml`;
-      
-      const response = await this.httpClient.post(path, credentialXml, JenkinsConfig.HEADERS.XML);
-      
-      return response;
+
+      const response = await this.httpClient.post(path, credentialXml, { headers: JenkinsConfig.HEADERS.XML });
+
+      return response as JenkinsApiResponse;
     } catch (error) {
       throw new JenkinsCredentialError(
         credentialId,
@@ -88,9 +88,9 @@ export class JenkinsCredentialService {
       
       const path = `${basePath}/doDelete`;
       
-      const response = await this.httpClient.post(path, '', JenkinsConfig.HEADERS.JSON);
-      
-      return response;
+      const response = await this.httpClient.post(path, '', { headers: JenkinsConfig.HEADERS.JSON });
+
+      return response as JenkinsApiResponse;
     } catch (error) {
       throw new JenkinsCredentialError(
         credentialId,
@@ -126,9 +126,9 @@ export class JenkinsCredentialService {
       
       const path = `${basePath}/${JenkinsConfig.ENDPOINTS.API_JSON}`;
       
-      const credential = await this.httpClient.get(path, JenkinsConfig.HEADERS.JSON);
-      
-      return credential;
+      const credential = await this.httpClient.get(path, { headers: JenkinsConfig.HEADERS.JSON });
+
+      return credential as JenkinsApiResponse;
     } catch (error) {
       throw new JenkinsCredentialError(
         credentialId,
@@ -150,9 +150,8 @@ export class JenkinsCredentialService {
       const path = `${basePath}/${JenkinsConfig.ENDPOINTS.API_JSON}`;
       
       const response = await this.httpClient.get<{ credentials: any[] }>(
-        path,
-        JenkinsConfig.HEADERS.JSON,
-        { tree: 'credentials[id,description,typeName]' }
+        path + '?tree=credentials[id,description,typeName]',
+        { headers: JenkinsConfig.HEADERS.JSON }
       );
       
       return response.credentials || [];

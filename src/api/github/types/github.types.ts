@@ -3,6 +3,7 @@ import { EventType } from '../../../rhtap/core/integration/ci';
 export interface GithubClientOptions {
   token: string;
   baseUrl?: string;
+  timeout?: number;
   retryOptions?: {
     retries?: number;
     doNotRetry?: string[];
