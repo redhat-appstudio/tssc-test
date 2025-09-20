@@ -17,6 +17,7 @@ export interface JenkinsClientConfig {
   baseUrl: string;
   username: string;
   token: string;
+  timeout?: number;
 }
 
 /**

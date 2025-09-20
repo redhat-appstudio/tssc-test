@@ -1,19 +1,24 @@
+import { ApiError } from '../../common/errors/api.errors';
+
 /**
- * Base Jenkins error class
+ * Base Jenkins error class extending ApiError
+ *
+ * Provides Jenkins-specific error handling with HTTP status codes
+ * and error context preservation through the error chain.
+ *
+ * @extends ApiError
  */
-export class JenkinsError extends Error {
+export class JenkinsError extends ApiError {
   constructor(
     message: string,
-    public readonly statusCode?: number,
-    public readonly cause?: Error
+    status?: number,
+    cause?: unknown
   ) {
-    super(message);
+    super(message, status, undefined, cause);
     this.name = 'JenkinsError';
-    
-    // Capture stack trace if available
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, JenkinsError);
-    }
+
+    // Restore prototype chain for proper instanceof checks
+    Object.setPrototypeOf(this, JenkinsError.prototype);
   }
 }
 
@@ -25,6 +30,7 @@ export class JenkinsJobNotFoundError extends JenkinsError {
     const path = folderName ? `${folderName}/${jobName}` : jobName;
     super(`Jenkins job not found: ${path}`, 404);
     this.name = 'JenkinsJobNotFoundError';
+    Object.setPrototypeOf(this, JenkinsJobNotFoundError.prototype);
   }
 }
 
@@ -35,6 +41,7 @@ export class JenkinsBuildTimeoutError extends JenkinsError {
   constructor(jobName: string, buildNumber: number, timeoutMs: number) {
     super(`Build #${buildNumber} for job ${jobName} did not complete within ${timeoutMs}ms`);
     this.name = 'JenkinsBuildTimeoutError';
+    Object.setPrototypeOf(this, JenkinsBuildTimeoutError.prototype);
   }
 }
 
@@ -46,6 +53,7 @@ export class JenkinsBuildNotFoundError extends JenkinsError {
     const path = folderName ? `${folderName}/${jobName}` : jobName;
     super(`Build #${buildNumber} not found for job: ${path}`, 404);
     this.name = 'JenkinsBuildNotFoundError';
+    Object.setPrototypeOf(this, JenkinsBuildNotFoundError.prototype);
   }
 }
 
@@ -53,9 +61,10 @@ export class JenkinsBuildNotFoundError extends JenkinsError {
  * Error thrown when Jenkins credentials creation fails
  */
 export class JenkinsCredentialError extends JenkinsError {
-  constructor(credentialId: string, message: string, statusCode?: number) {
-    super(`Failed to manage credential '${credentialId}': ${message}`, statusCode);
+  constructor(credentialId: string, message: string, status?: number) {
+    super(`Failed to manage credential '${credentialId}': ${message}`, status);
     this.name = 'JenkinsCredentialError';
+    Object.setPrototypeOf(this, JenkinsCredentialError.prototype);
   }
 }
 
@@ -63,9 +72,10 @@ export class JenkinsCredentialError extends JenkinsError {
  * Error thrown when Jenkins folder operations fail
  */
 export class JenkinsFolderError extends JenkinsError {
-  constructor(folderName: string, operation: string, message: string, statusCode?: number) {
-    super(`Failed to ${operation} folder '${folderName}': ${message}`, statusCode);
+  constructor(folderName: string, operation: string, message: string, status?: number) {
+    super(`Failed to ${operation} folder '${folderName}': ${message}`, status);
     this.name = 'JenkinsFolderError';
+    Object.setPrototypeOf(this, JenkinsFolderError.prototype);
   }
 }
 
@@ -76,6 +86,7 @@ export class JenkinsAuthenticationError extends JenkinsError {
   constructor(message: string = 'Authentication failed') {
     super(message, 401);
     this.name = 'JenkinsAuthenticationError';
+    Object.setPrototypeOf(this, JenkinsAuthenticationError.prototype);
   }
 }
 
@@ -84,10 +95,11 @@ export class JenkinsAuthenticationError extends JenkinsError {
  */
 export class JenkinsRateLimitError extends JenkinsError {
   constructor(retryAfter?: number) {
-    const message = retryAfter 
+    const message = retryAfter
       ? `Rate limit exceeded. Retry after ${retryAfter} seconds.`
       : 'Rate limit exceeded.';
     super(message, 429);
     this.name = 'JenkinsRateLimitError';
+    Object.setPrototypeOf(this, JenkinsRateLimitError.prototype);
   }
 } 

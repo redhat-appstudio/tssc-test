@@ -9,8 +9,7 @@ import { Git, GitType, GithubProvider, GitlabProvider } from '../core/integratio
 import { createGit } from '../core/integration/git';
 import { BitbucketProvider } from '../core/integration/git';
 import { ImageRegistry, createRegistry } from '../core/integration/registry';
-import { ScaffolderScaffoldOptions, ScaffolderTask } from '@backstage/plugin-scaffolder-react';
-import { AzureCI } from './integration/ci/providers/azureCI';
+import { ScaffolderScaffoldOptions } from '@backstage/plugin-scaffolder-react';
 
 export class Component {
   private name: string;

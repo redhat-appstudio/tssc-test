@@ -3,6 +3,7 @@ export interface BitbucketClientOptions {
   appPassword?: string;
   accessToken?: string;
   baseUrl?: string;
+  timeout?: number;
 }
 
 export interface BitbucketErrorData {
