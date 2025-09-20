@@ -396,10 +396,11 @@ export class BitbucketProvider extends BaseGitProvider {
 
       // Process each file modification
       for (const [filePath, modifications] of Object.entries(contentModifications)) {
+        let fileContent: string = '';
+        
         for (const { oldContent, newContent } of modifications) {
           try {
             // Get the current file content to apply the modifications
-            let fileContent;
             try {
               // Try to get existing content
               fileContent = await this.getFileContentInString(
@@ -410,28 +411,37 @@ export class BitbucketProvider extends BaseGitProvider {
               );
 
               // If we have old content and it exists in the file, replace it with new content
-              if (typeof fileContent === 'string' && fileContent.includes(oldContent)) {
-                fileContent = fileContent.replace(oldContent, newContent);
-              } else {
-                // Can't find the old content or the response format is unexpected
-                console.log(
-                  `Could not find old content in ${filePath}, using new content directly`
-                );
-                fileContent = newContent;
+              if (typeof fileContent === 'string' && oldContent) {
+                let contentExists = false;
+                if (typeof oldContent === 'string') {
+                  contentExists = fileContent.includes(oldContent);
+                } else if (oldContent instanceof RegExp) {
+                  contentExists = oldContent.test(fileContent);
+                }
+                
+                if (contentExists) {
+                  fileContent = fileContent.replace(oldContent, newContent);
+                } else {
+                  // Can't find the old content or the response format is unexpected
+                  console.log(
+                    `Could not find old content in ${filePath}, using new content directly`
+                  );
+                  fileContent = newContent;
+                }
               }
             } catch (error) {
               // File may not exist, use new content directly
               console.log(`Error getting file ${filePath}, using new content directly: ${error}`);
               fileContent = newContent;
             }
-
-            // Add to the files object for committing
-            files[filePath] = fileContent;
           } catch (error: any) {
             console.error(`Error modifying file ${filePath}: ${error.message}`);
             throw error;
           }
         }
+        
+        // Add to the files object for committing
+        files[filePath] = fileContent;
       }
 
       // In Bitbucket REST API, we use the /src endpoint to commit files

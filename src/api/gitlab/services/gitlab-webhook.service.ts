@@ -25,14 +25,35 @@ export class GitLabWebhookService implements IGitLabWebhookService {
       const projectId = project.id;
 
       // Map options to GitLab API
+      // Default configuration avoids duplicate pipeline triggers:
+      // - pushEvents: false (prevents duplicate when commits are pushed to MR branches)
+      // - mergeRequestsEvents: true (covers MR open, update, and merge events)
       const hookOptions: any = {
         token: options.token || '',
-        push_events: options.pushEvents ?? true,
+        push_events: options.pushEvents ?? false,
         mergeRequestsEvents: options.mergeRequestsEvents ?? true,
-        tagPushEvents: options.tagPushEvents ?? true,
+        tagPushEvents: options.tagPushEvents ?? false,
         enableSslVerification: options.enableSslVerification ?? false,
       };
 
+      // Check if webhook already exists (idempotent operation)
+      const existingHooks = await this.gitlabClient.ProjectHooks.all(projectId);
+      const existingHook = existingHooks.find((hook: any) => hook.url === webhookUrl);
+
+      if (existingHook) {
+        console.log(`Webhook already exists for ${webhookUrl}, updating configuration`);
+        // Update existing webhook to ensure configuration matches
+        const updatedWebhook = await this.gitlabClient.ProjectHooks.edit(
+          projectId,
+          existingHook.id,
+          webhookUrl,
+          hookOptions
+        );
+        return updatedWebhook as GitLabWebhook;
+      }
+
+      // Create new webhook if it doesn't exist
+      console.log(`Creating new webhook for ${webhookUrl}`);
       const webhook = await this.gitlabClient.ProjectHooks.add(
         projectId,
         webhookUrl,
