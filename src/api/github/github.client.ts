@@ -8,17 +8,18 @@ import { GithubSecretsService } from './services/github-secrets.service';
 import { GithubVariablesService } from './services/github-variables.service';
 import { GithubWebhookService } from './services/github-webhook.service';
 import { GithubClientOptions } from './types/github.types';
+import { GithubError } from './errors/github.errors';
 
 const EnhancedOctokit = Octokit.plugin(retry, throttling);
 
 export class GithubClient {
+  public readonly actions: GithubActionsService;
+  public readonly pullRequests: GithubPullRequestService;
+  public readonly repository: GithubRepositoryService;
+  public readonly secrets: GithubSecretsService;
+  public readonly variables: GithubVariablesService;
+  public readonly webhooks: GithubWebhookService;
   private readonly octokit: Octokit;
-  private readonly actionsService: GithubActionsService;
-  private readonly pullRequestService: GithubPullRequestService;
-  private readonly repositoryService: GithubRepositoryService;
-  private readonly secretsService: GithubSecretsService;
-  private readonly variablesService: GithubVariablesService;
-  private readonly webhookService: GithubWebhookService;
 
   constructor(options: GithubClientOptions) {
     this.octokit = new EnhancedOctokit({
@@ -55,39 +56,33 @@ export class GithubClient {
       },
     });
 
-    this.actionsService = new GithubActionsService(this.octokit);
-    this.pullRequestService = new GithubPullRequestService(this.octokit);
-    this.repositoryService = new GithubRepositoryService(this.octokit);
-    this.secretsService = new GithubSecretsService(this.octokit);
-    this.variablesService = new GithubVariablesService(this.octokit);
-    this.webhookService = new GithubWebhookService(this.octokit);
-  }
+    // Wrap the octokit instance to handle errors consistently
+    const errorHandler = (error: any) => {
+      throw new GithubError(error.message, error.status, error);
+    };
 
-  public get octokitInstance(): Octokit {
-    return this.octokit;
-  }
+    const wrapOctokit = (octokitInstance: Octokit) => {
+      const handler = {
+        get(target: any, propKey: any, receiver: any) {
+          const origMethod = target[propKey];
+          if (typeof origMethod === 'function') {
+            return function (...args: any[]) {
+              return origMethod.apply(target, args).catch(errorHandler);
+            };
+          }
+          return Reflect.get(target, propKey, receiver);
+        },
+      };
+      return new Proxy(octokitInstance, handler);
+    };
 
-  public get actions(): GithubActionsService {
-    return this.actionsService;
-  }
+    const wrappedOctokit = wrapOctokit(this.octokit);
 
-  public get pullRequests(): GithubPullRequestService {
-    return this.pullRequestService;
-  }
-
-  public get repository(): GithubRepositoryService {
-    return this.repositoryService;
-  }
-
-  public get variables(): GithubVariablesService {
-    return this.variablesService;
-  }
-
-  public get secrets(): GithubSecretsService {
-    return this.secretsService;
-  }
-
-  public get webhooks(): GithubWebhookService {
-    return this.webhookService;
+    this.actions = new GithubActionsService(wrappedOctokit);
+    this.pullRequests = new GithubPullRequestService(wrappedOctokit);
+    this.repository = new GithubRepositoryService(wrappedOctokit);
+    this.secrets = new GithubSecretsService(wrappedOctokit);
+    this.variables = new GithubVariablesService(wrappedOctokit);
+    this.webhooks = new GithubWebhookService(wrappedOctokit);
   }
 }

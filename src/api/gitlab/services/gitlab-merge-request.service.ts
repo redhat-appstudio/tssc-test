@@ -86,7 +86,7 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
   public async createMergeRequestWithNewBranch(
     owner: string,
     repo: string,
-    targetOwner: string,
+    _targetOwner: string,
     baseBranch: string,
     newBranchName: string,
     contentModifications: ContentModifications,
