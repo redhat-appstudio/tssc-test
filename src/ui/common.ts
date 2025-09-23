@@ -42,11 +42,9 @@ export async function waitForPageLoad(page: Page, name: string) {
     const progressBars = page.getByRole('main').getByRole('progressbar');
     // Get all progressbar elements and wait until all are hidden
     const bars = await progressBars.all();
-    if (bars.length > 0) {
-        await Promise.all(
-            bars.map(bar => expect(bar).toBeHidden({ timeout: 90000 }))
-        );
-    }
+    await Promise.all(
+        bars.map(bar => expect(bar).toBeHidden({ timeout: 90000 }))
+    );
 
     await expect(page.getByTestId('sidebar-root')).toBeAttached({ timeout: 10000 });
     await expect(page.getByRole('heading', { name: name })).toBeVisible({ timeout: 20000 });

@@ -29,11 +29,10 @@ test.describe('Gitops Resource UI Test Suite', () => {
       console.warn(`Skipping Git test as testing ${component.getCoreComponent().getGit().getGitType()} is not supported`);
       test.skip();
       return;
-    } else {
-      await page.goto(`${component.getGitopsResourceUrl()}`, { timeout: 20000 });
-      await waitForPageLoad(page, `${component.getCoreComponent().getName()}-gitops`);
-      await component.getGit()!.checkViewSourceLink(page);
     }
+    await page.goto(`${component.getGitopsResourceUrl()}`, { timeout: 20000 });
+    await waitForPageLoad(page, `${component.getCoreComponent().getName()}-gitops`);
+    await component.getGit()!.checkViewSourceLink(page);
   });
 
 
