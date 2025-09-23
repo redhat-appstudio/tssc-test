@@ -24,7 +24,7 @@ export async function hideQuickStartIfVisible(page: Page): Promise<void> {
     const selfServiceIcon = page.getByTestId('AddCircleOutlineIcon');
     await selfServiceIcon.waitFor({ state: 'visible', timeout: 20000 });
 
-    // Wait for welcome paragraph to be visible 
+    // Wait for welcome paragraph to be visible
     const welcomeParagraph = page.getByText("Let's get you started with Developer Hub", { exact: true });
     const hideButton = page.getByRole('button', { name: 'Hide' });
     try {
@@ -36,4 +36,22 @@ export async function hideQuickStartIfVisible(page: Page): Promise<void> {
     }
 
     await expect(welcomeParagraph).toBeHidden({ timeout: 10000 });
-  }
+}
+
+export async function waitForPageLoad(page: Page, name: string) {
+    const progressBars = page.getByRole('main').getByRole('progressbar');
+    // Get all progressbar elements and wait until all are hidden
+    const bars = await progressBars.all();
+    await Promise.all(
+        bars.map(bar => expect(bar).toBeHidden({ timeout: 90000 }))
+    );
+
+    await expect(page.getByTestId('sidebar-root')).toBeAttached({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: name })).toBeVisible({ timeout: 20000 });
+    await page.waitForLoadState();
+}
+
+export async function openTab(page: Page, tabName: string) {
+    const tab = page.getByRole('tablist').getByText(tabName);
+    await tab.click();
+}
