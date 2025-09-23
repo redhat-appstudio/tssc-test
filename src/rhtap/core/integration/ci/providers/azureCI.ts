@@ -262,12 +262,11 @@ export class AzureCI extends BaseCI {
   }
 
   public async getPipelineLogs(pipeline: Pipeline): Promise<string> {
-    const pipelineRun = await this.azureClient.getPipelineRun(
+    const pipelineRun = await this.azureClient.getPipelineRunLogs(
       Number(pipeline.id),
       pipeline.buildNumber!
     );
-
-    return JSON.stringify(pipelineRun.log);
+    return pipelineRun;
   }
 
   protected async checkPipelinerunStatus(pipeline: Pipeline): Promise<PipelineStatus> {
