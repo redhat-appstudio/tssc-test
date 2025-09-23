@@ -1,4 +1,5 @@
 import axios, { AxiosError, AxiosInstance } from 'axios';
+import retry from 'async-retry';
 
 export enum AzurePipelineRunStatus {
   CANCELLING = 'cancelling',
@@ -51,6 +52,18 @@ export interface AzurePipelineRun {
     url: string;
   };
   variables?: { [key: string]: { value: string } | undefined };
+}
+
+export interface AzurePipelineRunLogOptions {
+  id: number;
+  url: string;
+  signedContent?: {
+    url: string;
+    signatureExpires: string;
+  }
+  createdOn: string;
+  lastChangedOn: string;
+  lineCount: string;
 }
 
 export interface AzureBuild {
@@ -136,6 +149,7 @@ export class AzureClient {
   private organization: string;
   private project: string;
   private apiVersion: string;
+  private authHeader: string;
 
   constructor(config: AzurePipelinesClientConfig) {
     this.host = config.host;
@@ -144,10 +158,11 @@ export class AzureClient {
     this.apiVersion = config.apiVersion || '7.1-preview.1';
 
     const base64Pat = Buffer.from(`:${config.pat}`).toString('base64');
+    this.authHeader = `Basic ${base64Pat}`;
     this.client = axios.create({
       baseURL: `https://${this.host}/${this.organization}/`,
       headers: {
-        Authorization: `Basic ${base64Pat}`,
+        Authorization: this.authHeader,
         'Content-Type': 'application/json',
       },
     });
@@ -232,6 +247,105 @@ export class AzureClient {
       return runInfo;
     } catch (error) {
       console.error(`Failed to get pipeline run ID ${runId} for pipeline ID ${pipelineId}:`, error);
+      throw error;
+    }
+  }
+
+  public async getPipelineRunLogInfo(pipelineId: number, runId: number): Promise<AzurePipelineRunLogOptions[]> {
+    try {
+      const logsResponse = await this.client.get(
+        `${this.project}/_apis/pipelines/${pipelineId}/runs/${runId}/logs?$expand=signedContent&${this.getApiVersionParam()}`
+      );
+      const logs = logsResponse.data.logs as AzurePipelineRunLogOptions[] | [];
+
+      if (!logs || logs.length === 0) {
+        console.error(`No logs available for pipeline run #${pipelineId}-${runId}`);
+        throw new Error;
+      }
+      return logs;
+    } catch (error) {
+      console.error(`Failed to get logs info for pipeline run ID ${runId} for pipeline ID ${pipelineId}:`, error);
+      throw error;
+    }
+  }
+
+  public async getPipelineRunLogsFromLogId(pipelineRunID: string, logId: number, signedLogUrl: string): Promise<string> {
+    const logHeader = `--- Log: ${logId} ---`;
+    try {
+      return await retry(
+        async (_, attempt) => {
+          try {
+            // Use axios directly to bypass client interceptors (no logging)
+            const logContentResponse = await axios.get(signedLogUrl, {
+              headers: {
+                'Accept': 'text/plain',
+                Authorization: this.authHeader,
+              },
+              transformResponse: [data => data], // Keep raw response
+            });
+
+            if (!logContentResponse.data) {
+              console.error(
+                `Got empty log content on attempt ${attempt} for log ${logId}, will retry if attempts remain`
+              );
+              throw new Error('Empty log content received');
+            }
+
+            return `${logHeader}\n${String(logContentResponse.data)}\n`;
+          } catch (error) {
+            // Throw error to trigger retry mechanism
+            throw error;
+          }
+        },
+        {
+          retries: 5,
+          minTimeout: 5000,
+          maxTimeout: 15000,
+          onRetry: (error: Error, attempt: number) => {
+            console.log(
+              `[AZURE-RETRY ${attempt}/6] 🔄 Pipeline: ${pipelineRunID}, Log: ${logId} | Status: Failed | Reason: ${error.message}`
+            );
+          },
+        });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage === 'Empty log content received') {
+        console.warn(
+          `Log ${logId} for pipeline run ${pipelineRunID} has empty content after multiple retries. Continuing without its content.`
+        );
+        return `${logHeader}\nLog is empty\n`;
+      }
+      console.error(
+        `Failed to get log ${logId} for pipeline run ${pipelineRunID} after multiple retries:`,
+        error
+      );
+      return `${logHeader}\nFailed to retrieve log ${logId}: ${errorMessage}\n`;
+    }
+  }
+
+  public async getPipelineRunLogs(pipelineId: number, runId: number): Promise<string> {
+    try {
+      const allLogs = await this.getPipelineRunLogInfo(pipelineId, runId);
+
+      // Sort logs by ID to ensure chronological order
+      const sortedLogs = allLogs.sort((a: AzurePipelineRunLogOptions, b:AzurePipelineRunLogOptions) => a.id - b.id);
+
+      // Process all logs in parallel using Promise.allSettled for better error handling
+      const logPromises = sortedLogs.map((log) => {
+        if (!log.signedContent?.url) {
+          console.error(
+            `Log Info for pipeline ${pipelineId}-${runId} is missing an log url. Skipping Log for ${log.id}`,
+          );
+          return Promise.resolve('');
+        }
+        return this.getPipelineRunLogsFromLogId(`${pipelineId}-${runId}`, log.id, log.signedContent!.url)
+      });
+
+      // Wait for all log requests to complete
+      const logResults = await Promise.all(logPromises);
+      return logResults.join('');
+    } catch (error) {
+      console.error(`Failed to get logs for pipeline run ID ${runId} for pipeline ID ${pipelineId}:`, error);
       throw error;
     }
   }
