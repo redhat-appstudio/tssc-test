@@ -86,8 +86,8 @@ export class TektonPlugin extends BaseCIPlugin {
     }
 
     async checkActions(page: Page): Promise<void> {
-        // Click on the action column header to make action buttons visible
-        await page.getByRole('columnheader', { name: TektonPO.actionsColumnHeader }).click();
+        // Scroll to the action column header to make action buttons visible
+        await page.getByRole('columnheader', { name: TektonPO.actionsColumnHeader }).scrollIntoViewIfNeeded();
 
         const onPushRow = page.locator('tr').filter({ hasText: TektonPO.onPushRowRegex }).first();
 
