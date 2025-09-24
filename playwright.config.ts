@@ -93,6 +93,7 @@ export default defineConfig({
   workers: DEFAULT_WORKERS,
   timeout: DEFAULT_TIMEOUT,
   fullyParallel: false, // This should allow immediate execution when dependencies are met
+
   projects: allProjects.length ? allProjects : [{ name: 'default' }],
 
   // Reporter configuration
@@ -105,6 +106,7 @@ export default defineConfig({
   globalSetup: './global-setup.ts',
 
   use: {
+    viewport: { width: 1920, height: 1080 },
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'off',

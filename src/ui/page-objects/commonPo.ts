@@ -6,7 +6,13 @@
  */
 
 export const CommonPO = {
+    // Titles and headings
     welcomeTitle: 'Welcome back!',
+
+    // Test IDs
+	viewOutputIconTestId: 'view-output-icon',
+    closeIconTestId: 'CloseIcon',
+
 } 
 
 /**
