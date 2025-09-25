@@ -87,6 +87,7 @@ export class GitLabCI extends BaseCI {
         [PipelineStatus.FAILURE]: 'failed',
         [PipelineStatus.RUNNING]: 'running',
         [PipelineStatus.PENDING]: 'pending',
+        [PipelineStatus.CANCELLED]: 'canceled',
         [PipelineStatus.UNKNOWN]: null, // No direct mapping, will fetch all statuses
       };
 

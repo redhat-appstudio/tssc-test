@@ -23,9 +23,9 @@ export class JenkinsJobService {
       const folderXml = JenkinsXmlBuilder.buildFolderXml(folderConfig.description);
       const path = `${JenkinsConfig.ENDPOINTS.CREATE_ITEM}?name=${encodeURIComponent(folderConfig.name)}&mode=com.cloudbees.hudson.plugins.folder.Folder`;
       
-      const response = await this.httpClient.post(path, folderXml, JenkinsConfig.HEADERS.XML);
-      
-      return response;
+      const response = await this.httpClient.post(path, folderXml, { headers: JenkinsConfig.HEADERS.XML });
+
+      return response as JenkinsApiResponse;
     } catch (error) {
       throw new JenkinsFolderError(
         folderConfig.name,
@@ -46,10 +46,10 @@ export class JenkinsJobService {
       const response = await this.httpClient.post(
         `${path}?name=${encodeURIComponent(options.jobName)}`,
         jobXml,
-        JenkinsConfig.HEADERS.XML
+        { headers: JenkinsConfig.HEADERS.XML }
       );
-      
-      return response;
+
+      return response as JenkinsApiResponse;
     } catch (error) {
       const jobPath = options.folderName ? `${options.folderName}/${options.jobName}` : options.jobName;
       throw new JenkinsJobNotFoundError(jobPath);
@@ -64,7 +64,7 @@ export class JenkinsJobService {
       const formattedPath = JenkinsPathBuilder.buildFormattedJobPath(jobPath);
       const response = await this.httpClient.get<JenkinsJob>(
         `${formattedPath}/${JenkinsConfig.ENDPOINTS.API_JSON}`,
-        JenkinsConfig.HEADERS.JSON
+        { headers: JenkinsConfig.HEADERS.JSON }
       );
 
       return response;
@@ -87,9 +87,9 @@ export class JenkinsJobService {
   async deleteJob(jobName: string, folderName?: string): Promise<JenkinsApiResponse> {
     try {
       const path = JenkinsPathBuilder.buildJobPath(jobName, folderName);
-      const response = await this.httpClient.post(`${path}/doDelete`, '', JenkinsConfig.HEADERS.JSON);
-      
-      return response;
+      const response = await this.httpClient.post(`${path}/doDelete`, '', { headers: JenkinsConfig.HEADERS.JSON });
+
+      return response as JenkinsApiResponse;
     } catch (error) {
       const jobPath = folderName ? `${folderName}/${jobName}` : jobName;
       throw new JenkinsJobNotFoundError(jobPath);
@@ -121,9 +121,8 @@ export class JenkinsJobService {
         : JenkinsConfig.ENDPOINTS.API_JSON;
       
       const response = await this.httpClient.get<{ jobs: JenkinsJob[] }>(
-        path,
-        JenkinsConfig.HEADERS.JSON,
-        { tree: 'jobs[name,url,color,buildable]' }
+        path + '?tree=jobs[name,url,color,buildable]',
+        { headers: JenkinsConfig.HEADERS.JSON }
       );
 
       return response.jobs || [];
@@ -141,9 +140,9 @@ export class JenkinsJobService {
   async disableJob(jobName: string, folderName?: string): Promise<JenkinsApiResponse> {
     try {
       const path = JenkinsPathBuilder.buildJobPath(jobName, folderName);
-      const response = await this.httpClient.post(`${path}/disable`, '', JenkinsConfig.HEADERS.JSON);
-      
-      return response;
+      const response = await this.httpClient.post(`${path}/disable`, '', { headers: JenkinsConfig.HEADERS.JSON });
+
+      return response as JenkinsApiResponse;
     } catch (error) {
       const jobPath = folderName ? `${folderName}/${jobName}` : jobName;
       throw new JenkinsJobNotFoundError(jobPath);
@@ -156,9 +155,9 @@ export class JenkinsJobService {
   async enableJob(jobName: string, folderName?: string): Promise<JenkinsApiResponse> {
     try {
       const path = JenkinsPathBuilder.buildJobPath(jobName, folderName);
-      const response = await this.httpClient.post(`${path}/enable`, '', JenkinsConfig.HEADERS.JSON);
-      
-      return response;
+      const response = await this.httpClient.post(`${path}/enable`, '', { headers: JenkinsConfig.HEADERS.JSON });
+
+      return response as JenkinsApiResponse;
     } catch (error) {
       const jobPath = folderName ? `${folderName}/${jobName}` : jobName;
       throw new JenkinsJobNotFoundError(jobPath);
@@ -171,9 +170,9 @@ export class JenkinsJobService {
   async updateJobConfig(jobName: string, configXml: string, folderName?: string): Promise<JenkinsApiResponse> {
     try {
       const path = JenkinsPathBuilder.buildJobPath(jobName, folderName);
-      const response = await this.httpClient.post(`${path}/config.xml`, configXml, JenkinsConfig.HEADERS.XML);
-      
-      return response;
+      const response = await this.httpClient.post(`${path}/config.xml`, configXml, { headers: JenkinsConfig.HEADERS.XML });
+
+      return response as JenkinsApiResponse;
     } catch (error) {
       const jobPath = folderName ? `${folderName}/${jobName}` : jobName;
       throw new JenkinsJobNotFoundError(jobPath);
@@ -186,8 +185,8 @@ export class JenkinsJobService {
   async getJobConfig(jobName: string, folderName?: string): Promise<string> {
     try {
       const path = JenkinsPathBuilder.buildJobPath(jobName, folderName);
-      const response = await this.httpClient.get<string>(`${path}/config.xml`, JenkinsConfig.HEADERS.XML);
-      
+      const response = await this.httpClient.get<string>(`${path}/config.xml`, { headers: JenkinsConfig.HEADERS.XML });
+
       return response;
     } catch (error) {
       const jobPath = folderName ? `${folderName}/${jobName}` : jobName;

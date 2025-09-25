@@ -20,3 +20,7 @@ export * from './gitFactory';
 
 // Export the template factory
 export * from './templates/templateFactory';
+
+// Export content modification types
+export type { ContentModification, ContentModifications } from '../../../modification/contentModification';
+export { ContentModificationsContainer } from '../../../modification/contentModification';
