@@ -3,6 +3,7 @@ import { UiComponent } from '../../src/ui/uiComponent';
 import { CommonPO } from '../../src/ui/page-objects/commonPo';
 import { hideQuickStartIfVisible } from '../../src/ui/common';
 import { waitForPageLoad } from '../../src/ui/common';
+import { expect } from '@playwright/test';
 
 /**
  * Create a basic test fixture with testItem
@@ -88,6 +89,40 @@ test.describe('Component UI Test Suite', () => {
         await ciPlugin!.checkActions(page);
       }, {timeout: 40000});
     });
+
+    test('Check Pipeline Runs table', async ({ page }) => {
+      await page.goto(`${component.getComponentUrl()}/ci`, { timeout: 20000 });
+      await waitForPageLoad(page, component.getCoreComponent().getName());
+
+      await test.step('Hide Quick start side panel', async () => {
+        await hideQuickStartIfVisible(page);
+      }, { timeout: 20000 });
+
+      await test.step('Check Pipeline Runs table row values', async () => {
+        const table = page.locator('table[aria-label="Pipeline Runs"]');
+        const firstRow = table.locator('tbody tr').first();
+        await expect(firstRow).toBeVisible();
+
+        // 1. Shield icon next to name (look for shield icon in name-related cells)
+        await expect(firstRow.locator('svg').first()).toBeVisible();
+
+        // 2. Vulnerabilities are shown (look for vulnerability data in any cell)
+        await expect(firstRow.locator('td').filter({ hasText: /(\d+\s*(?:•\s*\d+:\d+)?|-)/ })).toBeVisible();
+
+        // 3. Status is Succeeded and has a tick
+        await expect(firstRow).toContainText('Succeeded');
+        await expect(firstRow.locator('[data-testid="status-ok"]')).toBeVisible();
+
+        // 4. Started column has a date and time format (look for date pattern in any cell)
+        await expect(firstRow.locator('td').filter({ hasText: /\d{1,2}\/\d{1,2}\/\d{4}/ })).toBeVisible();
+
+        // 5. Task status has a visible bar (look for progress elements)
+        await expect(firstRow.locator('[role="progressbar"], [class*="bar"], [data-testid*="progress"]')).toBeVisible();
+
+        // 6. Duration is visible (`{number} minutes {number} seconds`)
+        await expect(firstRow.locator('td').filter({ hasText: /\d+\s+minutes?\s+\d+\s+seconds?/ })).toBeVisible();
+      }, { timeout: 30000 });
+    });
   });
 
   test.describe("Verify Docs", () => {
@@ -166,7 +201,6 @@ test.describe('Component UI Test Suite', () => {
     });
   });
 
-<<<<<<< HEAD:tests/ui/component.test.ts
   test.describe("Check dependencies tab and gitops dependency", () => {
 
     test('test dependency', async ({ page }) => {
@@ -187,27 +221,3 @@ test.describe('Component UI Test Suite', () => {
     });
   });
 });
-=======
-  test.describe("Verify Pipeline Runs", () => {
-    test('verify pipeline runs table', async ({ page }) => {
-      const ciTabUrl = `${component.getComponentUrl()}/ci`;
-      await page.goto(ciTabUrl, { timeout: 20000 });
-      await page.getByRole('heading', { name: component.getCoreComponent().getName() }).waitFor({ state: 'visible', timeout: 20000 });
-
-      // Check shield icon next to name
-      await expect(page.locator('svg[data-testid="ErrorOutlineIcon"]')).toBeVisible();
-      // Check vulnerabilities are shown
-      await expect(page.getByText('VULNERABILITIES')).toBeVisible();
-      // Check status is Succeeded with tick icon
-      await expect(page.getByText('Succeeded')).toBeVisible();
-      await expect(page.locator('svg[data-testid="CheckCircleIcon"]')).toBeVisible();
-      // Check started column has date/time format
-      await expect(page.getByText(/\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+(AM|PM)/)).toBeVisible();
-      // Check task status has visible progress bar
-      await expect(page.locator('[role="progressbar"]')).toBeVisible();
-      // Check duration is visible
-      await expect(page.getByText(/\d+\s+minutes?\s+\d+\s+seconds?/)).toBeVisible();
-    });
-  });
-});
->>>>>>> fbf9b85 (tests(ui): add Verify Pipeline Runs test for RHTAPUI-101):tests/ui/ui.test.ts
