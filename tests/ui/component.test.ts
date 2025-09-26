@@ -81,11 +81,11 @@ test.describe('Component UI Test Suite', () => {
         await hideQuickStartIfVisible(page);
       }, { timeout: 20000 });
 
-      await test.step("Check CI heading", async () => {
+      await test.step('Check CI heading', async () => {
         await ciPlugin.checkCIHeading(page);
       }, {timeout: 20000});
 
-      await test.step("Check CI table content", async () => {
+      await test.step('Check CI table content', async () => {
         await ciPlugin!.checkActions(page);
       }, {timeout: 40000});
     });
@@ -99,7 +99,7 @@ test.describe('Component UI Test Suite', () => {
       }, { timeout: 20000 });
 
       await test.step('Check Pipeline Runs table row values', async () => {
-        const table = page.locator('table[aria-label="Pipeline Runs"]');
+        const table = page.locator('table').filter({ has: page.getByRole('columnheader', { name: 'NAME' }) });
         const firstRow = table.locator('tbody tr').first();
         await expect(firstRow).toBeVisible();
 
@@ -107,20 +107,20 @@ test.describe('Component UI Test Suite', () => {
         await expect(firstRow.locator('svg').first()).toBeVisible();
 
         // 2. Vulnerabilities are shown (look for vulnerability data in any cell)
-        await expect(firstRow.locator('td').filter({ hasText: /(\d+\s*(?:•\s*\d+:\d+)?|-)/ })).toBeVisible();
+        await expect(firstRow.getByRole('cell').filter({ hasText: /\d/ }).first()).toBeVisible();
 
         // 3. Status is Succeeded and has a tick
         await expect(firstRow).toContainText('Succeeded');
         await expect(firstRow.locator('[data-testid="status-ok"]')).toBeVisible();
 
         // 4. Started column has a date and time format (look for date pattern in any cell)
-        await expect(firstRow.locator('td').filter({ hasText: /\d{1,2}\/\d{1,2}\/\d{4}/ })).toBeVisible();
+        await expect(firstRow.getByRole('cell').filter({ hasText: /\d{1,2}\/\d{1,2}\/\d{4}/ })).toBeVisible();
 
         // 5. Task status has a visible bar (look for progress elements)
-        await expect(firstRow.locator('[role="progressbar"], [class*="bar"], [data-testid*="progress"]')).toBeVisible();
+        await expect(firstRow.locator('[role="progressbar"], [class*="bar"], [data-testid*="progress"]').first()).toBeVisible();
 
         // 6. Duration is visible (`{number} minutes {number} seconds`)
-        await expect(firstRow.locator('td').filter({ hasText: /\d+\s+minutes?\s+\d+\s+seconds?/ })).toBeVisible();
+        await expect(firstRow.getByRole('cell').filter({ hasText: /\d+\s+minutes?\s+\d+\s+seconds?/ })).toBeVisible();
       }, { timeout: 30000 });
     });
   });
