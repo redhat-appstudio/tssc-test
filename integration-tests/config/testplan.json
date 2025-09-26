@@ -41,6 +41,13 @@
     "registry": "quay",
     "tpa": "remote",
     "acs": "remote"
+  },
+  {
+    "git": "github",
+    "ci": "azure",
+    "registry": "quay",
+    "tpa": "remote",
+    "acs": "remote"
   }],
   "tests": ["test1", "test2"]
 }

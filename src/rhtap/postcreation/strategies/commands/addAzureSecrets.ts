@@ -59,17 +59,17 @@ export class AddAzureVarsAndSecrets extends BaseCommand {
       {
         key: Credential.TRUSTIFICATION_BOMBASTIC_API_URL,
         value: this.tpa.getBombastic_api_url(),
-        isSecret: true,
+        isSecret: false,
       },
       {
         key: Credential.TRUSTIFICATION_OIDC_ISSUER_URL,
         value: this.tpa.getOidc_issuer_url(),
-        isSecret: true,
+        isSecret: false,
       },
       {
         key: Credential.TRUSTIFICATION_OIDC_CLIENT_ID,
         value: this.tpa.getOidc_client_id(),
-        isSecret: true,
+        isSecret: false,
       },
       {
         key: Credential.TRUSTIFICATION_OIDC_CLIENT_SECRET,
@@ -79,7 +79,7 @@ export class AddAzureVarsAndSecrets extends BaseCommand {
       {
         key: Credential.TRUSTIFICATION_SUPPORTED_CYCLONEDX_VERSION,
         value: this.tpa.getSupported_cyclonedx_version(),
-        isSecret: true,
+        isSecret: false,
       },
       {
         key: `REKOR_HOST`,
