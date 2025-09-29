@@ -99,6 +99,10 @@ test.describe('Component UI Test Suite', () => {
       }, { timeout: 20000 });
 
       await test.step('Check Pipeline Runs table row values', async () => {
+        // Wait for the Pipeline Runs section to be visible
+        await expect(page.getByRole('heading', { name: /pipeline runs/i })).toBeVisible();
+
+        // Find the table and first data row
         const table = page.locator('table').filter({ has: page.getByRole('columnheader', { name: 'NAME' }) });
         const firstRow = table.locator('tbody tr').first();
         await expect(firstRow).toBeVisible();
