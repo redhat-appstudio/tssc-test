@@ -139,7 +139,7 @@ export class JenkinsCI extends BaseCI {
         name: folderName,
         description: `Folder for ${folderName}`,
       };
-      await this.jenkinsClient.createFolder(folderConfig);
+      await this.jenkinsClient.jobs.createFolder(folderConfig);
       console.log(`Folder ${folderName} created successfully`);
     } catch (error) {
       console.error(`Failed to create folder ${folderName}:`, error);
@@ -156,7 +156,7 @@ export class JenkinsCI extends BaseCI {
   public async createJob(jobName: string, folderName: string, repoUrl: string): Promise<void> {
     try {
       // Create a job in Jenkins
-      await this.jenkinsClient.createJob(jobName, repoUrl, folderName);
+      await this.jenkinsClient.jobs.createJob({ jobName, repoUrl, folderName });
       console.log(`Job ${jobName} created successfully in folder ${folderName}`);
     } catch (error) {
       console.error(`Failed to create job ${jobName} in folder ${folderName}:`, error);
@@ -172,18 +172,18 @@ export class JenkinsCI extends BaseCI {
   ): Promise<void> {
     try {
       // Check if credential already exists
-      const credentialExists = await this.jenkinsClient.credentialExists(folderName, key);
+      const credentialExists = await this.jenkinsClient.credentials.credentialExists(folderName, key);
       
       if (credentialExists) {
         console.log(`Credential ${key} already exists in folder ${folderName}. Updating...`);
-        await this.jenkinsClient.updateCredential(folderName, key, value, credentialType);
+        await this.jenkinsClient.credentials.updateCredential(folderName, key, value, credentialType);
       } else {
         console.log(`Creating new credential ${key} in folder ${folderName}...`);
-        await this.jenkinsClient.createCredential(folderName, key, value, credentialType);
+        await this.jenkinsClient.credentials.createCredential(folderName, key, value, credentialType);
       }
 
       // Verify the credential was created/updated successfully
-      const credential = await this.jenkinsClient.getCredential(folderName, key);
+      const credential = await this.jenkinsClient.credentials.getCredential(folderName, key);
       if (!credential) {
         throw new Error(`Failed to verify credential ${key} after creation/update`);
       }
@@ -243,11 +243,11 @@ export class JenkinsCI extends BaseCI {
     const findPipelineOperation = async (): Promise<Pipeline | null> => {
       try {
         // Use getBuildByCommitSha to find the specific build for this commit
-        const buildInfo = await this.jenkinsClient.getBuildByCommitSha(
+        const buildInfo = await this.jenkinsClient.builds.getBuildByCommitSha({
           jobName,
           commitSha,
-          folderName
-        );
+          folderName,
+        });
 
         if (!buildInfo) {
           console.log(`No build found for job ${jobName} with commit SHA ${commitSha}`);
@@ -291,7 +291,7 @@ export class JenkinsCI extends BaseCI {
         // If eventType is specified, get the build trigger type and check if it matches
         if (eventType) {
           // Get full build information with trigger detection enabled
-          const buildWithTriggerInfo = await this.jenkinsClient.getBuild(
+          const buildWithTriggerInfo = await this.jenkinsClient.builds.getBuild(
             jobName,
             buildNumber,
             folderName,
@@ -390,7 +390,7 @@ export class JenkinsCI extends BaseCI {
         async (): Promise<PipelineStatus> => {
           try {
             // Fix: Add the missing folderName parameter
-            const buildInfo = await this.jenkinsClient.getBuild(jobName, buildNumber, folderName);
+            const buildInfo = await this.jenkinsClient.builds.getBuild(jobName, buildNumber, folderName);
   
             if (!buildInfo) {
               console.log(`Build info for ${jobName} #${buildNumber} not found`);
@@ -449,7 +449,7 @@ export class JenkinsCI extends BaseCI {
 
     try {
       // Use the enhanced Jenkins client method to wait for multiple jobs
-      await this.jenkinsClient.waitForMultipleJobsToComplete({
+      await this.jenkinsClient.builds.waitForMultipleJobsToComplete({
         jobNames: [sourceRepoJobName, gitopsRepoJobName],
         folderName: folderName,
         timeoutMs: timeoutMs,
@@ -474,8 +474,8 @@ export class JenkinsCI extends BaseCI {
     const gitopsRepoJobName = `${this.componentName}-gitops`;
 
     try {
-      return await this.jenkinsClient.getMultipleJobsActivityStatus(
-        [sourceRepoJobName, gitopsRepoJobName], 
+      return await this.jenkinsClient.builds.getMultipleJobsActivityStatus(
+        [sourceRepoJobName, gitopsRepoJobName],
         folderName
       );
     } catch (error) {
@@ -515,7 +515,7 @@ export class JenkinsCI extends BaseCI {
 
     try {
       const folderName = this.componentName;
-      const logs = await this.jenkinsClient.getBuildLog(
+      const logs = await this.jenkinsClient.builds.getBuildLog(
         pipeline.jobName,
         pipeline.buildNumber,
         folderName
@@ -549,8 +549,8 @@ export class JenkinsCI extends BaseCI {
 
     try {
       console.log(`Triggering Jenkins pipeline for job ${repoName}...`);
-      await this.jenkinsClient.build(repoName, this.componentName);
-      const builds = await this.jenkinsClient.getRunningBuilds(
+      await this.jenkinsClient.builds.triggerBuild({ jobName: repoName, folderName: this.componentName });
+      const builds = await this.jenkinsClient.builds.getRunningBuilds(
             repoName,
             this.componentName
       );

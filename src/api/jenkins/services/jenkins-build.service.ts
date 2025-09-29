@@ -39,13 +39,12 @@ export class JenkinsBuildService {
         : `${path}/${JenkinsConfig.ENDPOINTS.BUILD}`;
       
       const response = await this.httpClient.post(
-        endpoint, 
-        null, 
-        JenkinsConfig.HEADERS.JSON, 
-        options.parameters
+        endpoint,
+        options.parameters || null,
+        { headers: JenkinsConfig.HEADERS.JSON }
       );
-      
-      return response;
+
+      return response as JenkinsApiResponse;
     } catch (error) {
       const jobPath = options.folderName ? `${options.folderName}/${options.jobName}` : options.jobName;
       throw new JenkinsJobNotFoundError(jobPath);
@@ -71,7 +70,7 @@ export class JenkinsBuildService {
       
       const buildInfo = await this.httpClient.get<JenkinsBuild>(
         path,
-        JenkinsConfig.HEADERS.JSON
+        { headers: JenkinsConfig.HEADERS.JSON }
       );
 
       // Determine trigger type if requested
@@ -94,9 +93,8 @@ export class JenkinsBuildService {
       
       // Get job information with build data
       const response = await this.httpClient.get<JenkinsJob>(
-        `${path}/${JenkinsConfig.ENDPOINTS.API_JSON}`,
-        JenkinsConfig.HEADERS.JSON,
-        { tree: 'builds[number,url]' }
+        `${path}/${JenkinsConfig.ENDPOINTS.API_JSON}?tree=builds[number,url]`,
+        { headers: JenkinsConfig.HEADERS.JSON }
       );
 
       const runningBuilds: JenkinsBuild[] = [];
@@ -129,7 +127,7 @@ export class JenkinsBuildService {
       const path = JenkinsPathBuilder.buildJobPath(jobName, folderName);
       const jobInfo = await this.httpClient.get<JenkinsJob>(
         `${path}/${JenkinsConfig.ENDPOINTS.API_JSON}`,
-        JenkinsConfig.HEADERS.JSON
+        { headers: JenkinsConfig.HEADERS.JSON }
       );
 
       // If there's no lastBuild, return null
@@ -157,9 +155,8 @@ export class JenkinsBuildService {
       );
 
       const log = await this.httpClient.get<string>(
-        path,
-        JenkinsConfig.HEADERS.PLAIN,
-        { start: 0 }
+        path + '?start=0',
+        { headers: JenkinsConfig.HEADERS.PLAIN }
       );
 
       return log;
@@ -215,7 +212,7 @@ export class JenkinsBuildService {
       const path = JenkinsPathBuilder.buildJobPath(jobName, folderName);
       const jobInfo = await this.httpClient.get<JenkinsJob>(
         `${path}/${JenkinsConfig.ENDPOINTS.API_JSON}`,
-        JenkinsConfig.HEADERS.JSON
+        { headers: JenkinsConfig.HEADERS.JSON }
       );
 
       if (!jobInfo.builds || jobInfo.builds.length === 0) {
@@ -486,9 +483,8 @@ export class JenkinsBuildService {
     try {
       const path = JenkinsPathBuilder.buildJobPath(jobName, folderName);
       const jobInfo = await this.httpClient.get<JenkinsJob>(
-        `${path}/${JenkinsConfig.ENDPOINTS.API_JSON}`,
-        JenkinsConfig.HEADERS.JSON,
-        { tree: 'inQueue,buildable,color,lastBuild[number]' }
+        `${path}/${JenkinsConfig.ENDPOINTS.API_JSON}?tree=inQueue,buildable,color,lastBuild[number]`,
+        { headers: JenkinsConfig.HEADERS.JSON }
       );
       
       return jobInfo;

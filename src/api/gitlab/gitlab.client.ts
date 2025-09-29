@@ -1,18 +1,11 @@
 import { Gitlab } from '@gitbeaker/rest';
 import { GitLabConfig } from './config/gitlab.config';
-import {
-  IGitLabCoreClient,
-  IGitLabProjectService,
-  IGitLabRepositoryService,
-  IGitLabMergeRequestService,
-  IGitLabWebhookService,
-  IGitLabPipelineService,
-} from './interfaces/gitlab.interfaces';
 import { GitLabProjectService } from './services/gitlab-project.service';
 import { GitLabRepositoryService } from './services/gitlab-repository.service';
 import { GitLabMergeRequestService } from './services/gitlab-merge-request.service';
 import { GitLabWebhookService } from './services/gitlab-webhook.service';
 import { GitLabPipelineService } from './services/gitlab-pipeline.service';
+import { ContentModifications } from '../../rhtap/modification/contentModification';
 import {
   GitLabProject,
   GitLabProjectSearchParams,
@@ -37,51 +30,49 @@ import {
   GitLabPipeline,
   GitLabPipelineSearchParams,
 } from './types/gitlab.types';
-import { ContentModifications } from '../../rhtap/modification/contentModification';
 
 /**
  * Main GitLab client that provides a comprehensive interface to GitLab operations
- * Uses composition pattern with service-oriented architecture
  */
-export class GitLabClient implements IGitLabCoreClient {
+export class GitLabClient {
+  public readonly projects: GitLabProjectService;
+  public readonly repositories: GitLabRepositoryService;
+  public readonly mergeRequests: GitLabMergeRequestService;
+  public readonly webhooks: GitLabWebhookService;
+  public readonly pipelines: GitLabPipelineService;
   private readonly client: InstanceType<typeof Gitlab>;
-  private readonly projectService: IGitLabProjectService;
-  private readonly repositoryService: IGitLabRepositoryService;
-  private readonly mergeRequestService: IGitLabMergeRequestService;
-  private readonly webhookService: IGitLabWebhookService;
-  private readonly pipelineService: IGitLabPipelineService;
 
-  constructor(private readonly config: GitLabConfig) {
-    // Initialize the GitLab client
+  constructor(config: GitLabConfig) {
     this.client = new Gitlab({
       host: config.baseUrl,
       token: config.token,
     });
 
-    // Initialize services with dependency injection
-    this.projectService = new GitLabProjectService(this.client);
-    this.repositoryService = new GitLabRepositoryService(this.client);
-    this.mergeRequestService = new GitLabMergeRequestService(
+    this.projects = new GitLabProjectService(this.client);
+    this.repositories = new GitLabRepositoryService(this.client);
+    this.mergeRequests = new GitLabMergeRequestService(
       this.client,
-      this.repositoryService,
-      this.projectService
+      this.repositories,
+      this.projects
     );
-    this.webhookService = new GitLabWebhookService(this.client, this.projectService);
-    this.pipelineService = new GitLabPipelineService(this.client);
+    this.webhooks = new GitLabWebhookService(this.client, this.projects);
+    this.pipelines = new GitLabPipelineService(this.client);
   }
 
-  // Core client access
+  /**
+   * Get the underlying Gitbeaker client instance
+   */
   public getClient(): InstanceType<typeof Gitlab> {
     return this.client;
   }
 
   // Project operations
   public async getProjects(params?: GitLabProjectSearchParams): Promise<GitLabProject[]> {
-    return this.projectService.getProjects(params);
+    return this.projects.getProjects(params);
   }
 
   public async getProject(projectIdOrPath: ProjectIdentifier): Promise<GitLabProject> {
-    return this.projectService.getProject(projectIdOrPath);
+    return this.projects.getProject(projectIdOrPath);
   }
 
   public async setEnvironmentVariable(
@@ -90,23 +81,23 @@ export class GitLabClient implements IGitLabCoreClient {
     value: string,
     options?: CreateVariableOptions
   ): Promise<GitLabVariable> {
-    return this.projectService.setEnvironmentVariable(projectId, key, value, options);
+    return this.projects.setEnvironmentVariable(projectId, key, value, options);
   }
 
   // Repository operations
   public async getBranches(projectId: ProjectIdentifier): Promise<GitLabBranch[]> {
-    return this.repositoryService.getBranches(projectId);
+    return this.repositories.getBranches(projectId);
   }
 
   public async getBranch(projectId: ProjectIdentifier, branch: string): Promise<GitLabBranch> {
-    return this.repositoryService.getBranch(projectId, branch);
+    return this.repositories.getBranch(projectId, branch);
   }
 
   public async getCommits(
     projectId: ProjectIdentifier,
     params?: GitLabCommitSearchParams
   ): Promise<GitLabCommit[]> {
-    return this.repositoryService.getCommits(projectId, params);
+    return this.repositories.getCommits(projectId, params);
   }
 
   public async createFile(
@@ -116,7 +107,7 @@ export class GitLabClient implements IGitLabCoreClient {
     content: string,
     commitMessage: string
   ): Promise<GitLabFileOperationResult> {
-    return this.repositoryService.createFile(projectId, filePath, branch, content, commitMessage);
+    return this.repositories.createFile(projectId, filePath, branch, content, commitMessage);
   }
 
   public async updateFile(
@@ -126,7 +117,7 @@ export class GitLabClient implements IGitLabCoreClient {
     content: string,
     commitMessage: string
   ): Promise<GitLabFileOperationResult> {
-    return this.repositoryService.updateFile(projectId, filePath, branch, content, commitMessage);
+    return this.repositories.updateFile(projectId, filePath, branch, content, commitMessage);
   }
 
   public async getFileContent(
@@ -134,7 +125,7 @@ export class GitLabClient implements IGitLabCoreClient {
     filePath: string,
     branch?: string
   ): Promise<GitLabFile> {
-    return this.repositoryService.getFileContent(projectId, filePath, branch);
+    return this.repositories.getFileContent(projectId, filePath, branch);
   }
 
   public async extractContentByRegex(
@@ -143,7 +134,7 @@ export class GitLabClient implements IGitLabCoreClient {
     searchPattern: RegExp,
     branch?: string
   ): Promise<ContentExtractionResult> {
-    return this.repositoryService.extractContentByRegex(projectId, filePath, searchPattern, branch);
+    return this.repositories.extractContentByRegex(projectId, filePath, searchPattern, branch);
   }
 
   public async createCommit(
@@ -152,7 +143,7 @@ export class GitLabClient implements IGitLabCoreClient {
     commitMessage: string,
     actions: FileAction[]
   ): Promise<CommitResult> {
-    return this.repositoryService.createCommit(projectId, branch, commitMessage, actions);
+    return this.repositories.createCommit(projectId, branch, commitMessage, actions);
   }
 
   // Merge request operations - overloaded methods for backward compatibility
@@ -197,7 +188,7 @@ export class GitLabClient implements IGitLabCoreClient {
       title &&
       description
     ) {
-      return this.mergeRequestService.createMergeRequestWithNewBranch(
+      return this.mergeRequests.createMergeRequestWithNewBranch(
         ownerOrProjectId,
         repoOrSourceBranch,
         targetOwnerOrTargetBranch,
@@ -216,7 +207,7 @@ export class GitLabClient implements IGitLabCoreClient {
       const title = baseBranchOrTitle;
       const options = (newBranchNameOrOptions as CreateMergeRequestOptions) || {};
 
-      return this.mergeRequestService.createMergeRequest(
+      return this.mergeRequests.createMergeRequest(
         projectId,
         sourceBranch,
         targetBranch,
@@ -232,7 +223,7 @@ export class GitLabClient implements IGitLabCoreClient {
     mergeRequestId: number,
     options?: MergeMergeRequestOptions
   ): Promise<MergeResult> {
-    return this.mergeRequestService.mergeMergeRequest(projectId, mergeRequestId, options);
+    return this.mergeRequests.mergeMergeRequest(projectId, mergeRequestId, options);
   }
 
   // Webhook operations
@@ -242,7 +233,7 @@ export class GitLabClient implements IGitLabCoreClient {
     webhookUrl: string,
     options?: CreateWebhookOptions
   ): Promise<GitLabWebhook> {
-    return this.webhookService.configWebhook(owner, repo, webhookUrl, options);
+    return this.webhooks.configWebhook(owner, repo, webhookUrl, options);
   }
 
   // Pipeline operations
@@ -263,7 +254,7 @@ export class GitLabClient implements IGitLabCoreClient {
       ...(status && { status }),
     };
 
-    return this.pipelineService.getPipelines(projectPath, params);
+    return this.pipelines.getPipelines(projectPath, params);
   }
 
   /**
@@ -272,7 +263,7 @@ export class GitLabClient implements IGitLabCoreClient {
    * @returns A promise that resolves to an array of GitLab pipelines
    */
   public async getAllPipelines(projectPath: string): Promise<GitLabPipeline[]> {
-    return this.pipelineService.getAllPipelines(projectPath);
+    return this.pipelines.getAllPipelines(projectPath);
   }
 
   /**
@@ -282,7 +273,7 @@ export class GitLabClient implements IGitLabCoreClient {
    * @returns A promise that resolves to a GitLab pipeline
    */
   public async getPipelineById(projectPath: string, pipelineId: number): Promise<GitLabPipeline> {
-    return this.pipelineService.getPipelineById(projectPath, pipelineId);
+    return this.pipelines.getPipelineById(projectPath, pipelineId);
   }
 
   /**
@@ -292,10 +283,10 @@ export class GitLabClient implements IGitLabCoreClient {
    * @returns A promise that resolves to the job logs as a string
    */
   public async getPipelineLogs(projectPath: string, pipelineId: number): Promise<string> {
-    return this.pipelineService.getPipelineLogs(projectPath, pipelineId);
+    return this.pipelines.getPipelineLogs(projectPath, pipelineId);
   }
 
   public async cancelPipeline(projectPath: string, pipelineId: number): Promise<GitLabPipeline> {
-    return this.pipelineService.cancelPipeline(projectPath, pipelineId);
+    return this.pipelines.cancelPipeline(projectPath, pipelineId);
   }
 } 

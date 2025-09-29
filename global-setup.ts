@@ -4,7 +4,7 @@ import { checkClis } from './src/utils/cliChecker';
 /**
  * Global setup function for Playwright tests
  */
-async function globalSetup(config: FullConfig): Promise<void> {
+async function globalSetup(_config: FullConfig): Promise<void> {
   console.log('Starting test suite setup (Global Setup)');
 
   try {
