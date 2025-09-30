@@ -94,8 +94,9 @@ export class TektonPlugin extends BaseCIPlugin {
         const firstRow = table.locator('tbody tr').first();
         await expect(firstRow).toBeVisible();
 
-        // 1. Shield icon next to name (look for shield icon in name-related cells)
-        await expect(firstRow.locator('svg').first()).toBeVisible();
+        // 1. Shield icon next to name (look for shield icon with specific path, not the expand arrow)
+        const shieldIcon = firstRow.locator('svg').filter({ has: page.locator('path[d*="12 21.975"]') });
+        await expect(shieldIcon).toBeVisible();
 
         // 2. Vulnerabilities are shown (look for vulnerability severity levels)
         await expect(firstRow.getByRole('cell').filter({ hasText: TektonPO.vulnerabilitySeverityRegex }).first()).toBeVisible();

@@ -3,7 +3,6 @@ import { UiComponent } from '../../src/ui/uiComponent';
 import { CommonPO } from '../../src/ui/page-objects/commonPo';
 import { hideQuickStartIfVisible } from '../../src/ui/common';
 import { waitForPageLoad } from '../../src/ui/common';
-import { expect } from '@playwright/test';
 
 /**
  * Create a basic test fixture with testItem
