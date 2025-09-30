@@ -88,43 +88,9 @@ test.describe('Component UI Test Suite', () => {
       await test.step('Check CI table content', async () => {
         await ciPlugin!.checkActions(page);
       }, {timeout: 40000});
-    });
-
-    test('Check Pipeline Runs table', async ({ page }) => {
-      await page.goto(`${component.getComponentUrl()}/ci`, { timeout: 20000 });
-      await waitForPageLoad(page, component.getCoreComponent().getName());
-
-      await test.step('Hide Quick start side panel', async () => {
-        await hideQuickStartIfVisible(page);
-      }, { timeout: 20000 });
 
       await test.step('Check Pipeline Runs table row values', async () => {
-        // Wait for the Pipeline Runs section to be visible
-        await expect(page.getByRole('heading', { name: /pipeline runs/i })).toBeVisible();
-
-        // Find the table and first data row
-        const table = page.locator('table').filter({ has: page.getByRole('columnheader', { name: 'NAME' }) });
-        const firstRow = table.locator('tbody tr').first();
-        await expect(firstRow).toBeVisible();
-
-        // 1. Shield icon next to name (look for shield icon in name-related cells)
-        await expect(firstRow.locator('svg').first()).toBeVisible();
-
-        // 2. Vulnerabilities are shown (look for vulnerability data in any cell)
-        await expect(firstRow.getByRole('cell').filter({ hasText: /\d/ }).first()).toBeVisible();
-
-        // 3. Status is Succeeded and has a tick
-        await expect(firstRow).toContainText('Succeeded');
-        await expect(firstRow.locator('[data-testid="status-ok"]')).toBeVisible();
-
-        // 4. Started column has a date and time format (look for date pattern in any cell)
-        await expect(firstRow.getByRole('cell').filter({ hasText: /\d{1,2}\/\d{1,2}\/\d{4}/ })).toBeVisible();
-
-        // 5. Task status has a visible bar (look for progress elements)
-        await expect(firstRow.locator('[role="progressbar"], [class*="bar"], [data-testid*="progress"]').first()).toBeVisible();
-
-        // 6. Duration is visible (`{number} minutes {number} seconds`)
-        await expect(firstRow.getByRole('cell').filter({ hasText: /\d+\s+minutes?\s+\d+\s+seconds?/ })).toBeVisible();
+        await ciPlugin!.checkPipelineRunsTable(page);
       }, { timeout: 30000 });
     });
   });

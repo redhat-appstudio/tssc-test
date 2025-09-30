@@ -22,6 +22,12 @@ export const TektonPO = {
 	// Regex and text matchers
 	onPushRowRegex: /on-push/i,
 	logStepRegex: /\bSTEP\b/i,
+	vulnerabilitySeverityRegex: /Critical|High|Medium|Low/i,
+	durationRegex: /\d+\s+minutes?\s+\d+\s+seconds?/,
+
+	// Status constants
+	statusOkTestId: 'status-ok',
+	statusSucceededText: 'Succeeded',
 
 	// Task names
     sourceTasks: ['init', 'clone-repository', 'build-container', 'update-deployment', 'acs-image-scan', 'acs-image-check', 'acs-deploy-check', 'show-summary', 'show-sbom'],
