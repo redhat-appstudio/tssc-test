@@ -1,4 +1,5 @@
 import { KubeClient } from '../../ocp/kubeClient';
+import retry from 'async-retry';
 import {
   ArgoCDConnectionInfo,
   ArgoCDConnectionConfig,
@@ -22,28 +23,53 @@ export class ArgoCDConnectionService {
 
   /**
    * Gets the name of the ArgoCD instance in the specified namespace.
+   * Includes retry logic to handle rate limiting scenarios.
    */
   public async getInstanceName(namespace: string): Promise<string> {
     try {
-      const options = this.kubeClient.createApiOptions(
-        this.API_GROUP,
-        this.API_VERSION,
-        this.ARGOCD_PLURAL,
-        namespace
+      return await retry(
+        async (bail) => {
+          try {
+            const options = this.kubeClient.createApiOptions(
+              this.API_GROUP,
+              this.API_VERSION,
+              this.ARGOCD_PLURAL,
+              namespace
+            );
+
+            const instances = await this.kubeClient.listResources<ArgoCDInstanceKind>(options);
+            if (!instances || instances.length === 0) {
+              throw new ArgoCDInstanceNotFoundError(namespace);
+            }
+
+            const instanceName = instances[0]?.metadata?.name;
+            if (!instanceName) {
+              throw new ArgoCDInstanceNotFoundError(namespace);
+            }
+
+            return instanceName;
+          } catch (error) {
+            // If it's not rate limiting, bail immediately
+            if (error instanceof ArgoCDConnectionError) {
+              bail(error);
+            }
+
+            // For other errors (including rate limiting), allow retry
+            throw error;
+          }
+        },
+        {
+          retries: 3,
+          minTimeout: 2000,
+          factor: 2,
+          maxTimeout: 30000,
+          onRetry: (error: Error, attempt: number) => {
+            console.log(
+              `[ARGOCD-INSTANCE-RETRY ${attempt}/3] 🔄 Retrying ArgoCD instance lookup for namespace ${namespace} | Reason: ${error.message}`
+            );
+          },
+        }
       );
-
-      const instances = await this.kubeClient.listResources<ArgoCDInstanceKind>(options);
-
-      if (!instances || instances.length === 0) {
-        throw new ArgoCDInstanceNotFoundError(namespace);
-      }
-
-      const instanceName = instances[0]?.metadata?.name;
-      if (!instanceName) {
-        throw new ArgoCDInstanceNotFoundError(namespace);
-      }
-
-      return instanceName;
     } catch (error) {
       if (error instanceof ArgoCDInstanceNotFoundError) {
         throw error;
