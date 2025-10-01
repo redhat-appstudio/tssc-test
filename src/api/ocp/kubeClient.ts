@@ -211,10 +211,24 @@ export class KubeClient {
         );
         return [];
       }
-    } catch (error) {
+    } catch (error: any) {
       const labelInfo = options.labelSelector
         ? ` with label selector '${options.labelSelector}'`
         : '';
+
+      // Check if this is a rate limiting error that should be propagated
+      if (error.message && (
+            error.message.includes('429') || error.message.includes('TooManyRequests')
+      )) {
+        console.error(
+          `Rate limiting error fetching resources in namespace '${options.namespace}'${labelInfo}: ${error}`
+        );
+
+        // Throw rate limiting errors so they can be handled by retry logic
+        throw new Error(`HTTP-Code: 429 - Rate limiting error: ${error.message || error}`);
+      }
+
+      // For other errors, log and return empty array (existing behavior)
       console.error(
         `Error fetching resources in namespace '${options.namespace}'${labelInfo}: ${error}`
       );
