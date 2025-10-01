@@ -2,7 +2,7 @@
  * Represents a single content modification for a file
  */
 export interface ContentModification {
-  oldContent: string;
+  oldContent: string | RegExp;
   newContent: string;
 }
 
@@ -26,7 +26,7 @@ export class ContentModificationsContainer {
    */
   public add(
     filePath: string,
-    oldContent: string,
+    oldContent: string | RegExp,
     newContent: string
   ): ContentModificationsContainer {
     if (!this.modifications[filePath]) {
