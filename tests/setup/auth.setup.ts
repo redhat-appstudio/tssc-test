@@ -1,6 +1,6 @@
 import { KubeClient } from '../../src/api/ocp/kubeClient';
 import { Git } from '../../src/rhtap/core/integration/git';
-import { GithubUiPlugin } from '../../src/ui/plugins/git/github';
+import { GithubUiPlugin } from '../../src/ui/plugins/git/githubUi';
 import { test as setup } from '@playwright/test';
 
 const authFile = 'playwright/.auth/user.json';
