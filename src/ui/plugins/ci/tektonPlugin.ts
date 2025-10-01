@@ -95,7 +95,7 @@ export class TektonPlugin extends BaseCIPlugin {
         await expect(firstRow).toBeVisible();
 
         // 1. Shield icon next to name (look for shield icon with specific path, not the expand arrow)
-        const shieldIcon = firstRow.locator('svg').filter({ has: page.locator('path[d*="12 21.975"]') });
+        const shieldIcon = firstRow.locator('.signed-indicator svg');
         await expect(shieldIcon).toBeVisible();
 
         // 2. Vulnerabilities are shown (look for vulnerability severity levels)
