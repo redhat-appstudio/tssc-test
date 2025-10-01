@@ -1,5 +1,6 @@
 import { Component } from '../../../core/component';
-import { ContentModifications, Git } from '../../../core/integration/git';
+import { Git } from '../../../core/integration/git';
+import { ContentModifications } from '../../../modification/contentModification';
 import { BaseCommand } from './baseCommand';
 
 const COMMIT_MESSAGE = 'Update Azure Pipeline agent pool and variable group';
@@ -28,11 +29,11 @@ export class ModifyAzureFiles extends BaseCommand {
     const modifications: ContentModifications = {
       'azure-pipelines.yml': [
         {
-          oldContent: 'name: Default',
+          oldContent: /name: \w+/,
           newContent: `name: ${AGENT_POOL}`,
         },
         {
-          oldContent: '- group: rhtap',
+          oldContent: /- group: \w+/,
           newContent: `- group: ${this.component.getName()}`,
         },
       ],
