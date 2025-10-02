@@ -176,6 +176,11 @@ spec:
 
         echo "UI tests completed with exit code: $TEST_EXIT_CODE"
 
+        # debug
+        ls -la
+        pwd
+        ls -R
+
         exit $TEST_EXIT_CODE
     - name: upload-ui-test-report
       ref:
@@ -225,5 +230,11 @@ spec:
       script: |
         #!/usr/bin/env bash
         set -eu
+
+        # debug
+        ls -la
+        pwd
+        ls -R
+
         PREVIOUS_STEP_EXIT_CODE=$(cat $(steps.run-ui-tests.exitCode.path))
         exit "${PREVIOUS_STEP_EXIT_CODE}"
