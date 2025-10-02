@@ -1,8 +1,8 @@
 import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { UiComponent } from '../../src/ui/uiComponent';
 import { CommonPO } from '../../src/ui/page-objects/commonPo';
-import { hideQuickStartIfVisible } from '../../src/ui/common';
-import { waitForPageLoad } from '../../src/ui/common';
+import { hideQuickStartIfVisible } from '../../src/ui/commonUi';
+import { waitForPageLoad } from '../../src/ui/commonUi';
 
 /**
  * Create a basic test fixture with testItem

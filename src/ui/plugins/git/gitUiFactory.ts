@@ -6,7 +6,7 @@
  */
 
 import { Git, GitType } from '../../../rhtap/core/integration/git/gitInterface';
-import { GithubUiPlugin } from './github';
+import { GithubUiPlugin } from './githubUi';
 import { GitPlugin } from './gitUiInterface';
 
 export class GitUiFactory {

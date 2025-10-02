@@ -1,8 +1,8 @@
 
 import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { UiComponent } from '../../src/ui/uiComponent';
-import { hideQuickStartIfVisible, openTab } from '../../src/ui/common';
-import { waitForPageLoad } from '../../src/ui/common';
+import { hideQuickStartIfVisible, openTab } from '../../src/ui/commonUi';
+import { waitForPageLoad } from '../../src/ui/commonUi';
 import { CIType } from '../../src/rhtap/core/integration/ci';
 
 /**
