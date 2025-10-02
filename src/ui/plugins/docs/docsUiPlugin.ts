@@ -1,5 +1,5 @@
 import { expect, Page } from '@playwright/test';
-import { checkWebsiteStatus } from '../../common';
+import { checkWebsiteStatus } from '../../commonUi';
 
 export class DocsUiPlugin {
     private readonly componentName: string;
