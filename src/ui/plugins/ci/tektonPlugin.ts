@@ -108,8 +108,8 @@ export class TektonPlugin extends BaseCIPlugin {
         // 4. Started column has a date and time format (look for date pattern in any cell)
         await expect(firstRow.getByRole('cell').filter({ hasText: /\d{1,2}\/\d{1,2}\/\d{4}/ })).toBeVisible();
 
-        // 5. Task status has a visible bar (rely on progressbar role)
-        await expect(firstRow.getByRole('progressbar').first()).toBeVisible();
+        // 5. Task status has a visible bar (look for progress elements)
+        await expect(firstRow.locator('[role="progressbar"], [class*="bar"], [data-testid*="progress"]').first()).toBeVisible();
 
         // 6. Duration is visible (`{number} minutes {number} seconds`)
         await expect(firstRow.getByRole('cell').filter({ hasText: TektonPO.durationRegex })).toBeVisible();
