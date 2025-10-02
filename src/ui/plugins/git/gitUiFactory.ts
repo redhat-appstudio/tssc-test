@@ -7,6 +7,7 @@
 
 import { Git, GitType } from '../../../rhtap/core/integration/git/gitInterface';
 import { GithubUiPlugin } from './githubUi';
+import { GitlabUiPlugin } from './gitlabUi';
 import { GitPlugin } from './gitUiInterface';
 
 export class GitUiFactory {
@@ -25,6 +26,8 @@ export class GitUiFactory {
         switch (gitType) {
             case GitType.GITHUB:
                 return new GithubUiPlugin(git);
+            case GitType.GITLAB:
+                return new GitlabUiPlugin(git);
             default:
                 console.warn(`Unsupported Git type: ${gitType}`);
                 return undefined;
