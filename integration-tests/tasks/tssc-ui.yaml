@@ -27,12 +27,14 @@ spec:
   steps:
     - name: prepare-environment
       image: $(params.tssc-test-image)
+      securityContext:
+        runAsUser: 0
       command: ['/bin/sh', '-c']
-      args: ['cp -r /tssc-test/* /ui-test && chmod -R +x /ui-test/*']
-      workingDir: /ui-test
+      args: ['mkdir -p /workspace/ui-test && cp -r /tssc-test/* /workspace/ui-test && chown -R 1001:0 /workspace/ui-test && chmod -R 777 /workspace/ui-test']
+      workingDir: /workspace/ui-test
     - name: setup-test-environment
       image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
-      workingDir: /ui-test
+      workingDir: /workspace/ui-test
       computeResources:
         limits:
           memory: 1Gi
@@ -150,7 +152,7 @@ spec:
 
     - name: run-ui-tests
       image: $(params.tssc-test-image)
-      workingDir: /ui-test
+      workingDir: /workspace/ui-test
       onError: continue
       computeResources:
         limits:
@@ -176,8 +178,24 @@ spec:
 
         echo "UI tests completed with exit code: $TEST_EXIT_CODE"
 
+        # debug
+        ls -la
+        pwd
+        ls -R
+
         exit $TEST_EXIT_CODE
-    - name: upload-ui-test-report
+    - name: create-artifact-bundle
+      image: $(params.tssc-test-image)
+      workingDir: /workspace/ui-test
+      command: ['/bin/sh', '-c']
+      args:
+        - |
+          set -ex
+          echo "Creating artifact bundle"
+          mkdir -p /workspace/ui-test/artifacts
+          tar -czvf /workspace/ui-test/artifacts/ui-artifacts.tar.gz playwright-report test-results tmp
+    - name: upload-artifacts
+      onError: continue
       ref:
         resolver: git
         params:
@@ -189,16 +207,16 @@ spec:
             value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
       params:
         - name: workdir-path
-          value: /ui-test/playwright-report
+          value: /workspace/ui-test/artifacts
         - name: oci-ref
-          value: $(params.oci-container)-ui-report
+          value: $(params.oci-container)-ui-artifacts
         - name: credentials-volume-name
           value: konflux-test-infra-volume
         - name: oci-tag-expiration
           value: 1y
         - name: always-pass
           value: "false"
-    - name: upload-ui-test-results
+    - name: fail-if-any-step-failed
       ref:
         resolver: git
         params:
@@ -207,23 +225,4 @@ spec:
           - name: revision
             value: main
           - name: pathInRepo
-            value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
-      params:
-        - name: workdir-path
-          value: /ui-test/test-results
-        - name: oci-ref
-          value: $(params.oci-container)-ui-results
-        - name: credentials-volume-name
-          value: konflux-test-infra-volume
-        - name: oci-tag-expiration
-          value: 1y
-        - name: always-pass
-          value: "false"
-    - name: enforce-test-result
-      image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
-      workingDir: /ui-test
-      script: |
-        #!/usr/bin/env bash
-        set -eu
-        PREVIOUS_STEP_EXIT_CODE=$(cat $(steps.run-ui-tests.exitCode.path))
-        exit "${PREVIOUS_STEP_EXIT_CODE}"
+            value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml

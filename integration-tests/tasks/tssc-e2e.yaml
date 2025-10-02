@@ -28,17 +28,17 @@ spec:
     - name: konflux-test-infra-volume
       secret:
         secretName: konflux-test-infra
-    - name: tssc-test-dir
-      emptyDir: {}
   steps:
     - name: copy-tssc-test
       image: $(params.tssc-test-image)
+      securityContext:
+        runAsUser: 0
       command: ['/bin/sh', '-c']
-      args: ['cp -r /tssc-test/* /e2e-test && chmod -R +x /e2e-test/*']
-      workingDir: /e2e-test
+      args: ['mkdir -p /workspace/e2e-test && cp -r /tssc-test/* /workspace/e2e-test && chown -R 1001:0 /workspace/e2e-test && chmod -R 777 /workspace/e2e-test']
+      workingDir: /workspace/e2e-test
     - name: generate-testplan
       image: $(params.tssc-test-image)
-      workingDir: /e2e-test
+      workingDir: /workspace/e2e-test
       env:
         - name: JOB_SPEC
           value: '$(params.job-spec)'
@@ -76,7 +76,10 @@ spec:
         echo "--------------------------------"
     - name: run-tssc-e2e
       image: $(params.tssc-test-image)
-      workingDir: /e2e-test
+      workingDir: /workspace/e2e-test
+      volumeMounts:
+        - name: rhtap-cli-volume
+          mountPath: /usr/local/rhtap-cli-install
       onError: continue
       computeResources:
         limits:
@@ -84,9 +87,6 @@ spec:
         requests:
           cpu: 100m
           memory: 3Gi
-      volumeMounts:
-        - name: rhtap-cli-volume
-          mountPath: /usr/local/rhtap-cli-install
       env:
         - name: JOB_SPEC
           value: '$(params.job-spec)'
@@ -139,8 +139,24 @@ spec:
 
         echo "Test execution completed with exit code: $TEST_EXIT_CODE"
 
+        # debug
+        ls -la
+        pwd
+        ls -R
+
         exit $TEST_EXIT_CODE
-    - name: upload-e2e-test-report
+    - name: create-artifact-bundle
+      image: $(params.tssc-test-image)
+      workingDir: /workspace/e2e-test
+      command: ['/bin/sh', '-c']
+      args:
+        - |
+          set -ex
+          echo "Creating artifact bundle"
+          mkdir -p /workspace/e2e-test/artifacts && chmod 777 /workspace/e2e-test/artifacts
+          tar -czvf /workspace/e2e-test/artifacts/e2e-artifacts.tar.gz playwright-report test-results tmp
+    - name: upload-artifacts
+      onError: continue
       ref:
         resolver: git
         params:
@@ -152,16 +168,16 @@ spec:
             value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
       params:
         - name: workdir-path
-          value: /e2e-test/playwright-report
+          value: /workspace/e2e-test/artifacts
         - name: oci-ref
-          value: $(params.oci-container)-e2e-report
+          value: $(params.oci-container)-e2e-artifacts
         - name: credentials-volume-name
           value: konflux-test-infra-volume
         - name: oci-tag-expiration
           value: 1y
         - name: always-pass
           value: "false"
-    - name: upload-e2e-test-results
+    - name: fail-if-any-step-failed
       ref:
         resolver: git
         params:
@@ -170,44 +186,4 @@ spec:
           - name: revision
             value: main
           - name: pathInRepo
-            value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
-      params:
-        - name: workdir-path
-          value: /e2e-test/test-results
-        - name: oci-ref
-          value: $(params.oci-container)-e2e-results
-        - name: credentials-volume-name
-          value: konflux-test-infra-volume
-        - name: oci-tag-expiration
-          value: 1y
-        - name: always-pass
-          value: "false"
-    - name: upload-e2e-configs
-      ref:
-        resolver: git
-        params:
-          - name: url
-            value: https://github.com/konflux-ci/tekton-integration-catalog.git
-          - name: revision
-            value: main
-          - name: pathInRepo
-            value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
-      params:
-        - name: workdir-path
-          value: /e2e-test/tmp
-        - name: oci-ref
-          value: $(params.oci-container)-e2e-tmp
-        - name: credentials-volume-name
-          value: konflux-test-infra-volume
-        - name: oci-tag-expiration
-          value: 1y
-        - name: always-pass
-          value: "false"
-    - name: enforce-test-result
-      image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
-      workingDir: /e2e-test
-      script: |
-        #!/usr/bin/env bash
-        set -eu
-        PREVIOUS_STEP_EXIT_CODE=$(cat $(steps.run-tssc-e2e.exitCode.path))
-        exit "${PREVIOUS_STEP_EXIT_CODE}"
+            value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
