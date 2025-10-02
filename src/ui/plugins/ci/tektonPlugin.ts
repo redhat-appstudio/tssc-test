@@ -89,9 +89,9 @@ export class TektonPlugin extends BaseCIPlugin {
         // Wait for the Pipeline Runs section to be visible
         await expect(page.getByRole('heading', { name: /pipeline runs/i })).toBeVisible();
 
-        // Find the table and first data row
+        // Find the table and on-push row
         const table = page.locator('table').filter({ has: page.getByRole('columnheader', { name: 'NAME' }) });
-        const firstRow = table.locator('tbody tr').first();
+        const firstRow = table.locator('tbody tr').filter({ hasText: TektonPO.onPushRowRegex }).first();
         await expect(firstRow).toBeVisible();
 
         // 1. Shield icon next to name (look for shield icon with specific path, not the expand arrow)
@@ -108,8 +108,8 @@ export class TektonPlugin extends BaseCIPlugin {
         // 4. Started column has a date and time format (look for date pattern in any cell)
         await expect(firstRow.getByRole('cell').filter({ hasText: /\d{1,2}\/\d{1,2}\/\d{4}/ })).toBeVisible();
 
-        // 5. Task status has a visible bar (look for progress elements)
-        await expect(firstRow.locator('[role="progressbar"], [class*="bar"], [data-testid*="progress"]').first()).toBeVisible();
+        // 5. Task status has a visible bar (rely on progressbar role)
+        await expect(firstRow.getByRole('progressbar').first()).toBeVisible();
 
         // 6. Duration is visible (`{number} minutes {number} seconds`)
         await expect(firstRow.getByRole('cell').filter({ hasText: TektonPO.durationRegex })).toBeVisible();
