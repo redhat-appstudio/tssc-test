@@ -177,6 +177,10 @@ npm run test:all
 # Run a specific test file
 npm test -- tests/tssc/full_workflow.test.ts
 
+# Run import template tests (supports all Git providers)
+npm run test:import
+
+
 # View test report
 npm run test:report
 ```
@@ -224,6 +228,10 @@ npm test -- tests/tssc/full_workflow.test.ts
 
 # Run UI tests
 npm run test:ui
+
+# Run import template tests (supports all Git providers)
+npm run test:import
+
 
 # View test report
 npm run test:report
