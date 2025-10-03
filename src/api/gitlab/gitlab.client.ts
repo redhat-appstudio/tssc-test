@@ -298,4 +298,51 @@ export class GitLabClient implements IGitLabCoreClient {
   public async cancelPipeline(projectPath: string, pipelineId: number): Promise<GitLabPipeline> {
     return this.pipelineService.cancelPipeline(projectPath, pipelineId);
   }
+
+  /**
+   * Gets the repository tree (directory contents) for a project
+   * @param projectId The project ID or path
+   * @param path The path to get tree for (default: root)
+   * @param branch The branch to get tree for (default: 'main')
+   * @returns Promise with the repository tree contents
+   */
+  public async getRepositoryTree(
+    projectId: ProjectIdentifier,
+    path: string = '',
+    branch: string = 'main'
+  ): Promise<any[]> {
+    try {
+      const tree = await this.client.Repositories.allRepositoryTrees(projectId, {
+        path,
+        ref: branch,
+      });
+      return tree;
+    } catch (error) {
+      console.error(`Failed to get repository tree for ${projectId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Deletes a file from a repository
+   * @param projectId The project ID or path
+   * @param filePath The path to the file to delete
+   * @param branch The branch to delete from (default: 'main')
+   * @param commitMessage The commit message for the deletion
+   * @returns Promise<void>
+   */
+  public async deleteFile(
+    projectId: ProjectIdentifier,
+    filePath: string,
+    branch: string = 'main',
+    commitMessage: string = 'Delete file'
+  ): Promise<void> {
+    try {
+      await this.client.RepositoryFiles.remove(projectId, filePath, branch, commitMessage);
+      console.log(`Successfully deleted file ${filePath} from ${projectId}`);
+    } catch (error) {
+      console.error(`Failed to delete file ${filePath} from ${projectId}:`, error);
+      throw error;
+    }
+  }
 } 
