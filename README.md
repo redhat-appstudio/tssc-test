@@ -285,7 +285,7 @@ The UI tests are organized as follows:
 
 All UI related files should be placed to the `/src/ui` or `/tests/ui` directories. To distinguish UI entities from backend ones, it's required to include `Ui` or `plugin` to the name of the entity.
 
-Page object identifiers are located in the `/src/ui/page-objects` directory. Each file should have a `_po.ts` suffix.
+Page object identifiers are located in the `/src/ui/page-objects` directory. Each file should have a `Po.ts` suffix.
 
 Plugin-related functionality is stored in the `/src/ui/plugins` directory, organized by plugins type - for example, `git` or `ci`. The file name should match the short name of a plugin. Classes defined in these files must include either `Ui` or `plugin` in their names.
 
