@@ -4,6 +4,7 @@ import { AddAzureVarsAndSecrets } from './commands/addAzureSecrets';
 import { AuthorizeAzurePipelines } from './commands/authorizeAzurePipeline';
 import { CreateAzurePipelines } from './commands/createAzurePipelines';
 import { ModifyAzureFiles } from './commands/modifyAzureFiles';
+import { UpdateCIRunnerImage } from './commands/updateCIRunnerImage';
 import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
 
 /**
@@ -28,6 +29,7 @@ export class AzureCIPostCreateActionStrategy implements ComponentActionStrategy 
         new ModifyAzureFiles(component),
         new CreateAzurePipelines(component),
         new AuthorizeAzurePipelines(component),
+        new UpdateCIRunnerImage(component),
       ];
 
       for (const command of commands) {
