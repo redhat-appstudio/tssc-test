@@ -47,4 +47,38 @@ export class BitbucketRepositoryService {
   public async getFileContent(workspace: string, repoSlug: string, filePath: string, ref: string = 'main'): Promise<string> {
     return this.httpClient.get<string>(`/repositories/${workspace}/${repoSlug}/src/${ref}/${filePath}`);
   }
+
+  public async getDirectoryContent(workspace: string, repoSlug: string, path: string, ref: string = 'main'): Promise<any[]> {
+    try {
+      const response = await this.httpClient.get<any>(`/repositories/${workspace}/${repoSlug}/src/${ref}/${path}`);
+      return response.values || [];
+    } catch (error) {
+      console.error(`Failed to get directory content for ${workspace}/${repoSlug}/${path}:`, error);
+      throw error;
+    }
+  }
+
+  public async deleteFile(workspace: string, repoSlug: string, filePath: string, branch: string = 'main', commitMessage: string = 'Delete file'): Promise<void> {
+    try {
+      // Bitbucket API requires a commit with file deletion
+      const commitData = {
+        message: commitMessage,
+        branch: branch,
+        files: {
+          [filePath]: null // null value indicates file deletion
+        }
+      };
+      
+      await this.httpClient.post(`/repositories/${workspace}/${repoSlug}/src`, commitData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      
+      console.log(`Successfully deleted file ${filePath} from ${workspace}/${repoSlug}`);
+    } catch (error) {
+      console.error(`Failed to delete file ${filePath} from ${workspace}/${repoSlug}:`, error);
+      throw error;
+    }
+  }
 }

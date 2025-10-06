@@ -16,7 +16,7 @@ const DEFAULT_TIMEOUT = 2100000; // 35 minutes
 // Environment variable flags to control which tests run
 const ENABLE_E2E_TESTS = process.env.ENABLE_E2E_TESTS !== 'false'; // Default: true
 const ENABLE_UI_TESTS = process.env.ENABLE_UI_TESTS === 'true';    // Default: false
-const ENABLE_IMPORT_TESTS = process.env.ENABLE_IMPORT_TESTS === 'false'; // Default: true
+const ENABLE_IMPORT_TESTS = process.env.ENABLE_IMPORT_TESTS !== 'false'; // Default: true
 const DEFAULT_WORKERS = 6;
 const DEFAULT_UI_TIMEOUT = 60000;
 
