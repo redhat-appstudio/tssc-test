@@ -73,6 +73,8 @@ test.describe.serial('Import Template Tests', () => {
   });
 
   test(`waits for ${templateName} argocd to be synced in the cluster`, async () => {
+    test.slow(); // Mark as slow test due to long-running ArgoCD sync operations
+    
     if (!component) {
       throw new Error('Component was not created successfully');
     }
@@ -210,6 +212,8 @@ test.describe.serial('Import Template Tests', () => {
   });
 
   test(`waits for imported component argocd to be synced in the cluster`, async () => {
+    test.slow(); // Mark as slow test due to long-running ArgoCD sync operations
+    
     if (!importedComponent) {
       throw new Error('Imported component was not created successfully');
     }

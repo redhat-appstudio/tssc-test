@@ -21,6 +21,7 @@ export class DeveloperHub {
       httpAgent: new https.Agent({
         rejectUnauthorized: false,
       }),
+      timeout: 30000, // Global timeout for all requests (30 seconds)
     });
   }
 
@@ -188,6 +189,42 @@ export class DeveloperHub {
   }
 
   /**
+   * Gets all entities with retry logic for network resilience
+   * @returns Promise<AxiosResponse> - Response containing entities
+   * @throws Error if all retry attempts fail
+   */
+  private async getEntitiesWithRetry(): Promise<AxiosResponse> {
+    const maxRetries = 3;
+    const baseDelay = 1000; // 1 second base delay
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Fetching entities (attempt ${attempt}/${maxRetries})`);
+        const response = await this.axios.get(`${this.url}/api/catalog/entities`, {
+          timeout: 10000, // 10 second per-request timeout
+        });
+        return response;
+      } catch (error: any) {
+        const isLastAttempt = attempt === maxRetries;
+        
+        if (isLastAttempt) {
+          console.error(`Failed to fetch entities after ${maxRetries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          throw error;
+        }
+        
+        // Calculate exponential backoff delay
+        const delay = baseDelay * Math.pow(2, attempt - 1);
+        console.log(`Request failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    // This should never be reached, but TypeScript requires it
+    throw new Error('Unexpected error in getEntitiesWithRetry');
+  }
+
+  /**
    * Deletes entities from Developer Hub by selector
    * @param selector The selector to match entities (e.g., component name)
    * @returns Promise<boolean> - true if deletion was successful, false otherwise
@@ -196,8 +233,8 @@ export class DeveloperHub {
     try {
       console.log(`Deleting entities with selector: ${selector}`);
 
-      // Get all entities and filter them based on the selector
-      const response = await this.axios.get(`${this.url}/api/catalog/entities`);
+      // Get all entities with retry logic for network resilience
+      const response = await this.getEntitiesWithRetry();
       
       // Parse selector format (e.g., "kind=Component,name=my-component")
       const selectorParts = selector.split(',');
@@ -211,13 +248,26 @@ export class DeveloperHub {
       });
       
       const filteredEntities = response.data.filter((entity: any) => {
-        // Check if entity matches all selector criteria
+        // Skip entities without metadata.uid to avoid unregistering unidentified entries
+        if (!entity.metadata?.uid) {
+          return false;
+        }
+        
+        // Check if entity matches all selector criteria using strict equality
         return Object.entries(selectorCriteria).every(([key, value]) => {
           switch (key) {
             case 'kind':
               return entity.kind === value;
             case 'name':
-              return entity.metadata?.name === value;
+              // Use strict equality for Component and Resource names
+              if (entity.kind === 'Component' || entity.kind === 'Resource') {
+                return entity.metadata?.name === value;
+              }
+              // For Location entities, check spec.target
+              if (entity.kind === 'Location') {
+                return entity.spec?.target === value;
+              }
+              return false;
             case 'namespace':
               return entity.metadata?.namespace === value;
             default:
@@ -227,7 +277,7 @@ export class DeveloperHub {
       });
 
       if (filteredEntities.length === 0) {
-        console.log(`No components found in catalog with the description containing "${selector}".`);
+        console.log(`No entities found in catalog matching selector "${selector}".`);
         return false;
       }
 
@@ -235,7 +285,13 @@ export class DeveloperHub {
       const results = await Promise.all(
         filteredEntities.map((entity: any) => 
           retry(
-            () => this.unregisterEntityByUid(entity.metadata.uid),
+            async () => {
+              const success = await this.unregisterEntityByUid(entity.metadata.uid);
+              if (!success) {
+                throw new Error(`Failed to delete entity UID ${entity.metadata.uid}: deletion returned false`);
+              }
+              return success;
+            },
             {
               retries: 3,
               minTimeout: 1000,

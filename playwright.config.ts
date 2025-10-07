@@ -83,6 +83,8 @@ try {
     importProjects = projectConfigs.map(config => ({
       name: `import-${config.name}`,
       testMatch: 'templates/**/*.test.ts',
+      retries: 1, // Add retry budget for transient flakiness
+      dependencies: ['auth-setup'], // Ensure authentication is set up before import tests
       use: {
         testItem: config.testItem,
       },

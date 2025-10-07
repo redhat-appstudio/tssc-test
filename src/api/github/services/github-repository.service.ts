@@ -257,18 +257,33 @@ export class GithubRepositoryService {
    * @returns Promise<void>
    */
   public async deleteRepository(owner: string, repo: string): Promise<void> {
+    // Validate inputs before making API call
+    const trimmedOwner = owner?.trim();
+    const trimmedRepo = repo?.trim();
+    
+    if (!trimmedOwner || !trimmedRepo) {
+      const missingFields = [];
+      if (!trimmedOwner) missingFields.push('owner');
+      if (!trimmedRepo) missingFields.push('repo');
+      throw new GithubApiError(
+        `Invalid repository parameters: missing or empty ${missingFields.join(' and ')}`,
+        400,
+        new Error(`Missing required fields: ${missingFields.join(', ')}`)
+      );
+    }
+
     try {
-      console.log(`Deleting repository ${owner}/${repo}`);
+      console.log(`Deleting repository ${trimmedOwner}/${trimmedRepo}`);
 
       await this.octokit.repos.delete({
-        owner,
-        repo,
+        owner: trimmedOwner,
+        repo: trimmedRepo,
       });
 
-      console.log(`Successfully deleted repository ${owner}/${repo}`);
+      console.log(`Successfully deleted repository ${trimmedOwner}/${trimmedRepo}`);
     } catch (error: any) {
-      console.error(`Failed to delete repository ${owner}/${repo}: ${error instanceof Error ? error.message : String(error)}`);
-      throw new GithubApiError(`Failed to delete repository ${owner}/${repo}`, error.status, error);
+      console.error(`Failed to delete repository ${trimmedOwner}/${trimmedRepo}: ${error instanceof Error ? error.message : String(error)}`);
+      throw new GithubApiError(`Failed to delete repository ${trimmedOwner}/${trimmedRepo}`, error.status, error);
     }
   }
 }
