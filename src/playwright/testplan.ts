@@ -93,4 +93,74 @@ export class TestPlan {
   getTsscConfigNames(): string[] {
     return this.tsscConfigs.map(config => `${config.git}-${config.ci}`);
   }
+
+  // Test filtering methods
+  getTests(): string[] {
+    return this.tests;
+  }
+
+  /**
+   * Get test match patterns based on the tests array
+   * Supports both folder patterns and specific test files
+   */
+  getTestMatchPatterns(): string[] {
+    if (this.tests.length === 0) {
+      // If no tests specified, return default pattern
+      return ['**/*.test.ts'];
+    }
+
+    return this.tests.map(test => {
+      // If test ends with .test.ts, treat as specific file
+      if (test.endsWith('.test.ts')) {
+        return `tests/**/${test}`;
+      }
+      // If test contains /, treat as folder path
+      else if (test.includes('/')) {
+        return `tests/${test}/**/*.test.ts`;
+      }
+      // Otherwise, treat as folder name
+      else {
+        return `tests/${test}/**/*.test.ts`;
+      }
+    });
+  }
+
+  /**
+   * Get a single test match pattern (Playwright expects a single pattern)
+   * Combines multiple patterns using Playwright's pattern syntax
+   */
+  getTestMatchPattern(): string {
+    const patterns = this.getTestMatchPatterns();
+    
+    if (patterns.length === 1) {
+      return patterns[0];
+    }
+    
+    // Combine multiple patterns using Playwright's pattern syntax
+    return `{${patterns.join(',')}}`;
+  }
+
+  /**
+   * Check if a specific test file should be included based on the tests array
+   */
+  shouldIncludeTest(testFilePath: string): boolean {
+    if (this.tests.length === 0) {
+      return true; // Include all tests if no filtering specified
+    }
+
+    return this.tests.some(test => {
+      // If test ends with .test.ts, check for exact file match
+      if (test.endsWith('.test.ts')) {
+        return testFilePath.endsWith(test);
+      }
+      // If test contains /, check for folder path match
+      else if (test.includes('/')) {
+        return testFilePath.includes(`tests/${test}/`);
+      }
+      // Otherwise, check for folder name match
+      else {
+        return testFilePath.includes(`tests/${test}/`);
+      }
+    });
+  }
 }
