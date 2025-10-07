@@ -228,17 +228,21 @@ export function base64Decode(base64Str: string, isUrlSafe: boolean = false): str
  */
 export function getRunnerImageFromCIFile(fileContent: string): string {
   // Pattern to match runner images starting with specific registries anywhere in content
-  const pattern = /((?:quay\.io|registry\.access\.redhat\.com)\/[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+)/g
-  const match = pattern.exec(fileContent);
+  // Match images from quay.io or registry.access.redhat.com with tags
+  const pattern = /(quay\.io|registry\.access\.redhat\.com)\/[\w./-]+:[\w.-]+/g;
+  const matches = fileContent.match(pattern);
 
-  if (!match) {
+  if (!matches || matches.length === 0) {
     throw new Error(`Runner image not found in the CI file content`);
+  }
+  if (matches.length > 1) {
+    console.warn(`Multiple runner images found (${matches.length}). Using the first match: ${matches[0]}`);
   }
 
   // Get the matched image value directly
-  const oldImageValue = match[1];
-  console.log(`Old Image Value: ${oldImageValue}`);
-  return oldImageValue;
+  const imageValue = matches[0];
+  console.log(`Existing Image Value: ${imageValue}`);
+  return imageValue;
 }
 
 /**
