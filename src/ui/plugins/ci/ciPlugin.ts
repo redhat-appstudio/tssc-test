@@ -13,4 +13,10 @@ export interface CIPlugin {
      * @param page - The page object
      */
     checkActions(page: Page): Promise<void>;
+
+    /**
+     * Check Pipeline Runs table row values
+     * @param page - The page object
+     */
+    checkPipelineRunsTable(page: Page): Promise<void>;
 }

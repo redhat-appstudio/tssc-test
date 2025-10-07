@@ -100,4 +100,8 @@ export class BaseCIPlugin implements CIPlugin {
     // eslint-disable-next-line no-unused-vars
     public async checkActions(_page: Page): Promise<void> {
     }
+
+    // eslint-disable-next-line no-unused-vars
+    public async checkPipelineRunsTable(_page: Page): Promise<void> {
+    }
 }
