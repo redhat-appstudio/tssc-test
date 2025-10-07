@@ -1,9 +1,16 @@
 import { Octokit } from '@octokit/rest';
 import { Buffer } from 'buffer';
+import retry from 'async-retry';
+import { defaultLogger } from '../../../log/logger';
 import { GithubApiError, GithubNotFoundError } from '../errors/github.errors';
 import { ContentModifications } from '../../../rhtap/modification/contentModification';
 
 export class GithubRepositoryService {
+  // Retry configuration constants
+  private static readonly RETRY_ATTEMPTS = 3;
+  private static readonly BASE_DELAY_MS = 200;
+  private static readonly MAX_DELAY_MS = 800;
+
   constructor(private readonly octokit: Octokit) {}
 
   public async getRepository(owner: string, repo: string) {
@@ -231,22 +238,93 @@ export class GithubRepositoryService {
     sha: string,
     branch: string = 'main'
   ): Promise<void> {
+    // Input validation
+    if (!owner || owner.trim() === '') {
+      throw new Error('Owner is required and cannot be empty');
+    }
+    if (!repo || repo.trim() === '') {
+      throw new Error('Repository name is required and cannot be empty');
+    }
+    if (!path || path.trim() === '') {
+      throw new Error('File path is required and cannot be empty');
+    }
+    if (!message || message.trim() === '') {
+      throw new Error('Commit message is required and cannot be empty');
+    }
+    if (!sha || sha.trim() === '') {
+      throw new Error('File SHA is required and cannot be empty');
+    }
+    if (!branch || branch.trim() === '') {
+      throw new Error('Branch is required and cannot be empty');
+    }
+
+    const trimmedOwner = owner.trim();
+    const trimmedRepo = repo.trim();
+    const trimmedPath = path.trim();
+    const trimmedMessage = message.trim();
+    const trimmedSha = sha.trim();
+    const trimmedBranch = branch.trim();
+
     try {
-      console.log(`Deleting file ${path} from ${owner}/${repo}`);
+      await retry(
+        async () => {
+          await this.octokit.repos.deleteFile({
+            owner: trimmedOwner,
+            repo: trimmedRepo,
+            path: trimmedPath,
+            message: trimmedMessage,
+            sha: trimmedSha,
+            branch: trimmedBranch,
+          });
+        },
+        {
+          retries: 3,
+          minTimeout: 1000,
+          maxTimeout: 5000,
+          factor: 2,
+          onRetry: (error: any, attempt: number) => {
+            const status = error.status || error.response?.status;
+            const isRetryable = status === 429 || (status >= 500 && status < 600);
+            
+            if (isRetryable) {
+              defaultLogger.warn({
+                operation: 'deleteFile',
+                owner: trimmedOwner,
+                repo: trimmedRepo,
+                path: trimmedPath,
+                attempt,
+                status,
+                error: error.message
+              }, `Retrying file deletion (attempt ${attempt}/3) - Status: ${status}`);
+            } else {
+              // Non-retryable error, throw immediately
+              throw error;
+            }
+          }
+        }
+      );
 
-      await this.octokit.repos.deleteFile({
-        owner,
-        repo,
-        path,
-        message,
-        sha,
-        branch,
-      });
-
-      console.log(`Successfully deleted file ${path} from ${owner}/${repo}`);
+      defaultLogger.info({
+        operation: 'deleteFile',
+        owner: trimmedOwner,
+        repo: trimmedRepo,
+        path: trimmedPath,
+        branch: trimmedBranch
+      }, `Successfully deleted file ${trimmedPath} from ${trimmedOwner}/${trimmedRepo}`);
     } catch (error: any) {
-      console.error(`Failed to delete file ${path} from ${owner}/${repo}: ${error instanceof Error ? error.message : String(error)}`);
-      throw new GithubApiError(`Failed to delete file ${path} from ${owner}/${repo}`, error.status, error);
+      const status = error.status || error.response?.status;
+      
+      defaultLogger.error({
+        operation: 'deleteFile',
+        owner: trimmedOwner,
+        repo: trimmedRepo,
+        path: trimmedPath,
+        branch: trimmedBranch,
+        error: error.message,
+        status
+      }, `Failed to delete file ${trimmedPath} from ${trimmedOwner}/${trimmedRepo} - Status: ${status}`);
+      
+      throw new GithubApiError(`Failed to delete file ${trimmedPath} from ${trimmedOwner}/${trimmedRepo}`, status, error);
     }
   }
 
@@ -273,17 +351,64 @@ export class GithubRepositoryService {
     }
 
     try {
-      console.log(`Deleting repository ${trimmedOwner}/${trimmedRepo}`);
+      await retry(
+        async () => {
+          await this.octokit.repos.delete({
+            owner: trimmedOwner,
+            repo: trimmedRepo,
+          });
+        },
+        {
+          retries: GithubRepositoryService.RETRY_ATTEMPTS,
+          minTimeout: GithubRepositoryService.BASE_DELAY_MS,
+          maxTimeout: GithubRepositoryService.MAX_DELAY_MS,
+          factor: 2,
+          onRetry: (error: any, attempt: number) => {
+            const status = error.status || error.response?.status;
+            const isRetryable = status === 429 || (status >= 500 && status < 600) || 
+                               error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND' || 
+                               error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED';
+            
+            if (isRetryable) {
+              const delay = Math.min(
+                GithubRepositoryService.BASE_DELAY_MS * Math.pow(2, attempt - 1),
+                GithubRepositoryService.MAX_DELAY_MS
+              );
+              
+              defaultLogger.warn({
+                operation: 'deleteRepository',
+                owner: trimmedOwner,
+                repo: trimmedRepo,
+                attempt,
+                status,
+                error: error.message,
+                delay
+              }, `Retrying repository deletion (attempt ${attempt}/${GithubRepositoryService.RETRY_ATTEMPTS}) - Status: ${status}, Delay: ${delay}ms`);
+            } else {
+              // Non-retryable error, throw immediately
+              throw error;
+            }
+          }
+        }
+      );
 
-      await this.octokit.repos.delete({
+      defaultLogger.info({
+        operation: 'deleteRepository',
+        owner: trimmedOwner,
+        repo: trimmedRepo
+      }, `Successfully deleted repository ${trimmedOwner}/${trimmedRepo}`);
+    } catch (error: any) {
+      const status = error.status || error.response?.status;
+      
+      defaultLogger.error({
+        operation: 'deleteRepository',
         owner: trimmedOwner,
         repo: trimmedRepo,
-      });
-
-      console.log(`Successfully deleted repository ${trimmedOwner}/${trimmedRepo}`);
-    } catch (error: any) {
-      console.error(`Failed to delete repository ${trimmedOwner}/${trimmedRepo}: ${error instanceof Error ? error.message : String(error)}`);
-      throw new GithubApiError(`Failed to delete repository ${trimmedOwner}/${trimmedRepo}`, error.status, error);
+        error: error.message,
+        status
+      }, `Failed to delete repository ${trimmedOwner}/${trimmedRepo} - Status: ${status}`);
+      
+      throw new GithubApiError(`Failed to delete repository ${trimmedOwner}/${trimmedRepo}`, status, error);
     }
   }
 }

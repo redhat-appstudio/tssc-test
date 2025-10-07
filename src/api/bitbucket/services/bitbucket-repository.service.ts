@@ -1,5 +1,7 @@
+import retry from 'async-retry';
+import { defaultLogger } from '../../../log/logger';
 import { BitbucketHttpClient } from '../http/bitbucket-http.client';
-import { BitbucketRepository, BitbucketBranch, BitbucketCommit, BitbucketPaginatedResponse } from '../types/bitbucket.types';
+import { BitbucketRepository, BitbucketBranch, BitbucketCommit, BitbucketPaginatedResponse, BitbucketDirectoryEntry } from '../types/bitbucket.types';
 
 export class BitbucketRepositoryService {
   constructor(private readonly httpClient: BitbucketHttpClient) {}
@@ -48,12 +50,96 @@ export class BitbucketRepositoryService {
     return this.httpClient.get<string>(`/repositories/${workspace}/${repoSlug}/src/${ref}/${filePath}`);
   }
 
-  public async getDirectoryContent(workspace: string, repoSlug: string, path: string, ref: string = 'main'): Promise<any[]> {
+  public async getDirectoryContent(workspace: string, repoSlug: string, path: string, ref: string = 'main'): Promise<BitbucketDirectoryEntry[]> {
+    // Input validation
+    if (!workspace || workspace.trim() === '') {
+      throw new Error('Workspace is required and cannot be empty');
+    }
+    if (!repoSlug || repoSlug.trim() === '') {
+      throw new Error('Repository slug is required and cannot be empty');
+    }
+    if (!ref || ref.trim() === '') {
+      throw new Error('Reference is required and cannot be empty');
+    }
+
+    const trimmedWorkspace = workspace.trim();
+    const trimmedRepoSlug = repoSlug.trim();
+    const trimmedPath = path.trim();
+    const trimmedRef = ref.trim();
+
     try {
-      const response = await this.httpClient.get<any>(`/repositories/${workspace}/${repoSlug}/src/${ref}/${path}`);
-      return response.values || [];
-    } catch (error) {
-      console.error(`Failed to get directory content for ${workspace}/${repoSlug}/${path}:`, error);
+      const response = await retry(
+        async () => {
+          return await this.httpClient.get<BitbucketPaginatedResponse<BitbucketDirectoryEntry>>(
+            `/repositories/${trimmedWorkspace}/${trimmedRepoSlug}/src/${trimmedRef}/${trimmedPath}`
+          );
+        },
+        {
+          retries: 3,
+          minTimeout: 1000,
+          maxTimeout: 5000,
+          factor: 2,
+          onRetry: (error: Error, attempt: number) => {
+            defaultLogger.warn({
+              operation: 'getDirectoryContent',
+              workspace: trimmedWorkspace,
+              repoSlug: trimmedRepoSlug,
+              path: trimmedPath,
+              ref: trimmedRef,
+              attempt,
+              error: error.message
+            }, `Retrying directory content retrieval (attempt ${attempt}/3)`);
+          }
+        }
+      );
+
+      // Defensive validation of response
+      if (!response || !Array.isArray(response.values)) {
+        defaultLogger.warn({
+          operation: 'getDirectoryContent',
+          workspace: trimmedWorkspace,
+          repoSlug: trimmedRepoSlug,
+          path: trimmedPath,
+          ref: trimmedRef,
+          responseType: typeof response,
+          hasValues: !!response?.values
+        }, `Invalid response structure for directory content, returning empty array`);
+        return [];
+      }
+
+      defaultLogger.info({
+        operation: 'getDirectoryContent',
+        workspace: trimmedWorkspace,
+        repoSlug: trimmedRepoSlug,
+        path: trimmedPath,
+        ref: trimmedRef,
+        itemCount: response.values.length
+      }, `Successfully retrieved directory content for ${trimmedWorkspace}/${trimmedRepoSlug}/${trimmedPath}`);
+
+      return response.values;
+    } catch (error: any) {
+      // Handle 404 errors gracefully for idempotent operations
+      if (error.response?.status === 404 || error.status === 404 || error.message?.includes('404')) {
+        defaultLogger.info({
+          operation: 'getDirectoryContent',
+          workspace: trimmedWorkspace,
+          repoSlug: trimmedRepoSlug,
+          path: trimmedPath,
+          ref: trimmedRef,
+          status: 'not_found'
+        }, `Directory content not found for ${trimmedWorkspace}/${trimmedRepoSlug}/${trimmedPath} (404 Not Found)`);
+        return [];
+      }
+
+      defaultLogger.error({
+        operation: 'getDirectoryContent',
+        workspace: trimmedWorkspace,
+        repoSlug: trimmedRepoSlug,
+        path: trimmedPath,
+        ref: trimmedRef,
+        error: error.message,
+        status: error.response?.status || error.status
+      }, `Failed to get directory content for ${trimmedWorkspace}/${trimmedRepoSlug}/${trimmedPath}`);
       throw error;
     }
   }

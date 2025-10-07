@@ -38,6 +38,7 @@ import {
   CreateWebhookOptions,
   GitLabPipeline,
   GitLabPipelineSearchParams,
+  RepositoryTreeNode,
 } from './types/gitlab.types';
 import { ContentModifications } from '../../rhtap/modification/contentModification';
 
@@ -313,15 +314,74 @@ export class GitLabClient implements IGitLabCoreClient {
     projectId: ProjectIdentifier,
     path: string = '',
     branch: string = 'main'
-  ): Promise<any[]> {
+  ): Promise<RepositoryTreeNode[]> {
+    // Input validation
+    if (!projectId) {
+      throw new Error('Project ID is required for repository tree retrieval');
+    }
+    if (!branch || branch.trim() === '') {
+      throw new Error('Branch is required and cannot be empty');
+    }
+
+    const trimmedPath = path.trim();
+    const trimmedBranch = branch.trim();
+
     try {
-      const tree = await this.client.Repositories.allRepositoryTrees(projectId, {
-        path,
-        ref: branch,
-      });
-      return tree;
-    } catch (error) {
-      console.error(`Failed to get repository tree for ${projectId}:`, error);
+      const tree = await retry(
+        async () => {
+          return await this.client.Repositories.allRepositoryTrees(projectId, {
+            path: trimmedPath,
+            ref: trimmedBranch,
+          });
+        },
+        {
+          retries: 3,
+          minTimeout: 1000,
+          maxTimeout: 5000,
+          factor: 2,
+          onRetry: (error: Error, attempt: number) => {
+            defaultLogger.warn({
+              operation: 'getRepositoryTree',
+              projectId,
+              path: trimmedPath,
+              branch: trimmedBranch,
+              attempt,
+              error: error.message
+            }, `Retrying repository tree retrieval (attempt ${attempt}/3)`);
+          }
+        }
+      );
+
+      defaultLogger.info({
+        operation: 'getRepositoryTree',
+        projectId,
+        path: trimmedPath,
+        branch: trimmedBranch,
+        itemCount: tree.length
+      }, `Successfully retrieved repository tree for ${projectId}`);
+
+      return tree as RepositoryTreeNode[];
+    } catch (error: any) {
+      // Handle 404 errors gracefully for idempotent operations
+      if (error.response?.status === 404 || error.status === 404 || error.message?.includes('404')) {
+        defaultLogger.info({
+          operation: 'getRepositoryTree',
+          projectId,
+          path: trimmedPath,
+          branch: trimmedBranch,
+          status: 'not_found'
+        }, `Repository tree not found for ${projectId} (404 Not Found)`);
+        return [];
+      }
+
+      defaultLogger.error({
+        operation: 'getRepositoryTree',
+        projectId,
+        path: trimmedPath,
+        branch: trimmedBranch,
+        error: error.message,
+        status: error.response?.status || error.status
+      }, `Failed to get repository tree for ${projectId}`);
       throw error;
     }
   }
@@ -358,7 +418,17 @@ export class GitLabClient implements IGitLabCoreClient {
     try {
       await retry(
         async () => {
-          await this.client.RepositoryFiles.remove(projectId, trimmedFilePath, trimmedBranch, trimmedCommitMessage);
+          try {
+            await this.client.RepositoryFiles.remove(projectId, trimmedFilePath, trimmedBranch, trimmedCommitMessage);
+          } catch (error: any) {
+            // Check if error is 404 - don't retry on 404 errors
+            if (error.response?.status === 404 || error.status === 404 || error.message?.includes('404')) {
+              // Rethrow 404 errors immediately to prevent retries
+              throw error;
+            }
+            // For all other errors, rethrow to let retry mechanism handle them
+            throw error;
+          }
         },
         {
           retries: 3,
