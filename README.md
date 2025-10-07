@@ -5,6 +5,7 @@
 - [Prerequisites](#prerequisites)
 - [Configuration](#configuration)
   - [Test Filtering](#test-filtering)
+  - [Multiple Test Plans](#multiple-test-plans-new-format)
 - [Running Tests](#running-tests)
 - [UI Tests](#ui-tests)
 - [Development](#development)
@@ -13,18 +14,14 @@
 
 This project is an end-to-end automation testing framework designed to validate the functionality of the [Red Hat Trusted Software Supply Chain CLI](https://github.com/redhat-appstudio/rhtap-cli) (tssc). Built with Playwright and TypeScript, this framework simulates real-world user interactions and backend processes to ensure the reliability and correctness of tssc's core features.
 
-### Recent Updates (RHTAP-5691)
-
-The framework now includes **test filtering functionality** that allows you to run specific tests or test categories by configuring the `tests` array in `testplan.json`. This feature improves test execution efficiency and reduces runtime by allowing targeted test execution.
 
 ## Test Execution Control
 
-The framework supports environment variables to control which types of tests run:
 
 ### Environment Variables
 
-- **`ENABLE_E2E_TESTS`** (default: `true`) - Controls backend E2E test execution
-- **`ENABLE_UI_TESTS`** (default: `false`) - Controls UI test execution
+- **`TESTPLAN_PATH`** (default: `./testplan.json`) - Path to the test plan configuration file
+- **`TESTPLAN_NAME`** - Name of specific test plan(s) to run (supports comma-separated values for multiple test plans)
 - **`UI_DEPENDS_ON_ALL_E2E`** (default: `false`) - Controls UI test dependency behavior
   - When `false`: Each UI test depends only on its corresponding E2E test
   - When `true`: All UI tests depend on ALL E2E tests (sequential execution)
@@ -32,26 +29,27 @@ The framework supports environment variables to control which types of tests run
 ### Usage Examples
 
 ```bash
-# Run only E2E tests (default behavior) - generates fresh config
-npm run test:e2e
-# or
-ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=false npm test
-
-# Run only UI tests - uses existing config from previous E2E runs
-npm run test:ui
-# or
-ENABLE_E2E_TESTS=false ENABLE_UI_TESTS=true playwright test
-
-# Run both E2E and UI tests - generates fresh config, UI depends on E2E
-npm run test:all
-# or
-npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=true npm test
-
-# Run UI tests with dependency on ALL E2E tests (sequential execution)
-UI_DEPENDS_ON_ALL_E2E=true ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=true npm test
-
-# Default: Only E2E tests - generates fresh config
+# Run tests based on test plan content (automatic detection)
 npm test
+
+# Run E2E tests only (uses automatic detection)
+npm run test:e2e
+
+# Run UI tests only (forces UI test execution)
+npm run test:ui
+
+# Run all tests (E2E + UI)
+npm run test:all
+
+# Run tests with custom test plan path
+TESTPLAN_PATH=./custom-testplan.json npm test
+
+# Run specific test plan from custom path
+TESTPLAN_PATH=./custom-testplan.json TESTPLAN_NAME=backend-tests npm test
+
+# Run multiple test plans
+TESTPLAN_NAME=backend-tests,ui-tests npm test
+
 ```
 
 ### Test Dependencies
@@ -196,6 +194,81 @@ This configuration will:
 - Run only tests in the `ui/` and `tssc/` directories
 - Skip any tests outside these directories
 
+#### Multiple Test Plans (New Format)
+
+The framework also supports multiple test plans in a single `testplan.json` file, allowing you to organize tests by different scenarios or environments.
+
+**Multiple Test Plans Structure:**
+```json
+{
+  "testPlans": [
+    {
+      "name": "github-tests",
+      "templates": ["go", "python"],
+      "tssc": [
+        {
+          "git": "github",
+          "ci": "tekton",
+          "registry": "quay",
+          "tpa": "remote",
+          "acs": "local"
+        }
+      ],
+      "tests": ["full_workflow.test.ts"]
+    },
+    {
+      "name": "gitlab-tests",
+      "templates": ["go", "python"],
+      "tssc": [
+        {
+          "git": "gitlab",
+          "ci": "tekton",
+          "registry": "quay",
+          "tpa": "remote",
+          "acs": "local"
+        }
+      ],
+      "tests": ["full_workflow.test.ts"]
+    },
+    {
+      "name": "bitbucket-tests",
+      "templates": ["go", "python"],
+      "tssc": [
+        {
+          "git": "bitbucket",
+          "ci": "tekton",
+          "registry": "quay",
+          "tpa": "remote",
+          "acs": "local"
+        }
+      ],
+      "tests": ["full_workflow.test.ts"]
+    }
+  ]
+}
+```
+
+**Multiple Test Plans Fields:**
+
+- **`testPlans`**: Array of individual test plan configurations
+- **`name`**: Unique identifier for each test plan
+- **`templates`**: Application templates specific to each test plan
+- **`tssc`**: TSSC configurations specific to each test plan
+- **`tests`**: Test filtering specific to each test plan
+
+**Running Specific Test Plans:**
+
+You can run specific test plans using the `TESTPLAN_NAME` environment variable:
+
+```bash
+# Run only the github-tests plan
+TESTPLAN_NAME=github-tests npm test
+
+# Run all test plans (default behavior)
+npm test
+```
+
+
 ### Step 2: Configure Environment Variables
 
 Copy the template file from `templates/.env` to the root directory:
@@ -233,14 +306,35 @@ npm install
 
 #### Run Tests
 ```bash
-# Run all tests
+# Run tests based on test plan content (automatic workflow detection)
+npm test
+
+# Run E2E tests only (uses automatic detection)
+npm run test:e2e
+
+# Run UI tests only (forces UI test execution)
+npm run test:ui
+
+# Run all tests (E2E + UI)
 npm run test:all
 
 # Run a specific test file
 npm test -- tests/tssc/full_workflow.test.ts
 
-# Run tests with filtering (using testplan.json tests array)
-npm test
+# Run tests with custom test plan path
+TESTPLAN_PATH=./custom-testplan.json npm test
+
+# Run specific test plan (multiple test plans format)
+TESTPLAN_NAME=backend-tests npm test
+
+# Run multiple test plans
+TESTPLAN_NAME=backend-tests,ui-tests npm test
+
+# Run specific test plan from custom path
+TESTPLAN_PATH=./custom-testplan.json TESTPLAN_NAME=backend-tests npm test
+
+# Force UI test execution
+ENABLE_UI_TESTS=true npm test
 
 # View test report
 npm run test:report
@@ -286,6 +380,9 @@ npm run test:all
 
 # Run a specific test file
 npm test -- tests/tssc/full_workflow.test.ts
+
+# Run specific test plan (multiple test plans format)
+TESTPLAN_NAME=github-tests npm test
 
 # Run UI tests
 npm run test:ui
@@ -410,14 +507,6 @@ npm test -- tests/ui
 npm test -- tests/component.test.ts
 ```
 
-**Test Filtering Implementation:**
-
-The test filtering is implemented in `src/playwright/testplan.ts` with the following key methods:
-
-- `getTests()`: Returns the tests array from testplan.json
-- `getTestMatchPatterns()`: Converts test identifiers to Playwright patterns
-- `shouldIncludeTest(testFilePath)`: Determines if a test should be included
-- `getTestMatchPattern()`: Combines multiple patterns into a single match string
 
 ### Debugging
 
