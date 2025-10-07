@@ -14,29 +14,74 @@ export interface TSScConfig {
   name?: string; // Optional name for deterministic TestItem naming
 }
 
-export class TestPlan {
+export interface TestPlanConfig {
+  name: string;
   templates: string[];
-  tsscConfigs: TSScConfig[];
+  tssc: TSScConfig[];
   tests: string[];
-  testItems: TestItem[]; // Regular field populated in constructor
+}
+
+export class TestPlan {
+  // Support for new multiple test plans format
+  testPlans?: TestPlanConfig[];
+  
+  // Support for legacy single test plan format (backward compatibility)
+  templates?: string[];
+  tsscConfigs?: TSScConfig[];
+  tests?: string[];
+  
+  // Combined test items from all test plans
+  testItems: TestItem[];
 
   constructor(data: any) {
-    this.templates = data.templates || [];
-    this.tsscConfigs = (data.tssc || []).map((config: any) => ({
-      git: config.git || '',
-      ci: config.ci || '',
-      registry: config.registry || '',
-      tpa: config.tpa || '',
-      acs: config.acs || '',
-      name: config.name, // Optional name from data
-    }));
-    this.tests = data.tests || [];
-
-    // Generate TestItems once in constructor
     this.testItems = [];
-    this.templates.forEach(template => {
-      this.tsscConfigs.forEach(tsscConfig => {
-        // Use provided name or generate random one
+
+    // Check if data has new format with testPlans array
+    if (data.testPlans && Array.isArray(data.testPlans)) {
+      // New format: multiple test plans
+      this.testPlans = data.testPlans;
+      this.processMultipleTestPlans();
+    } else {
+      // Legacy format: single test plan (backward compatibility)
+      this.templates = data.templates || [];
+      this.tsscConfigs = (data.tssc || []).map((config: any) => ({
+        git: config.git || '',
+        ci: config.ci || '',
+        registry: config.registry || '',
+        tpa: config.tpa || '',
+        acs: config.acs || '',
+        name: config.name,
+      }));
+      this.tests = data.tests || [];
+      this.processLegacyTestPlan();
+    }
+  }
+
+  private processMultipleTestPlans(): void {
+    this.testPlans?.forEach(testPlan => {
+      testPlan.templates.forEach(template => {
+        testPlan.tssc.forEach(tsscConfig => {
+          const itemName = tsscConfig.name || `${testPlan.name}-${template}-${randomString()}`;
+          
+          this.testItems.push(
+            new TestItem(
+              itemName,
+              template as TemplateType,
+              tsscConfig.registry,
+              tsscConfig.git,
+              tsscConfig.ci,
+              tsscConfig.tpa,
+              tsscConfig.acs
+            )
+          );
+        });
+      });
+    });
+  }
+
+  private processLegacyTestPlan(): void {
+    this.templates?.forEach(template => {
+      this.tsscConfigs?.forEach(tsscConfig => {
         const itemName = tsscConfig.name || `${template}-${randomString()}`;
         
         this.testItems.push(
@@ -55,15 +100,26 @@ export class TestPlan {
   }
 
   hasTemplate(name: string): boolean {
-    return this.templates.includes(name);
+    if (this.testPlans) {
+      // New format: check across all test plans
+      return this.testPlans.some(plan => plan.templates.includes(name));
+    } else {
+      // Legacy format
+      return this.templates?.includes(name) || false;
+    }
   }
 
   hasTest(name: string): boolean {
-    return this.tests.includes(name);
+    if (this.testPlans) {
+      // New format: check across all test plans
+      return this.testPlans.some(plan => plan.tests.includes(name));
+    } else {
+      // Legacy format
+      return this.tests?.includes(name) || false;
+    }
   }
 
   getTestItems(): TestItem[] {
-    // Simply return the TestItems created in constructor
     return this.testItems;
   }
 
@@ -77,26 +133,84 @@ export class TestPlan {
     }));
   }
 
+  // New methods for multiple test plans
+  getTestPlans(): TestPlanConfig[] {
+    return this.testPlans || [];
+  }
+
+  getTestPlanByName(name: string): TestPlanConfig | undefined {
+    return this.testPlans?.find(plan => plan.name === name);
+  }
+
+  getTestItemsByPlanName(planName: string): TestItem[] {
+    if (!this.testPlans) return [];
+    
+    const plan = this.getTestPlanByName(planName);
+    if (!plan) return [];
+
+    return this.testItems.filter(item => 
+      item.getName().startsWith(`${planName}-`)
+    );
+  }
+
   // Helper methods for validation
   isValid(): boolean {
-    return this.templates.length > 0 && this.tsscConfigs.length > 0;
+    if (this.testPlans) {
+      // New format: validate all test plans
+      return this.testPlans.length > 0 && 
+             this.testPlans.every(plan => 
+               plan.templates.length > 0 && plan.tssc.length > 0
+             );
+    } else {
+      // Legacy format
+      return (this.templates?.length || 0) > 0 && (this.tsscConfigs?.length || 0) > 0;
+    }
   }
 
   getTotalProjectCount(): number {
-    return this.templates.length * this.tsscConfigs.length;
+    if (this.testPlans) {
+      // New format: sum across all test plans
+      return this.testPlans.reduce((total, plan) => 
+        total + (plan.templates.length * plan.tssc.length), 0
+      );
+    } else {
+      // Legacy format
+      return (this.templates?.length || 0) * (this.tsscConfigs?.length || 0);
+    }
   }
 
   getTemplateNames(): string[] {
-    return [...this.templates];
+    if (this.testPlans) {
+      // New format: get unique templates across all plans
+      const allTemplates = this.testPlans.flatMap(plan => plan.templates);
+      return [...new Set(allTemplates)];
+    } else {
+      // Legacy format
+      return [...(this.templates || [])];
+    }
   }
 
   getTsscConfigNames(): string[] {
-    return this.tsscConfigs.map(config => `${config.git}-${config.ci}`);
+    if (this.testPlans) {
+      // New format: get unique config names across all plans
+      const allConfigs = this.testPlans.flatMap(plan => 
+        plan.tssc.map(config => `${config.git}-${config.ci}`)
+      );
+      return [...new Set(allConfigs)];
+    } else {
+      // Legacy format
+      return this.tsscConfigs?.map(config => `${config.git}-${config.ci}`) || [];
+    }
+  }
+
+  // Get test plan names (new format only)
+  getTestPlanNames(): string[] {
+    return this.testPlans?.map(plan => plan.name) || [];
   }
 
   // Test filtering methods
   getTests(): string[] {
-    return this.tests;
+    return this.tests || [];
   }
 
   /**
@@ -104,19 +218,22 @@ export class TestPlan {
    * Supports both folder patterns and specific test files
    */
   getTestMatchPatterns(): string[] {
-    if (this.tests.length === 0) {
+    const tests = this.tests || [];
+    if (tests.length === 0) {
       // If no tests specified, return default pattern
       return ['**/*.test.ts'];
     }
 
-    return this.tests.map(test => {
+    return tests.map(test => {
       // If test ends with .test.ts, treat as specific file
       if (test.endsWith('.test.ts')) {
-        return `tests/**/${test}`;
+        // If test already starts with tests/, use as is, otherwise add tests/ prefix
+        return test.startsWith('tests/') ? test : `tests/**/${test}`;
       }
       // Otherwise, treat as folder name
       else {
-        return `tests/${test}/**/*.test.ts`;
+        // If test already starts with tests/, use as is, otherwise add tests/ prefix
+        return test.startsWith('tests/') ? `${test}/**/*.test.ts` : `tests/${test}/**/*.test.ts`;
       }
     });
   }
@@ -140,11 +257,12 @@ export class TestPlan {
    * Check if a specific test file should be included based on the tests array
    */
   shouldIncludeTest(testFilePath: string): boolean {
-    if (this.tests.length === 0) {
+    const tests = this.tests || [];
+    if (tests.length === 0) {
       return true; // Include all tests if no filtering specified
     }
 
-    return this.tests.some(test => {
+    return tests.some(test => {
       // If test ends with .test.ts, check for exact file match
       if (test.endsWith('.test.ts')) {
         return testFilePath.endsWith(test);

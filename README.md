@@ -5,6 +5,7 @@
 - [Prerequisites](#prerequisites)
 - [Configuration](#configuration)
   - [Test Filtering](#test-filtering)
+  - [Multiple Test Plans](#multiple-test-plans-new-format)
 - [Running Tests](#running-tests)
 - [UI Tests](#ui-tests)
 - [Development](#development)
@@ -13,9 +14,6 @@
 
 This project is an end-to-end automation testing framework designed to validate the functionality of the [Red Hat Trusted Software Supply Chain CLI](https://github.com/redhat-appstudio/rhtap-cli) (tssc). Built with Playwright and TypeScript, this framework simulates real-world user interactions and backend processes to ensure the reliability and correctness of tssc's core features.
 
-### Recent Updates (RHTAP-5691)
-
-The framework now includes **test filtering functionality** that allows you to run specific tests or test categories by configuring the `tests` array in `testplan.json`. This feature improves test execution efficiency and reduces runtime by allowing targeted test execution.
 
 ## Test Execution Control
 
@@ -44,8 +42,6 @@ ENABLE_E2E_TESTS=false ENABLE_UI_TESTS=true playwright test
 
 # Run both E2E and UI tests - generates fresh config, UI depends on E2E
 npm run test:all
-# or
-npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=true npm test
 
 # Run UI tests with dependency on ALL E2E tests (sequential execution)
 UI_DEPENDS_ON_ALL_E2E=true ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=true npm test
@@ -196,6 +192,81 @@ This configuration will:
 - Run only tests in the `ui/` and `tssc/` directories
 - Skip any tests outside these directories
 
+#### Multiple Test Plans (New Format)
+
+The framework also supports multiple test plans in a single `testplan.json` file, allowing you to organize tests by different scenarios or environments.
+
+**Multiple Test Plans Structure:**
+```json
+{
+  "testPlans": [
+    {
+      "name": "github-tests",
+      "templates": ["go", "python"],
+      "tssc": [
+        {
+          "git": "github",
+          "ci": "tekton",
+          "registry": "quay",
+          "tpa": "remote",
+          "acs": "local"
+        }
+      ],
+      "tests": ["ui", "tssc"]
+    },
+    {
+      "name": "gitlab-tests",
+      "templates": ["go", "python"],
+      "tssc": [
+        {
+          "git": "gitlab",
+          "ci": "tekton",
+          "registry": "quay",
+          "tpa": "remote",
+          "acs": "local"
+        }
+      ],
+      "tests": ["ui", "tssc"]
+    },
+    {
+      "name": "bitbucket-tests",
+      "templates": ["go", "python"],
+      "tssc": [
+        {
+          "git": "bitbucket",
+          "ci": "tekton",
+          "registry": "quay",
+          "tpa": "remote",
+          "acs": "local"
+        }
+      ],
+      "tests": ["ui", "tssc"]
+    }
+  ]
+}
+```
+
+**Multiple Test Plans Fields:**
+
+- **`testPlans`**: Array of individual test plan configurations
+- **`name`**: Unique identifier for each test plan
+- **`templates`**: Application templates specific to each test plan
+- **`tssc`**: TSSC configurations specific to each test plan
+- **`tests`**: Test filtering specific to each test plan
+
+**Running Specific Test Plans:**
+
+You can run specific test plans using the `TESTPLAN_NAME` environment variable:
+
+```bash
+# Run only the github-tests plan
+TESTPLAN_NAME=github-tests npm test
+
+# Run all test plans (default behavior)
+npm test
+```
+
+
 ### Step 2: Configure Environment Variables
 
 Copy the template file from `templates/.env` to the root directory:
@@ -239,8 +310,11 @@ npm run test:all
 # Run a specific test file
 npm test -- tests/tssc/full_workflow.test.ts
 
-# Run tests with filtering (using testplan.json tests array)
+# Run tests with filtering and all test plans (using testplan.json tests array)
 npm test
+
+# Run specific test plan (multiple test plans format)
+TESTPLAN_NAME=github-tests npm test
 
 # View test report
 npm run test:report
@@ -286,6 +360,9 @@ npm run test:all
 
 # Run a specific test file
 npm test -- tests/tssc/full_workflow.test.ts
+
+# Run specific test plan (multiple test plans format)
+TESTPLAN_NAME=github-tests npm test
 
 # Run UI tests
 npm run test:ui
@@ -410,14 +487,6 @@ npm test -- tests/ui
 npm test -- tests/component.test.ts
 ```
 
-**Test Filtering Implementation:**
-
-The test filtering is implemented in `src/playwright/testplan.ts` with the following key methods:
-
-- `getTests()`: Returns the tests array from testplan.json
-- `getTestMatchPatterns()`: Converts test identifiers to Playwright patterns
-- `shouldIncludeTest(testFilePath)`: Determines if a test should be included
-- `getTestMatchPattern()`: Combines multiple patterns into a single match string
 
 ### Debugging
 
