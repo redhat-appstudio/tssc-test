@@ -114,10 +114,6 @@ export class TestPlan {
       if (test.endsWith('.test.ts')) {
         return `tests/**/${test}`;
       }
-      // If test contains /, treat as folder path
-      else if (test.includes('/')) {
-        return `tests/${test}/**/*.test.ts`;
-      }
       // Otherwise, treat as folder name
       else {
         return `tests/${test}/**/*.test.ts`;
@@ -152,10 +148,6 @@ export class TestPlan {
       // If test ends with .test.ts, check for exact file match
       if (test.endsWith('.test.ts')) {
         return testFilePath.endsWith(test);
-      }
-      // If test contains /, check for folder path match
-      else if (test.includes('/')) {
-        return testFilePath.includes(`tests/${test}/`);
       }
       // Otherwise, check for folder name match
       else {

@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from 'fs';
+import path from 'path';
 
 export interface TestFilterInfo {
   tests: string[];
@@ -10,7 +11,7 @@ export interface TestFilterInfo {
  * Load test filtering information from the project configuration summary
  */
 export function loadTestFilterInfo(): TestFilterInfo | null {
-  const summaryPath = './tmp/project-config-summary.json';
+  const summaryPath = path.resolve(process.cwd(), 'tmp/project-config-summary.json');
   
   if (!existsSync(summaryPath)) {
     console.warn('Project configuration summary not found. Using default test patterns.');
