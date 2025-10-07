@@ -755,7 +755,7 @@ export class GithubProvider extends BaseGitProvider {
   }
 
   /**
-   * Deletes a folder from a repository by deleting all files in the folder
+   * Deletes a folder from a repository using a single tree-based commit
    * @param owner The repository owner (organization or user)
    * @param repoName The repository name
    * @param folderPath The path to the folder to delete
@@ -765,23 +765,67 @@ export class GithubProvider extends BaseGitProvider {
    */
   public async deleteFolderInRepository(owner: string, repoName: string, folderPath: string, branch: string = 'main', commitMessage: string = 'Delete folder'): Promise<void> {
     try {
-      // Get the contents of the folder
-      const folderContents = await this.githubClient.repository.getContent(owner, repoName, folderPath, branch);
-      if (!Array.isArray(folderContents)) {
-        throw new Error(`Path ${folderPath} is not a folder`);
-      }
+      // Get the current branch ref and base commit SHA
+      const { data: refData } = await this.githubClient.octokitInstance.rest.git.getRef({
+        owner,
+        repo: repoName,
+        ref: `heads/${branch}`,
+      });
+      const baseCommitSha = refData.object.sha;
 
-      // Delete each file in the folder
-      for (const item of folderContents) {
-        if (item.type === 'file') {
-          await this.deleteFileInRepository(owner, repoName, item.path, branch, `${commitMessage}: ${item.name}`);
-        } else if (item.type === 'dir') {
-          // Recursively delete subdirectories
-          await this.deleteFolderInRepository(owner, repoName, item.path, branch, `${commitMessage}: ${item.name}`);
-        }
-      }
+      // Get the base commit to retrieve the tree SHA
+      const { data: commitData } = await this.githubClient.octokitInstance.rest.git.getCommit({
+        owner,
+        repo: repoName,
+        commit_sha: baseCommitSha,
+      });
+      const baseTreeSha = commitData.tree.sha;
 
-      console.log(`Successfully deleted folder ${folderPath} from ${owner}/${repoName}`);
+      // Get the current tree
+      const { data: treeData } = await this.githubClient.octokitInstance.rest.git.getTree({
+        owner,
+        repo: repoName,
+        tree_sha: baseTreeSha,
+        recursive: 'true' as any,
+      });
+
+      // Filter out any tree entries under the target folder path
+      const filteredTreeItems = treeData.tree.filter((item: any) => {
+        // Remove any items that start with the folder path
+        return !item.path.startsWith(folderPath + '/') && item.path !== folderPath;
+      });
+
+      // Create a new tree without the folder
+      const { data: newTreeData } = await this.githubClient.octokitInstance.rest.git.createTree({
+        owner,
+        repo: repoName,
+        base_tree: baseTreeSha,
+        tree: filteredTreeItems.map((item: any) => ({
+          path: item.path,
+          mode: item.mode,
+          type: item.type,
+          sha: item.sha,
+        })),
+      });
+
+      // Create a new commit with the new tree
+      const { data: newCommitData } = await this.githubClient.octokitInstance.rest.git.createCommit({
+        owner,
+        repo: repoName,
+        message: commitMessage,
+        tree: newTreeData.sha,
+        parents: [baseCommitSha],
+      });
+
+      // Update the branch ref to point to the new commit
+      await this.githubClient.octokitInstance.rest.git.updateRef({
+        owner,
+        repo: repoName,
+        ref: `heads/${branch}`,
+        sha: newCommitData.sha,
+      });
+
+      console.log(`Successfully deleted folder ${folderPath} from ${owner}/${repoName} in a single commit`);
     } catch (error: any) {
       console.error(`Failed to delete folder ${folderPath} from ${owner}/${repoName}: ${error.message}`);
       throw error;

@@ -199,20 +199,56 @@ export class DeveloperHub {
       // Get all entities and filter them based on the selector
       const response = await this.axios.get(`${this.url}/api/catalog/entities`);
       
-      const filteredEntities = response.data.filter((entity: any) => 
-        (entity.kind === 'Component' && entity.metadata?.name?.includes(selector)) || 
-        (entity.kind === 'Resource' && entity.metadata?.name?.includes(selector)) || 
-        (entity.kind === 'Location' && entity.spec?.target?.includes(selector))
-      );
+      // Parse selector format (e.g., "kind=Component,name=my-component")
+      const selectorParts = selector.split(',');
+      const selectorCriteria: { [key: string]: string } = {};
+      
+      selectorParts.forEach(part => {
+        const [key, value] = part.split('=');
+        if (key && value) {
+          selectorCriteria[key.trim()] = value.trim();
+        }
+      });
+      
+      const filteredEntities = response.data.filter((entity: any) => {
+        // Check if entity matches all selector criteria
+        return Object.entries(selectorCriteria).every(([key, value]) => {
+          switch (key) {
+            case 'kind':
+              return entity.kind === value;
+            case 'name':
+              return entity.metadata?.name === value;
+            case 'namespace':
+              return entity.metadata?.namespace === value;
+            default:
+              return false;
+          }
+        });
+      });
 
       if (filteredEntities.length === 0) {
         console.log(`No components found in catalog with the description containing "${selector}".`);
         return false;
       }
 
-      // Delete all filtered entities
+      // Delete all filtered entities with retry logic for Backstage eventual consistency
       const results = await Promise.all(
-        filteredEntities.map((entity: any) => this.unregisterEntityByUid(entity.metadata.uid))
+        filteredEntities.map((entity: any) => 
+          retry(
+            () => this.unregisterEntityByUid(entity.metadata.uid),
+            {
+              retries: 3,
+              minTimeout: 1000,
+              maxTimeout: 3000,
+              factor: 2,
+              onRetry: (error: Error, attempt: number) => {
+                console.log(
+                  `[RETRY ${attempt}/3] 🔄 Entity UID: ${entity.metadata.uid} | Reason: ${error.message}`
+                );
+              }
+            }
+          )
+        )
       );
 
       if (results.every(r => r === true)) {
@@ -223,7 +259,7 @@ export class DeveloperHub {
         return false;
       }
     } catch (error) {
-      console.error(`Error deleting entities with selector ${selector}:`, error);
+      console.error(`Error deleting entities with selector ${selector}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;
     }
   }
@@ -245,7 +281,7 @@ export class DeveloperHub {
         return false;
       }
     } catch (error) {
-      console.error(`Error deleting entity with UID ${id}:`, error);
+      console.error(`Error deleting entity with UID ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;
     }
   }

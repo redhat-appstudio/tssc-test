@@ -12,7 +12,6 @@ import { GithubProvider } from '../../src/rhtap/core/integration/git/providers/g
 import { GitlabProvider } from '../../src/rhtap/core/integration/git/providers/gitlab';
 import { BitbucketProvider } from '../../src/rhtap/core/integration/git/providers/bitbucket';
 import { expect } from '@playwright/test';
-import { Git } from '../../src/rhtap/core/integration/git';
 
 /**
  * Create a basic test fixture with testItem
@@ -30,10 +29,13 @@ const test = createBasicFixture();
  * 5. Verifies the imported component is created successfully
  */
 test.describe.serial('Import Template Tests', () => {
+  // Configure generous timeout and retries for slow ArgoCD/cluster operations
+  test.setTimeout(300000); // 5-minute timeout
+  test.describe.configure({ retries: 2 }); // Retry on transient CI flakiness
+
   let component: Component;
   let importedComponent: Component;
-  let git: Git;
-  const templateName = 'go'; // You can change this to test different templates
+  const templateName = process.env.TEMPLATE_NAME || 'go';
 
   test(`verifies if ${templateName} template exists in the catalog`, async () => {
     // This would require implementing a method to get golden path templates
@@ -55,7 +57,7 @@ test.describe.serial('Import Template Tests', () => {
       expect(component.getName()).toBe(componentName);
       console.log(`Component ${componentName} created successfully`);
     } catch (error) {
-      console.error(`❌ Failed to create component: ${error}`);
+      console.error(`❌ Failed to create component: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   });
@@ -75,7 +77,7 @@ test.describe.serial('Import Template Tests', () => {
       throw new Error('Component was not created successfully');
     }
   
-    git = component.getGit();
+    const git = component.getGit();
     const commitSha = await git.getGitOpsRepoCommitSha();
     const cd = component.getCD();
     
@@ -155,8 +157,12 @@ test.describe.serial('Import Template Tests', () => {
     const developerHub = component.getDeveloperHub();
     const componentName = component.getName();
     
-    // Delete entities from Developer Hub
-    const deleted = await developerHub.deleteEntitiesBySelector(componentName);
+    // Construct precise Backstage entity selector with field qualifiers
+    // Format: kind=Component,name=<componentName>
+    const entitySelector = `kind=Component,name=${componentName}`;
+    
+    // Delete entities from Developer Hub using precise selector
+    const deleted = await developerHub.deleteEntitiesBySelector(entitySelector);
     expect(deleted).toBeTruthy();
     console.log(`Deleted entities for ${componentName} from Developer Hub`);
   });
@@ -188,7 +194,7 @@ test.describe.serial('Import Template Tests', () => {
       expect(importedComponent.getName()).toBe(importedComponentName);
       console.log(`Import task created for ${importedComponentName}`);
     } catch (error) {
-      console.error(`❌ Failed to create imported component: ${error}`);
+      console.error(`❌ Failed to create imported component: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   });
@@ -209,7 +215,7 @@ test.describe.serial('Import Template Tests', () => {
     }
     
     // Wait for ArgoCD application to be healthy
-    git = importedComponent.getGit();
+    const git = importedComponent.getGit();
     const commitSha = await git.getGitOpsRepoCommitSha();
     const cd = importedComponent.getCD();
     

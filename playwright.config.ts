@@ -39,7 +39,7 @@ try {
   if (ENABLE_E2E_TESTS) {
     e2eProjects = projectConfigs.map(config => ({
       name: `e2e-${config.name}`,
-      testMatch: 'tests/tssc/**/*.test.ts',
+      testMatch: 'tssc/**/*.test.ts',
       use: {
         testItem: config.testItem,
       },
@@ -53,7 +53,7 @@ try {
 
     uiProjects = projectConfigs.map(config => ({
       name: `ui-${config.name}`,
-      testMatch: 'tests/ui/**/*.test.ts',
+      testMatch: 'ui/**/*.test.ts',
       use: {
         testItem: config.testItem,
         storageState: authFile,
@@ -82,7 +82,7 @@ try {
   if (ENABLE_IMPORT_TESTS) {
     importProjects = projectConfigs.map(config => ({
       name: `import-${config.name}`,
-      testMatch: 'tests/templates/**/*.test.ts',
+      testMatch: 'templates/**/*.test.ts',
       use: {
         testItem: config.testItem,
       },
