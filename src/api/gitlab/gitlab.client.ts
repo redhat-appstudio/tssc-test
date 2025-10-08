@@ -329,10 +329,20 @@ export class GitLabClient implements IGitLabCoreClient {
     try {
       const tree = await retry(
         async () => {
-          return await this.client.Repositories.allRepositoryTrees(projectId, {
-            path: trimmedPath,
-            ref: trimmedBranch,
-          });
+          try {
+            return await this.client.Repositories.allRepositoryTrees(projectId, {
+              path: trimmedPath,
+              ref: trimmedBranch,
+            });
+          } catch (error: any) {
+            // Check if error is 404 - don't retry on 404 errors
+            if (error.response?.status === 404 || error.status === 404 || error.message?.includes('404')) {
+              // Rethrow 404 errors immediately to prevent retries
+              throw error;
+            }
+            // For all other errors, rethrow to let retry mechanism handle them
+            throw error;
+          }
         },
         {
           retries: 3,

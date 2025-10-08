@@ -284,7 +284,25 @@ export class GithubRepositoryService {
           factor: 2,
           onRetry: (error: any, attempt: number) => {
             const status = error.status || error.response?.status;
-            const isRetryable = status === 429 || (status >= 500 && status < 600);
+            const errorCode = error.code;
+            
+            // Check for retryable HTTP status codes
+            const isHttpRetryable = status === 429 || (status >= 500 && status < 600);
+            
+            // Check for retryable transport error codes
+            const retryableTransportCodes = [
+              'ETIMEDOUT',
+              'ECONNRESET', 
+              'ENOTFOUND',
+              'EAI_AGAIN',
+              'ECONNREFUSED',
+              'EHOSTUNREACH',
+              'ENETUNREACH',
+              'ETIMEOUT'
+            ];
+            const isTransportRetryable = errorCode && retryableTransportCodes.includes(errorCode);
+            
+            const isRetryable = isHttpRetryable || isTransportRetryable;
             
             if (isRetryable) {
               defaultLogger.warn({
@@ -294,8 +312,9 @@ export class GithubRepositoryService {
                 path: trimmedPath,
                 attempt,
                 status,
+                errorCode,
                 error: error.message
-              }, `Retrying file deletion (attempt ${attempt}/3) - Status: ${status}`);
+              }, `Retrying file deletion (attempt ${attempt}/3) - Status: ${status}, Code: ${errorCode}`);
             } else {
               // Non-retryable error, throw immediately
               throw error;
