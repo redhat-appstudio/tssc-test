@@ -4,6 +4,7 @@
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
 - [Configuration](#configuration)
+  - [Test Filtering](#test-filtering)
 - [Running Tests](#running-tests)
 - [UI Tests](#ui-tests)
 - [Development](#development)
@@ -11,6 +12,10 @@
 ## Overview
 
 This project is an end-to-end automation testing framework designed to validate the functionality of the [Red Hat Trusted Software Supply Chain CLI](https://github.com/redhat-appstudio/rhtap-cli) (tssc). Built with Playwright and TypeScript, this framework simulates real-world user interactions and backend processes to ensure the reliability and correctness of tssc's core features.
+
+### Recent Updates (RHTAP-5691)
+
+The framework now includes **test filtering functionality** that allows you to run specific tests or test categories by configuring the `tests` array in `testplan.json`. This feature improves test execution efficiency and reduces runtime by allowing targeted test execution.
 
 ## Test Execution Control
 
@@ -123,7 +128,7 @@ The testplan.json file supports defining multiple TSSC combinations, allowing yo
   - `acs`: ACS configuration - `["local", "remote"]`
   - `tpa`: TPA configuration - `["local", "remote"]`
 
-- **`tests`**: Array of test identifiers (optional)
+- **`tests`**: Array of test identifiers - test filtering functionality
 
 #### Test Execution Matrix
 
@@ -133,6 +138,63 @@ The framework creates a test matrix by combining each template with each TSSC co
 - **Total tests**: 6 × 2 = 12 test combinations
 
 Each test combination runs independently, allowing you to validate different technology stacks across various TSSC configurations.
+
+#### Test Filtering
+
+The framework supports test filtering through the `tests` array in `testplan.json`. This allows you to run only specific tests or test categories, improving test execution efficiency and reducing runtime.
+
+**Filtering Options:**
+
+- **Folder-based filtering**: Specify test directories to run
+  ```json
+  {
+    "tests": ["ui", "tssc"]
+  }
+  ```
+
+- **File-based filtering**: Specify individual test files
+  ```json
+  {
+    "tests": ["component.test.ts", "workflow.test.ts"]
+  }
+  ```
+
+- **Mixed filtering**: Combine folders and specific files
+  ```json
+  {
+    "tests": ["ui", "component.test.ts", "tssc/workflow.test.ts"]
+  }
+  ```
+
+**How Test Filtering Works:**
+
+1. **Pattern Matching**: The framework converts test identifiers into Playwright-compatible match patterns
+2. **Directory Matching**: `"ui"` becomes `"ui/**/*.test.ts"`
+3. **File Matching**: `"component.test.ts"` matches files with that exact name
+4. **Path Matching**: `"tssc/workflow.test.ts"` matches specific file paths
+
+**Examples:**
+
+```json
+{
+  "templates": ["go", "python"],
+  "tssc": [
+    {
+      "git": "github",
+      "ci": "tekton",
+      "registry": "quay",
+      "tpa": "remote",
+      "acs": "local"
+    }
+  ],
+  "tests": ["ui", "tssc"]
+}
+```
+
+This configuration will:
+- Generate 2 test combinations (go + github, python + github)
+- Run only tests in the `ui/` and `tssc/` directories
+- Skip any tests outside these directories
 
 ### Step 2: Configure Environment Variables
 
@@ -176,6 +238,9 @@ npm run test:all
 
 # Run a specific test file
 npm test -- tests/tssc/full_workflow.test.ts
+
+# Run tests with filtering (using testplan.json tests array)
+npm test
 
 # View test report
 npm run test:report
@@ -329,6 +394,30 @@ npm run check-types
 # Run all validation steps
 npm run validate
 ```
+
+### Test Filtering Development
+
+When developing new test filtering functionality, you can test the filtering logic:
+
+```bash
+# Test with specific test patterns
+npm test -- --grep "ui"
+
+# Test with directory filtering
+npm test -- tests/ui
+
+# Test with file filtering
+npm test -- tests/component.test.ts
+```
+
+**Test Filtering Implementation:**
+
+The test filtering is implemented in `src/playwright/testplan.ts` with the following key methods:
+
+- `getTests()`: Returns the tests array from testplan.json
+- `getTestMatchPatterns()`: Converts test identifiers to Playwright patterns
+- `shouldIncludeTest(testFilePath)`: Determines if a test should be included
+- `getTestMatchPattern()`: Combines multiple patterns into a single match string
 
 ### Debugging
 
