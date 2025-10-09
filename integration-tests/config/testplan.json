@@ -36,6 +36,13 @@
     "acs": "remote"
   },
   {
+    "git": "bitbucket",
+    "ci": "tekton",
+    "registry": "quay",
+    "tpa": "remote",
+    "acs": "remote"
+  },
+  {
     "git": "gitlab",
     "ci": "jenkins",
     "registry": "quay",
