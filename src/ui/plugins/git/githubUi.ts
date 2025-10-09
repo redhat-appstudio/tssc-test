@@ -10,18 +10,11 @@ import { expect, Page } from '@playwright/test';
 import { loadFromEnv } from '../../../utils/util';
 import { DHLoginPO, GhLoginPO } from '../../page-objects/loginPo';
 import { GitPO } from '../../page-objects/commonPo';
-import { Git } from '../../../rhtap/core/integration/git/gitInterface';
 import { authenticator } from 'otplib';
 import retry from 'async-retry';
+import { GitUi } from './gitUi';
 
-export class GithubUiPlugin implements GitPlugin {
-    private githubProvider: Git;
-
-    constructor(
-        git: Git
-    ) {
-        this.githubProvider = git
-    }
+export class GithubUiPlugin extends GitUi implements GitPlugin {
 
     /**
      * Performs GitHub login through the Developer Hub UI.
@@ -86,27 +79,9 @@ export class GithubUiPlugin implements GitPlugin {
         }
     }
 
-    /**
-     * Verifies the GitHub "View Source" link on the component page.
-     * Checks that the link is visible, clickable, and accessible.
-     *
-     * @param page - Playwright Page object for UI interactions
-     */
     async checkViewSourceLink(page: Page): Promise<void> {
         const githubLink = page.locator(`${GitPO.githubLinkSelector}:has-text("${GitPO.viewSourceLinkText}")`);
-        await expect(githubLink).toBeVisible({ timeout: 10000 });
-
-        const linkHref = await githubLink.getAttribute('href');
-        expect(githubLink).toBeTruthy();
-
-        const isClickable = await githubLink.isEnabled();
-        expect(isClickable).toBe(true);
-
-        const response = await page.request.head(linkHref!);
-        const status = response.status();
-        expect(status).toBe(200);
-
-        console.log(`GitHub URL: ${linkHref}`);
+        await super.checkGitLink(page, githubLink);
     }
 
     /**

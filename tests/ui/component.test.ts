@@ -58,7 +58,9 @@ test.describe('Component UI Test Suite', () => {
       await page.goto(component.getComponentUrl(), { timeout: 20000 });
       await waitForPageLoad(page, component.getCoreComponent().getName());
 
-      await component.getGit()!.checkViewSourceLink(page);
+      await test.step('Check Git Source link', async () => {
+        await component.getGit()!.checkViewSourceLink(page);
+      }, { timeout: 20000 });
     });
   });
 
