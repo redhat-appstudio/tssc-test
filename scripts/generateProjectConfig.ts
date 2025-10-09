@@ -25,10 +25,36 @@ function generateProjectConfig(): void {
     const testPlanData = JSON.parse(readFileSync(testPlanPath, 'utf-8'));
     const testPlan = new TestPlan(testPlanData);
 
-    // Generate project configurations with consistent TestItems
-    const projectConfigs = testPlan.getProjectConfigs();
+    // Check if we have multiple test plans and if a specific plan is requested
+    const requestedPlan = process.env.TESTPLAN_NAME;
+    let projectConfigs: any[];
+
+    if (requestedPlan && testPlan.getTestPlans().length > 0) {
+      // New format: filter by specific test plan
+      console.log(`Filtering test items for plan: ${requestedPlan}`);
+      const testItems = testPlan.getTestItemsByPlanName(requestedPlan);
+      projectConfigs = testItems.map(testItem => ({
+        name: `${testItem.getTemplate()}[${testItem.getGitType()}-${testItem.getCIType()}-${testItem.getRegistryType()}]`,
+        testItem
+      }));
+    } else {
+      // Generate all project configurations (legacy behavior or all plans)
+      projectConfigs = testPlan.getProjectConfigs();
+    }
     
     console.log(`Generated ${projectConfigs.length} project configurations`);
+
+    // Log test plan information
+    if (testPlan.getTestPlans().length > 0) {
+      console.log(`Available test plans: ${testPlan.getTestPlanNames().join(', ')}`);
+      if (requestedPlan) {
+        console.log(`Using test plan: ${requestedPlan}`);
+      } else {
+        console.log('Using all test plans (no TESTPLAN_NAME specified)');
+      }
+    } else {
+      console.log('Using legacy single test plan format');
+    }
 
     // Prepare serialized configurations
     const serializedConfigs: ProjectConfig[] = projectConfigs.map(config => ({
@@ -51,6 +77,8 @@ function generateProjectConfig(): void {
       generatedAt: new Date().toISOString(),
       testPlanPath,
       totalConfigurations: projectConfigs.length,
+      requestedPlan: requestedPlan || 'all',
+      availableTestPlans: testPlan.getTestPlanNames(),
       testFiltering: {
         tests: testPlan.getTests(),
         testMatchPattern: testPlan.getTestMatchPattern(),
