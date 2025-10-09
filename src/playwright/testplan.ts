@@ -230,6 +230,18 @@ export class TestPlan {
 
   // Test filtering methods
   getTests(): string[] {
+    // If using multiple test plans format, aggregate tests from all plans
+    if (this.testPlans && Array.isArray(this.testPlans)) {
+      const allTests: string[] = [];
+      this.testPlans.forEach(plan => {
+        if (plan.tests && Array.isArray(plan.tests)) {
+          allTests.push(...plan.tests);
+        }
+      });
+      return allTests;
+    }
+    
+    // Fallback to legacy single test plan format
     return this.tests || [];
   }
 
@@ -238,7 +250,7 @@ export class TestPlan {
    * Supports both folder patterns and specific test files
    */
   getTestMatchPatterns(): string[] {
-    const tests = this.tests || [];
+    const tests = this.getTests();
     if (tests.length === 0) {
       // If no tests specified, return default pattern
       return ['**/*.test.ts'];
