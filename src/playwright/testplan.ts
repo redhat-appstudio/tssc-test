@@ -32,9 +32,13 @@ export class TestPlan {
   
   // Combined test items from all test plans
   testItems: TestItem[];
+  
+  // Map to track test items by plan name for efficient lookup
+  private testItemsByPlan: Map<string, TestItem[]> = new Map();
 
   constructor(data: any) {
     this.testItems = [];
+    this.testItemsByPlan = new Map();
 
     // Check if data has new format with testPlans array
     if (data.testPlans && Array.isArray(data.testPlans)) {
@@ -59,21 +63,30 @@ export class TestPlan {
 
   private processMultipleTestPlans(): void {
     this.testPlans?.forEach(testPlan => {
+      // Initialize the plan's test items array
+      this.testItemsByPlan.set(testPlan.name, []);
+      
       testPlan.templates.forEach(template => {
         testPlan.tssc.forEach(tsscConfig => {
           const itemName = tsscConfig.name || `${testPlan.name}-${template}-${randomString()}`;
           
-          this.testItems.push(
-            new TestItem(
-              itemName,
-              template as TemplateType,
-              tsscConfig.registry,
-              tsscConfig.git,
-              tsscConfig.ci,
-              tsscConfig.tpa,
-              tsscConfig.acs
-            )
+          const testItem = new TestItem(
+            itemName,
+            template as TemplateType,
+            tsscConfig.registry,
+            tsscConfig.git,
+            tsscConfig.ci,
+            tsscConfig.tpa,
+            tsscConfig.acs
           );
+          
+          // Add to global test items array
+          this.testItems.push(testItem);
+          
+          // Add to plan-specific mapping
+          const planItems = this.testItemsByPlan.get(testPlan.name) || [];
+          planItems.push(testItem);
+          this.testItemsByPlan.set(testPlan.name, planItems);
         });
       });
     });
@@ -148,6 +161,13 @@ export class TestPlan {
     const plan = this.getTestPlanByName(planName);
     if (!plan) return [];
 
+    // Use the authoritative mapping if available
+    const planItems = this.testItemsByPlan.get(planName);
+    if (planItems && planItems.length > 0) {
+      return planItems;
+    }
+
+    // Fallback to name-based filtering for backward compatibility
     return this.testItems.filter(item => 
       item.getName().startsWith(`${planName}-`)
     );
