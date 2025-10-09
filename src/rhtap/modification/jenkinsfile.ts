@@ -23,9 +23,7 @@ export class KubernetesAgentModification implements JenkinsfileModification {
         {
           oldContent: 'agent any',
           newContent:
-            "agent {\n  kubernetes {\n    label 'jenkins-agent'\n    cloud 'openshift'\n    serviceAccount 'jenkins'\n    podRetention onFailure()\n    idleMinutes '5'\n    containerTemplate {\n     name 'jnlp'\n     image '" +
-            this.agentImage +
-            "'\n     ttyEnabled true\n     args '${computer.jnlpmac} ${computer.name}'\n   }\n   }\n}",
+            "agent {\n        label 'tssc-jenkins-agent'    \n}",
         },
       ],
     };
