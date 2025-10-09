@@ -13,22 +13,12 @@ export interface JenkinsfileModification {
 
 /**
  * Concrete implementation for Kubernetes agent configuration
+ * for now, it doesn't modify the Jenkinsfile
+ * TODO: need to drop this class in future
  */
 export class KubernetesAgentModification implements JenkinsfileModification {
-  private readonly agentImage: string = 'quay.io/jkopriva/rhtap-jenkins-agent:0.2';
-
   getModification(): ContentModifications {
-    return {
-      Jenkinsfile: [
-        {
-          oldContent: 'agent any',
-          newContent:
-            "agent {\n  kubernetes {\n    label 'jenkins-agent'\n    cloud 'openshift'\n    serviceAccount 'jenkins'\n    podRetention onFailure()\n    idleMinutes '5'\n    containerTemplate {\n     name 'jnlp'\n     image '" +
-            this.agentImage +
-            "'\n     ttyEnabled true\n     args '${computer.jnlpmac} ${computer.name}'\n   }\n   }\n}",
-        },
-      ],
-    };
+    return {};
   }
 }
 
