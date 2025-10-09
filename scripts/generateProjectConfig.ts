@@ -51,6 +51,11 @@ function generateProjectConfig(): void {
       generatedAt: new Date().toISOString(),
       testPlanPath,
       totalConfigurations: projectConfigs.length,
+      testFiltering: {
+        tests: testPlan.getTests(),
+        testMatchPattern: testPlan.getTestMatchPattern(),
+        testMatchPatterns: testPlan.getTestMatchPatterns()
+      },
       testItems: projectConfigs.map(config => ({
         name: config.testItem.getName(),
         template: config.testItem.getTemplate(),
@@ -61,6 +66,10 @@ function generateProjectConfig(): void {
     };
 
     writeFileSync('./tmp/project-config-summary.json', JSON.stringify(summary, null, 2));
+    
+    // Log test filtering information
+    console.log(`Test filtering: ${testPlan.getTests().length > 0 ? testPlan.getTests().join(', ') : 'All tests'}`);
+    console.log(`Test match pattern: ${testPlan.getTestMatchPattern()}`);
     console.log('Project configuration generation completed successfully!');
 
   } catch (error) {

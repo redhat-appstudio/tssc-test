@@ -278,6 +278,10 @@ export class AzureCI extends BaseCI {
     return this.mapAzureStatusToPipelineStatus(pipelineRun);
   }
 
+  public override async getCIFilePathInRepo(): Promise<string> {
+    return 'azure-pipelines.yml';
+  }
+
   public async waitForAllPipelineRunsToFinish(): Promise<void> {
     await retry(
       async () => {

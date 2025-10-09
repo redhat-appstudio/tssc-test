@@ -1,6 +1,7 @@
 import { defineConfig} from '@playwright/test';
 import { TestItem } from './src/playwright/testItem';
 import { loadProjectConfigurations, ProjectConfig } from './src/utils/projectConfigLoader';
+import { getTestMatchPattern } from './src/utils/testFilterLoader';
 import path from 'path';
 
 // Extend Playwright types to include testItem
@@ -35,9 +36,10 @@ try {
 
   // Create e2e projects if enabled
   if (ENABLE_E2E_TESTS) {
+    const testMatchPattern = getTestMatchPattern();
     e2eProjects = projectConfigs.map(config => ({
       name: `e2e-${config.name}`,
-      testMatch: 'tests/tssc/**/*.test.ts',
+      testMatch: testMatchPattern,
       use: {
         testItem: config.testItem,
       },
@@ -49,9 +51,10 @@ try {
     // Create auth setup project for UI tests
     authProjects = [{ name: 'auth-setup', testMatch: '**/auth.setup.ts' }];
 
+    const testMatchPattern = getTestMatchPattern();
     uiProjects = projectConfigs.map(config => ({
       name: `ui-${config.name}`,
-      testMatch: 'tests/ui/**/*.test.ts',
+      testMatch: testMatchPattern,
       use: {
         testItem: config.testItem,
         storageState: authFile,

@@ -58,7 +58,9 @@ test.describe('Component UI Test Suite', () => {
       await page.goto(component.getComponentUrl(), { timeout: 20000 });
       await waitForPageLoad(page, component.getCoreComponent().getName());
 
-      await component.getGit()!.checkViewSourceLink(page);
+      await test.step('Check Git Source link', async () => {
+        await component.getGit()!.checkViewSourceLink(page);
+      }, { timeout: 20000 });
     });
   });
 
@@ -80,13 +82,17 @@ test.describe('Component UI Test Suite', () => {
         await hideQuickStartIfVisible(page);
       }, { timeout: 20000 });
 
-      await test.step("Check CI heading", async () => {
+      await test.step('Check CI heading', async () => {
         await ciPlugin.checkCIHeading(page);
       }, {timeout: 20000});
 
-      await test.step("Check CI table content", async () => {
+      await test.step('Check CI table content', async () => {
         await ciPlugin!.checkActions(page);
       }, {timeout: 40000});
+
+      await test.step('Check Pipeline Runs table row values', async () => {
+        await ciPlugin!.checkPipelineRunsTable(page);
+      }, { timeout: 30000 });
     });
   });
 
