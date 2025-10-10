@@ -448,4 +448,15 @@ export class AzureCI extends BaseCI {
     }
     await this.azureClient.deleteServiceEndpoint(endpoint.id, projectId);
   }
+
+  public async cancelAllInitialPipelines(): Promise<void> {
+    // TODO: Implement Azure pipeline cancellation logic
+    console.log(`Azure CI: cancelAllInitialPipelines not yet implemented for ${this.componentName}`);
+  }
+
+  public async getCIFilePathInRepo(): Promise<string> {
+    // TODO: will implement logic to fetch the path from the cluster or repo in future
+    // Azure Pipelines typically use azure-pipelines.yml as the default file name
+    return 'azure-pipelines.yml';
+  }
 }
