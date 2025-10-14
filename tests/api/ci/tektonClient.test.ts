@@ -1,4 +1,4 @@
-import { TektonClient } from '../../../src/api/ci/tektonClient';
+import { TektonClient } from '../../../src/api/tekton';
 import { KubeClient } from '../../../src/api/ocp/kubeClient';
 import { expect, test } from '@playwright/test';
 
