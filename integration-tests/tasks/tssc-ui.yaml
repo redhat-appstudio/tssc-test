@@ -58,9 +58,6 @@ spec:
         #!/usr/bin/env bash
         set -eu
 
-        echo "Copying testplan.json to root directory"
-        cp ./templates/testplan.json ./testplan.json
-
         # Load GitHub credentials from rhtap-cli-install secret
         GH_USERNAME=""
         GH_PASSWORD=""
