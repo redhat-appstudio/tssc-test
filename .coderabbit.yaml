@@ -45,6 +45,7 @@ reviews:
     - "!**/node_modules/**"
     - "!**/test-results/**"
     - "!**/playwright-report/**"
+    - "!**/hack/**"
     - "!**/.env*"
     - "!**/package-lock.json"
     - "!**/*.log"
