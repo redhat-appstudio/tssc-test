@@ -22,7 +22,7 @@ export class ArgoCD {
 
   public async getApplication(environment: Environment): Promise<ApplicationKind> {
     const applicationName = this.getApplicationName(environment);
-    const application = await this.argoCDClient.getApplication(applicationName, this.NAMESPACE);
+    const application = await this.argoCDClient.applications.getApplication(applicationName, this.NAMESPACE);
 
     if (!application) {
       throw new Error(`Application ${applicationName} not found`);
@@ -33,7 +33,7 @@ export class ArgoCD {
 
   public async getApplicationStatus(environment: Environment): Promise<string> {
     const applicationName = this.getApplicationName(environment);
-    const application = await this.argoCDClient.getApplication(applicationName, this.NAMESPACE);
+    const application = await this.argoCDClient.applications.getApplication(applicationName, this.NAMESPACE);
 
     if (!application) {
       throw new Error(`Application ${applicationName} not found`);
@@ -44,7 +44,7 @@ export class ArgoCD {
 
   public async getApplicationLogs(environment: Environment): Promise<string> {
     const applicationName = this.getApplicationName(environment);
-    const status = await this.argoCDClient.getApplicationStatus(applicationName, this.NAMESPACE);
+    const status = await this.argoCDClient.applications.getApplicationStatus(applicationName, this.NAMESPACE);
     if (!status) {
       throw new Error(`Logs for application ${applicationName} not found`);
     }
@@ -54,7 +54,7 @@ export class ArgoCD {
   public async syncApplication(environment: Environment): Promise<void> {
     const applicationName = this.getApplicationName(environment);
 
-    const success = await this.argoCDClient.syncApplication(applicationName, this.NAMESPACE);
+    const success = await this.argoCDClient.sync.syncApplication(applicationName, { namespace: this.NAMESPACE });
 
     if (!success) {
       const status = await this.getApplicationStatus(environment);
@@ -97,7 +97,7 @@ export class ArgoCD {
         async () => {
           // Get the application to check its sync status
           applicationName = this.getApplicationName(environment);
-          const application = await this.argoCDClient.getApplication(
+          const application = await this.argoCDClient.applications.getApplication(
             applicationName,
             this.NAMESPACE
           );
@@ -167,7 +167,7 @@ export class ArgoCD {
         `Final sync status: ${finalSyncStatus}, Health status: ${finalHealthStatus}, Revision: ${finalRevision}`
       );
       try{
-        const latestAppEvents = await this.argoCDClient.getApplicationEvents(applicationName, this.NAMESPACE);
+        const latestAppEvents = await this.argoCDClient.applications.getApplicationEvents(applicationName, this.NAMESPACE);
         console.error(`Getting latest application events: \n${latestAppEvents}`);
       } catch (error) {
         console.error(`Unable to fetch application details for debug: ${error}`);

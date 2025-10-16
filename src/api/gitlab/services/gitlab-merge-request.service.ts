@@ -1,10 +1,9 @@
 import { Gitlab } from '@gitbeaker/rest';
-import { IGitLabMergeRequestService, IGitLabRepositoryService, IGitLabProjectService } from '../interfaces/gitlab.interfaces';
+import { IGitLabMergeRequestService, IGitLabRepositoryService } from '../interfaces/gitlab.interfaces';
 import {
   GitLabMergeRequest,
   CreateMergeRequestOptions,
   MergeMergeRequestOptions,
-  MergeRequestResult,
   MergeResult,
   ProjectIdentifier,
 } from '../types/gitlab.types';
@@ -14,8 +13,7 @@ import { createGitLabErrorFromResponse } from '../errors/gitlab.errors';
 export class GitLabMergeRequestService implements IGitLabMergeRequestService {
   constructor(
     private readonly gitlabClient: InstanceType<typeof Gitlab>,
-    private readonly repositoryService: IGitLabRepositoryService,
-    private readonly projectService: IGitLabProjectService
+    private readonly repositoryService: IGitLabRepositoryService
   ) {}
 
   public async createMergeRequest(
@@ -35,14 +33,17 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
         sourceBranchExists = true;
         console.log(`Source branch '${sourceBranch}' already exists`);
       } catch (error: any) {
-        if (error.message && error.message.includes('not found')) {
-          // Branch doesn't exist, need to create it
-          console.log(`Source branch '${sourceBranch}' doesn't exist, will create it`);
+        if (error.message && error.message.toLowerCase().includes('not found')) {
+          // Branch doesn't exist
+          console.log(`Source branch '${sourceBranch}' doesn't exist`);
           sourceBranchExists = false;
 
-          // Create the branch from target branch
-          await this.repositoryService.createBranch(projectId, sourceBranch, targetBranch);
-          console.log(`Created new branch '${sourceBranch}' from '${targetBranch}'`);
+          // Only create empty branch if we DON'T have content modifications
+          // If we have content modifications, processContentModifications will create it atomically
+          if (!contentModifications) {
+            await this.repositoryService.createBranch(projectId, sourceBranch, targetBranch);
+            console.log(`Created new branch '${sourceBranch}' from '${targetBranch}'`);
+          }
         } else {
           throw error;
         }
@@ -83,65 +84,6 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
     }
   }
 
-  public async createMergeRequestWithNewBranch(
-    owner: string,
-    repo: string,
-    targetOwner: string,
-    baseBranch: string,
-    newBranchName: string,
-    contentModifications: ContentModifications,
-    title: string,
-    description: string
-  ): Promise<MergeRequestResult> {
-    try {
-      // Find the project ID for the repository
-      let projectId: number;
-      try {
-        const project = await this.projectService.getProject(`${owner}/${repo}`);
-        projectId = project.id;
-      } catch (error) {
-        throw new Error(`Project ${owner}/${repo} not found`);
-      }
-
-      // Create a new branch from the base branch
-      await this.repositoryService.createBranch(projectId, newBranchName, baseBranch);
-      console.log(`Created new branch '${newBranchName}' from '${baseBranch}'`);
-
-      // Process all file modifications
-      await this.processContentModifications(
-        projectId,
-        newBranchName,
-        baseBranch,
-        false,
-        contentModifications,
-        title
-      );
-
-      // Create merge request from new branch to base branch
-      const mergeRequest = await this.gitlabClient.MergeRequests.create(
-        projectId,
-        newBranchName,
-        baseBranch,
-        title,
-        {
-          description: description,
-          removeSourceBranch: true,
-        }
-      );
-
-      // Get the commit SHA from the branch
-      const commits = await this.repositoryService.getCommits(projectId, {
-        ref_name: newBranchName,
-      });
-      const commitSha = commits.length > 0 ? commits[0].id : 'unknown';
-
-      console.log(`Created merge request #${mergeRequest.iid} with commit SHA: ${commitSha}`);
-      return { prNumber: mergeRequest.iid, commitSha };
-    } catch (error: any) {
-      console.error(`Error creating merge request:`, error);
-      throw createGitLabErrorFromResponse('createMergeRequestWithNewBranch', error);
-    }
-  }
 
   public async mergeMergeRequest(
     projectId: ProjectIdentifier,
@@ -236,7 +178,7 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
           );
           fileContent = Buffer.from(fileData.content, 'base64').toString('utf-8');
         } catch (error: any) {
-          if (error.message && error.message.includes('not found')) {
+          if (error.message && error.message.toLowerCase().includes('not found')) {
             // File doesn't exist yet, start with empty content
             fileContent = '';
             fileAction = 'create';
@@ -267,11 +209,13 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
         `Committing ${fileModifications.length} file changes to branch ${sourceBranch}`
       );
 
+      // If source branch doesn't exist, use startBranch to create branch + commit atomically
       await this.repositoryService.createCommit(
         projectId,
         sourceBranch,
         commitMessage,
-        fileModifications
+        fileModifications,
+        sourceBranchExists ? undefined : targetBranch
       );
     } else {
       console.log('No file changes to commit');

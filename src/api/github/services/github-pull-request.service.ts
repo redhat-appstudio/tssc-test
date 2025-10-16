@@ -3,9 +3,70 @@ import { Buffer } from 'buffer';
 import { ContentModifications } from '../../../rhtap/modification/contentModification';
 import { GithubApiError, GithubNotFoundError } from '../errors/github.errors';
 
+/**
+ * GitHub Pull Request Service
+ * 
+ * Provides comprehensive operations for managing GitHub pull requests including
+ * creating, listing, merging, and managing pull request content modifications.
+ * 
+ * @example Basic Usage
+ * ```typescript
+ * import { GithubPullRequestService } from './github-pull-request.service';
+ * 
+ * const service = new GithubPullRequestService(octokit);
+ * 
+ * // List pull requests
+ * const prs = await service.listPullRequests('owner', 'repo', 'open');
+ * 
+ * // Get specific pull request
+ * const pr = await service.getPullRequest('owner', 'repo', 123);
+ * 
+ * // Create pull request
+ * const newPr = await service.createPullRequest(
+ *   'owner', 'repo', 'username', 'main', 'feature-branch',
+ *   'PR Title', 'PR Description'
+ * );
+ * ```
+ * 
+ * @example Advanced Usage with Content Modifications
+ * ```typescript
+ * const contentModifications = {
+ *   'src/app.js': [
+ *     { oldContent: 'const API_URL = "old-url"', newContent: 'const API_URL = "new-url"' }
+ *   ],
+ *   'README.md': [
+ *     { oldContent: /version: \d+\.\d+\.\d+/, newContent: 'version: 2.0.0' }
+ *   ]
+ * };
+ * 
+ * const pr = await service.createPullRequestWithModifications(
+ *   'owner', 'repo', 'username', 'main', 'feature-branch',
+ *   'Update API and version', 'Description', contentModifications
+ * );
+ * ```
+ */
 export class GithubPullRequestService {
+  /**
+   * Creates a new GitHub Pull Request Service instance
+   * 
+   * @param octokit The Octokit instance for GitHub API interactions
+   */
   constructor(private readonly octokit: Octokit) {}
 
+  /**
+   * Lists pull requests for a repository
+   * 
+   * @param owner Repository owner (username or organization)
+   * @param repo Repository name
+   * @param state Pull request state filter ('open', 'closed', or 'all')
+   * @returns Promise with array of pull request data
+   * 
+   * @example
+   * ```typescript
+   * const openPRs = await service.listPullRequests('microsoft', 'vscode', 'open');
+   * const allPRs = await service.listPullRequests('facebook', 'react', 'all');
+   * ```
+   */
   public async listPullRequests(
     owner: string,
     repo: string,
