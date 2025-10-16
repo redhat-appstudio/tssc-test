@@ -9,7 +9,6 @@ import {
   GitLabMergeRequest,
   CreateMergeRequestOptions,
   MergeMergeRequestOptions,
-  MergeRequestResult,
   MergeResult,
   GitLabPipeline,
   GitLabPipelineSearchParams,
@@ -54,7 +53,8 @@ export interface IGitLabRepositoryService {
     projectId: ProjectIdentifier,
     branch: string,
     commitMessage: string,
-    actions: FileAction[]
+    actions: FileAction[],
+    startBranch?: string
   ): Promise<CommitResult>;
 
   // File operations
@@ -97,17 +97,6 @@ export interface IGitLabMergeRequestService {
     options?: CreateMergeRequestOptions,
     contentModifications?: ContentModifications
   ): Promise<GitLabMergeRequest>;
-
-  createMergeRequestWithNewBranch(
-    owner: string,
-    repo: string,
-    targetOwner: string,
-    baseBranch: string,
-    newBranchName: string,
-    contentModifications: ContentModifications,
-    title: string,
-    description: string
-  ): Promise<MergeRequestResult>;
 
   mergeMergeRequest(
     projectId: ProjectIdentifier,

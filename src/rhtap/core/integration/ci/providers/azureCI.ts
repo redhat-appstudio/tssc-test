@@ -448,4 +448,9 @@ export class AzureCI extends BaseCI {
     }
     await this.azureClient.deleteServiceEndpoint(endpoint.id, projectId);
   }
+
+  public async cancelAllInitialPipelines(): Promise<void> {
+    // TODO: Implement Azure pipeline cancellation logic
+    console.log(`Azure CI: cancelAllInitialPipelines not yet implemented for ${this.componentName}`);
+  }
 }

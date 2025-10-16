@@ -66,11 +66,12 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
     projectId: ProjectIdentifier,
     branch: string,
     commitMessage: string,
-    actions: FileAction[]
+    actions: FileAction[],
+    startBranch?: string
   ): Promise<CommitResult> {
     try {
       console.log(
-        `Creating direct commit to branch ${branch} with ${actions.length} file actions`
+        `Creating direct commit to branch ${branch} with ${actions.length} file actions${startBranch ? ` (branching from ${startBranch})` : ''}`
       );
 
       // Convert file_path to filePath as required by the GitLab API
@@ -80,11 +81,15 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
         content: action.content,
       }));
 
+      // If startBranch is provided, create branch + commit in one operation
+      const commitOptions: any = startBranch ? { startBranch } : {};
+
       const response = await this.gitlabClient.Commits.create(
         projectId,
         branch,
         commitMessage,
-        formattedActions
+        formattedActions,
+        commitOptions
       );
 
       console.log(

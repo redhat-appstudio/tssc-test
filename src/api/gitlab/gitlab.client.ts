@@ -1,301 +1,178 @@
 import { Gitlab } from '@gitbeaker/rest';
 import { GitLabConfig } from './config/gitlab.config';
-import {
-  IGitLabCoreClient,
-  IGitLabProjectService,
-  IGitLabRepositoryService,
-  IGitLabMergeRequestService,
-  IGitLabWebhookService,
-  IGitLabPipelineService,
-} from './interfaces/gitlab.interfaces';
 import { GitLabProjectService } from './services/gitlab-project.service';
 import { GitLabRepositoryService } from './services/gitlab-repository.service';
 import { GitLabMergeRequestService } from './services/gitlab-merge-request.service';
 import { GitLabWebhookService } from './services/gitlab-webhook.service';
 import { GitLabPipelineService } from './services/gitlab-pipeline.service';
-import {
-  GitLabProject,
-  GitLabProjectSearchParams,
-  GitLabBranch,
-  GitLabCommit,
-  GitLabCommitSearchParams,
-  GitLabMergeRequest,
-  CreateMergeRequestOptions,
-  MergeMergeRequestOptions,
-  MergeRequestResult,
-  MergeResult,
-  GitLabFile,
-  GitLabFileOperationResult,
-  FileAction,
-  CommitResult,
-  GitLabVariable,
-  CreateVariableOptions,
-  ProjectIdentifier,
-  ContentExtractionResult,
-  GitLabWebhook,
-  CreateWebhookOptions,
-  GitLabPipeline,
-  GitLabPipelineSearchParams,
-} from './types/gitlab.types';
-import { ContentModifications } from '../../rhtap/modification/contentModification';
+import { BaseApiClient } from '../common/base-api.client';
 
 /**
- * Main GitLab client that provides a comprehensive interface to GitLab operations
- * Uses composition pattern with service-oriented architecture
+ * GitLab API Client
+ * 
+ * A comprehensive client for interacting with GitLab's REST API. This client provides
+ * a service-oriented architecture with dedicated services for different GitLab operations.
+ * It uses the Gitbeaker library under the hood for GitLab API interactions.
+ * 
+ * @example Basic Usage
+ * ```typescript
+ * import { GitLabClient } from './api/gitlab';
+ * 
+ * const client = new GitLabClient({
+ *   token: 'glpat_your_token_here',
+ *   baseUrl: 'https://gitlab.example.com', // Your GitLab instance URL
+ *   timeout: 30000 // Optional, defaults to 30 seconds
+ * });
+ * 
+ * // Check connectivity
+ * const isConnected = await client.ping();
+ * const version = await client.getVersion();
+ * 
+ * // Access different services
+ * const projects = await client.projects.getProjects();
+ * const mergeRequests = await client.mergeRequests.listMergeRequests('group/project');
+ * ```
+ * 
+ * @example Service-Oriented Usage
+ * ```typescript
+ * // Project operations
+ * const project = await client.projects.getProject('group/project');
+ * await client.projects.setEnvironmentVariable(project.id, 'API_KEY', 'secret-value');
+ * 
+ * // Repository operations
+ * const branches = await client.repositories.getBranches('group/project');
+ * const commits = await client.repositories.getCommits('group/project', { ref_name: 'main' });
+ * const fileContent = await client.repositories.getFileContent('group/project', 'README.md');
+ * 
+ * // Merge Request operations
+ * const mr = await client.mergeRequests.createMergeRequest(
+ *   'group/project', 'feature-branch', 'main', 
+ *   'MR Title', { description: 'MR Description' }
+ * );
+ * await client.mergeRequests.mergeMergeRequest('group/project', mr.iid);
+ * 
+ * // Pipeline operations
+ * const pipelines = await client.pipelines.getPipelines('group/project');
+ * const logs = await client.pipelines.getPipelineLogs('group/project', 12345);
+ * 
+ * // Webhook operations
+ * const webhook = await client.webhooks.configWebhook('group', 'project', 
+ *   'https://your-app.com/webhook');
+ * ```
+ * 
+ * @example Error Handling
+ * ```typescript
+ * try {
+ *   const project = await client.projects.getProject('group/project');
+ * } catch (error) {
+ *   if (error instanceof GitLabNotFoundError) {
+ *     console.log('Project not found');
+ *   } else if (error instanceof GitLabApiError) {
+ *     console.log(`GitLab API error: ${error.message}`);
+ *   }
+ * }
+ * ```
  */
-export class GitLabClient implements IGitLabCoreClient {
+export class GitLabClient extends BaseApiClient {
+  /** Service for GitLab project operations (get, list, variables) */
+  public readonly projects: GitLabProjectService;
+  
+  /** Service for GitLab repository operations (branches, commits, files) */
+  public readonly repositories: GitLabRepositoryService;
+  
+  /** Service for GitLab merge request operations (create, merge, list) */
+  public readonly mergeRequests: GitLabMergeRequestService;
+  
+  /** Service for GitLab webhook operations (create, configure) */
+  public readonly webhooks: GitLabWebhookService;
+  
+  /** Service for GitLab pipeline operations (get, logs, cancel) */
+  public readonly pipelines: GitLabPipelineService;
+  
+  /** The underlying Gitbeaker client instance (private) */
   private readonly client: InstanceType<typeof Gitlab>;
-  private readonly projectService: IGitLabProjectService;
-  private readonly repositoryService: IGitLabRepositoryService;
-  private readonly mergeRequestService: IGitLabMergeRequestService;
-  private readonly webhookService: IGitLabWebhookService;
-  private readonly pipelineService: IGitLabPipelineService;
 
-  constructor(private readonly config: GitLabConfig) {
-    // Initialize the GitLab client
+  /**
+   * Creates a new GitLab client instance
+   * 
+   * @param config Configuration options for the GitLab client
+   * @param config.token GitLab personal access token (required)
+   * @param config.baseUrl GitLab instance base URL (required)
+   * @param config.timeout Request timeout in milliseconds (optional, defaults to 30000)
+   * 
+   * @example
+   * ```typescript
+   * const client = new GitLabClient({
+   *   token: process.env.GITLAB_TOKEN,
+   *   baseUrl: 'https://gitlab.example.com',
+   *   timeout: 30000
+   * });
+   * ```
+   */
+  constructor(config: GitLabConfig) {
+    super(config.baseUrl || 'https://gitlab.com', config.timeout || 30000);
     this.client = new Gitlab({
-      host: config.baseUrl,
+      host: this.baseUrl,
       token: config.token,
     });
 
-    // Initialize services with dependency injection
-    this.projectService = new GitLabProjectService(this.client);
-    this.repositoryService = new GitLabRepositoryService(this.client);
-    this.mergeRequestService = new GitLabMergeRequestService(
+    this.projects = new GitLabProjectService(this.client);
+    this.repositories = new GitLabRepositoryService(this.client);
+    this.mergeRequests = new GitLabMergeRequestService(
       this.client,
-      this.repositoryService,
-      this.projectService
+      this.repositories
     );
-    this.webhookService = new GitLabWebhookService(this.client, this.projectService);
-    this.pipelineService = new GitLabPipelineService(this.client);
+    this.webhooks = new GitLabWebhookService(this.client, this.projects);
+    this.pipelines = new GitLabPipelineService(this.client);
   }
 
-  // Core client access
+  /**
+   * Gets the underlying Gitbeaker client instance
+   * 
+   * This method provides access to the raw Gitbeaker client for advanced operations
+   * that aren't covered by the service-oriented interface. Use with caution as it
+   * bypasses the error handling and abstraction provided by the services.
+   * 
+   * @returns The Gitbeaker client instance
+   * 
+   * @example
+   * ```typescript
+   * const client = new GitLabClient(config);
+   * const gitbeakerClient = client.getClient();
+   * 
+   * // Direct Gitbeaker API usage
+   * const users = await gitbeakerClient.Users.all();
+   * ```
+   */
   public getClient(): InstanceType<typeof Gitlab> {
     return this.client;
   }
 
-  // Project operations
-  public async getProjects(params?: GitLabProjectSearchParams): Promise<GitLabProject[]> {
-    return this.projectService.getProjects(params);
-  }
-
-  public async getProject(projectIdOrPath: ProjectIdentifier): Promise<GitLabProject> {
-    return this.projectService.getProject(projectIdOrPath);
-  }
-
-  public async setEnvironmentVariable(
-    projectId: number,
-    key: string,
-    value: string,
-    options?: CreateVariableOptions
-  ): Promise<GitLabVariable> {
-    return this.projectService.setEnvironmentVariable(projectId, key, value, options);
-  }
-
-  // Repository operations
-  public async getBranches(projectId: ProjectIdentifier): Promise<GitLabBranch[]> {
-    return this.repositoryService.getBranches(projectId);
-  }
-
-  public async getBranch(projectId: ProjectIdentifier, branch: string): Promise<GitLabBranch> {
-    return this.repositoryService.getBranch(projectId, branch);
-  }
-
-  public async getCommits(
-    projectId: ProjectIdentifier,
-    params?: GitLabCommitSearchParams
-  ): Promise<GitLabCommit[]> {
-    return this.repositoryService.getCommits(projectId, params);
-  }
-
-  public async createFile(
-    projectId: ProjectIdentifier,
-    filePath: string,
-    branch: string,
-    content: string,
-    commitMessage: string
-  ): Promise<GitLabFileOperationResult> {
-    return this.repositoryService.createFile(projectId, filePath, branch, content, commitMessage);
-  }
-
-  public async updateFile(
-    projectId: ProjectIdentifier,
-    filePath: string,
-    branch: string,
-    content: string,
-    commitMessage: string
-  ): Promise<GitLabFileOperationResult> {
-    return this.repositoryService.updateFile(projectId, filePath, branch, content, commitMessage);
-  }
-
-  public async getFileContent(
-    projectId: ProjectIdentifier,
-    filePath: string,
-    branch?: string
-  ): Promise<GitLabFile> {
-    return this.repositoryService.getFileContent(projectId, filePath, branch);
-  }
-
-  public async extractContentByRegex(
-    projectId: ProjectIdentifier,
-    filePath: string,
-    searchPattern: RegExp,
-    branch?: string
-  ): Promise<ContentExtractionResult> {
-    return this.repositoryService.extractContentByRegex(projectId, filePath, searchPattern, branch);
-  }
-
-  public async createCommit(
-    projectId: ProjectIdentifier,
-    branch: string,
-    commitMessage: string,
-    actions: FileAction[]
-  ): Promise<CommitResult> {
-    return this.repositoryService.createCommit(projectId, branch, commitMessage, actions);
-  }
-
-  // Merge request operations - overloaded methods for backward compatibility
-  public async createMergeRequest(
-    projectId: ProjectIdentifier,
-    sourceBranch: string,
-    targetBranch: string,
-    title: string,
-    options?: CreateMergeRequestOptions,
-    contentModifications?: ContentModifications
-  ): Promise<GitLabMergeRequest>;
-
-  public async createMergeRequest(
-    owner: string,
-    repo: string,
-    targetOwner: string,
-    baseBranch: string,
-    newBranchName: string,
-    contentModifications: ContentModifications,
-    title: string,
-    description: string
-  ): Promise<MergeRequestResult>;
-
-  public async createMergeRequest(
-    ownerOrProjectId: string | ProjectIdentifier,
-    repoOrSourceBranch: string,
-    targetOwnerOrTargetBranch: string,
-    baseBranchOrTitle: string,
-    newBranchNameOrOptions?: string | CreateMergeRequestOptions,
-    contentModifications?: ContentModifications,
-    title?: string,
-    description?: string
-  ): Promise<GitLabMergeRequest | MergeRequestResult> {
-    // Check if called with the repository format (first signature)
-    if (
-      typeof ownerOrProjectId === 'string' &&
-      typeof repoOrSourceBranch === 'string' &&
-      typeof targetOwnerOrTargetBranch === 'string' &&
-      typeof baseBranchOrTitle === 'string' &&
-      typeof newBranchNameOrOptions === 'string' &&
-      contentModifications &&
-      title &&
-      description
-    ) {
-      return this.mergeRequestService.createMergeRequestWithNewBranch(
-        ownerOrProjectId,
-        repoOrSourceBranch,
-        targetOwnerOrTargetBranch,
-        baseBranchOrTitle,
-        newBranchNameOrOptions,
-        contentModifications,
-        title,
-        description
-      );
+  /**
+   * Checks if the GitLab API is reachable and the client is properly authenticated
+   *
+   * This method performs a lightweight API call to verify connectivity and authentication.
+   * It's useful for health checks and connection validation.
+   *
+   * @returns Promise<boolean> True if the API is reachable and authenticated, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const client = new GitLabClient(config);
+   *
+   * if (await client.ping()) {
+   *   console.log('GitLab API is accessible');
+   * } else {
+   *   console.log('GitLab API is not accessible or token is invalid');
+   * }
+   * ```
+   */
+  async ping(): Promise<boolean> {
+    try {
+      await this.client.Projects.all({ perPage: 1 });
+      return true;
+    } catch {
+      return false;
     }
-    // Called with the project ID format (second signature)
-    else {
-      const projectId = ownerOrProjectId;
-      const sourceBranch = repoOrSourceBranch;
-      const targetBranch = targetOwnerOrTargetBranch;
-      const title = baseBranchOrTitle;
-      const options = (newBranchNameOrOptions as CreateMergeRequestOptions) || {};
-
-      return this.mergeRequestService.createMergeRequest(
-        projectId,
-        sourceBranch,
-        targetBranch,
-        title,
-        options,
-        contentModifications
-      );
-    }
-  }
-
-  public async mergeMergeRequest(
-    projectId: ProjectIdentifier,
-    mergeRequestId: number,
-    options?: MergeMergeRequestOptions
-  ): Promise<MergeResult> {
-    return this.mergeRequestService.mergeMergeRequest(projectId, mergeRequestId, options);
-  }
-
-  // Webhook operations
-  public async configWebhook(
-    owner: string,
-    repo: string,
-    webhookUrl: string,
-    options?: CreateWebhookOptions
-  ): Promise<GitLabWebhook> {
-    return this.webhookService.configWebhook(owner, repo, webhookUrl, options);
-  }
-
-  // Pipeline operations
-  /**
-   * Gets pipelines for a specific repository and commit SHA with retry functionality
-   * @param projectPath The project path in GitLab (e.g., 'group/project')
-   * @param sha Optional commit SHA for which to get pipelines
-   * @param status Optional status filter for pipelines
-   * @returns A promise that resolves to an array of GitLab pipelines
-   */
-  public async getPipelines(
-    projectPath: string,
-    sha?: string,
-    status?: string
-  ): Promise<GitLabPipeline[]> {
-    const params: GitLabPipelineSearchParams = {
-      ...(sha && { sha }),
-      ...(status && { status }),
-    };
-
-    return this.pipelineService.getPipelines(projectPath, params);
-  }
-
-  /**
-   * Gets all pipelines for a project
-   * @param projectPath The project path in GitLab (e.g., 'group/project')
-   * @returns A promise that resolves to an array of GitLab pipelines
-   */
-  public async getAllPipelines(projectPath: string): Promise<GitLabPipeline[]> {
-    return this.pipelineService.getAllPipelines(projectPath);
-  }
-
-  /**
-   * Gets a specific pipeline by ID
-   * @param projectPath The project path in GitLab (e.g., 'group/project')
-   * @param pipelineId The ID of the pipeline to retrieve
-   * @returns A promise that resolves to a GitLab pipeline
-   */
-  public async getPipelineById(projectPath: string, pipelineId: number): Promise<GitLabPipeline> {
-    return this.pipelineService.getPipelineById(projectPath, pipelineId);
-  }
-
-  /**
-   * Gets the logs for a specific pipeline job
-   * @param projectPath The project path in GitLab
-   * @param jobId The job ID for which to retrieve logs
-   * @returns A promise that resolves to the job logs as a string
-   */
-  public async getPipelineLogs(projectPath: string, pipelineId: number): Promise<string> {
-    return this.pipelineService.getPipelineLogs(projectPath, pipelineId);
-  }
-
-  public async cancelPipeline(projectPath: string, pipelineId: number): Promise<GitLabPipeline> {
-    return this.pipelineService.cancelPipeline(projectPath, pipelineId);
   }
 } 
