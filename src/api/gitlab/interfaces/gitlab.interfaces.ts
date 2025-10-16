@@ -53,7 +53,8 @@ export interface IGitLabRepositoryService {
     projectId: ProjectIdentifier,
     branch: string,
     commitMessage: string,
-    actions: FileAction[]
+    actions: FileAction[],
+    startBranch?: string
   ): Promise<CommitResult>;
 
   // File operations
