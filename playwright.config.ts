@@ -114,12 +114,15 @@ try {
   }
   
   // Filter tests to separate E2E and UI tests
-  let e2eTests = patterns.filter(pattern => 
-    !pattern.includes('ui') && !pattern.includes('component') && !pattern.includes('page')
-  );
-  let uiTests = patterns.filter(pattern => 
-    pattern.includes('ui') || pattern.includes('component') || pattern.includes('page')
-  );
+  // Use case-insensitive filtering to match UI detection logic
+  let e2eTests = patterns.filter(pattern => {
+    const lowerPattern = pattern.toLowerCase();
+    return !lowerPattern.includes('ui') && !lowerPattern.includes('component') && !lowerPattern.includes('page');
+  });
+  let uiTests = patterns.filter(pattern => {
+    const lowerPattern = pattern.toLowerCase();
+    return lowerPattern.includes('ui') || lowerPattern.includes('component') || lowerPattern.includes('page');
+  });
 
   // If shouldRunUITests is true but no UI patterns were detected, add default UI patterns
   if (shouldRunUITests && uiTests.length === 0) {
