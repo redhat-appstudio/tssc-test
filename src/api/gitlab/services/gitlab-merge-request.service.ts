@@ -34,13 +34,16 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
         console.log(`Source branch '${sourceBranch}' already exists`);
       } catch (error: any) {
         if (error.message && error.message.toLowerCase().includes('not found')) {
-          // Branch doesn't exist, need to create it
-          console.log(`Source branch '${sourceBranch}' doesn't exist, will create it`);
+          // Branch doesn't exist
+          console.log(`Source branch '${sourceBranch}' doesn't exist`);
           sourceBranchExists = false;
 
-          // Create the branch from target branch
-          await this.repositoryService.createBranch(projectId, sourceBranch, targetBranch);
-          console.log(`Created new branch '${sourceBranch}' from '${targetBranch}'`);
+          // Only create empty branch if we DON'T have content modifications
+          // If we have content modifications, processContentModifications will create it atomically
+          if (!contentModifications) {
+            await this.repositoryService.createBranch(projectId, sourceBranch, targetBranch);
+            console.log(`Created new branch '${sourceBranch}' from '${targetBranch}'`);
+          }
         } else {
           throw error;
         }
@@ -206,11 +209,13 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
         `Committing ${fileModifications.length} file changes to branch ${sourceBranch}`
       );
 
+      // If source branch doesn't exist, use startBranch to create branch + commit atomically
       await this.repositoryService.createCommit(
         projectId,
         sourceBranch,
         commitMessage,
-        fileModifications
+        fileModifications,
+        sourceBranchExists ? undefined : targetBranch
       );
     } else {
       console.log('No file changes to commit');
