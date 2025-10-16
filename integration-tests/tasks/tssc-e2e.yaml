@@ -28,22 +28,17 @@ spec:
     - name: konflux-test-infra-volume
       secret:
         secretName: konflux-test-infra
-    - name: tssc-test-dir
-      emptyDir: {}
   steps:
     - name: copy-tssc-test
       image: $(params.tssc-test-image)
+      securityContext:
+        runAsUser: 0
       command: ['/bin/sh', '-c']
-      args: ['cp -r /tssc-test/* /e2e-test && chmod -R +x /e2e-test/*']
-      volumeMounts:
-        - name: tssc-test-dir
-          mountPath: /e2e-test
+      args: ['mkdir -p /workspace/e2e-test && cp -r /tssc-test/* /workspace/e2e-test && chown -R 1001:0 /workspace/e2e-test && chmod -R 777 /workspace/e2e-test']
+      workingDir: /workspace/e2e-test
     - name: generate-testplan
       image: $(params.tssc-test-image)
-      workingDir: /e2e-test
-      volumeMounts:
-        - name: tssc-test-dir
-          mountPath: /e2e-test
+      workingDir: /workspace/e2e-test
       env:
         - name: JOB_SPEC
           value: '$(params.job-spec)'
@@ -81,7 +76,10 @@ spec:
         echo "--------------------------------"
     - name: run-tssc-e2e
       image: $(params.tssc-test-image)
-      workingDir: /e2e-test
+      workingDir: /workspace/e2e-test
+      volumeMounts:
+        - name: rhtap-cli-volume
+          mountPath: /usr/local/rhtap-cli-install
       onError: continue
       computeResources:
         limits:
@@ -89,11 +87,6 @@ spec:
         requests:
           cpu: 100m
           memory: 3Gi
-      volumeMounts:
-        - name: rhtap-cli-volume
-          mountPath: /usr/local/rhtap-cli-install
-        - name: tssc-test-dir
-          mountPath: /e2e-test
       env:
         - name: JOB_SPEC
           value: '$(params.job-spec)'
@@ -145,140 +138,46 @@ spec:
         FORCE_COLOR=false npm run test:e2e || TEST_EXIT_CODE=$?
 
         echo "Test execution completed with exit code: $TEST_EXIT_CODE"
-
         exit $TEST_EXIT_CODE
-    - name: upload-test-results
-      image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
-      workingDir: /e2e-test
-      volumeMounts:
-        - name: tssc-test-dir
-          mountPath: /e2e-test
-        - name: konflux-test-infra-volume
-          mountPath: /usr/local/konflux-test-infra
-      env:
-        - name: OCI_CONTAINER
-          value: $(params.oci-container)
-      script: |
-        #!/bin/bash
-        set -o errexit
-        set -o nounset
-        set -o pipefail
-
-        # Configuration constants
-        readonly REPORT_DIR="./playwright-report"
-        readonly REPORT_FILE="$REPORT_DIR/index.html"
-        readonly RENAMED_REPORT_FILE="$REPORT_DIR/report.html"
-        readonly ANNOTATION_FILE="annotation.json"
-        readonly MAX_PUSH_ATTEMPTS=5
-        readonly RETRY_DELAY=5
-
-        # Get the exit code from the previous step
-        PREVIOUS_STEP_EXIT_CODE=$(cat $(steps.step-run-tssc-e2e.exitCode.path))
-
-        echo "Starting test report collection"
-        echo "Previous test step exit code: ${PREVIOUS_STEP_EXIT_CODE}"
-
-        # Load OCI credentials from mounted secret
-        load_oci_credentials() {
-          echo "Loading OCI credentials"
-
-          local creds_file="/usr/local/konflux-test-infra/oci-storage"
-          if [[ ! -f "$creds_file" ]]; then
-            echo "ERROR: Credentials file not found: $creds_file" >&2
-            return 1
-          fi
-
-          OCI_STORAGE_USERNAME=$(jq -r '.["quay-username"]' "$creds_file")
-          OCI_STORAGE_TOKEN=$(jq -r '.["quay-token"]' "$creds_file")
-
-          if [[ "$OCI_STORAGE_USERNAME" == "null" || "$OCI_STORAGE_TOKEN" == "null" ]]; then
-            echo "ERROR: Invalid credentials in $creds_file" >&2
-            return 1
-          fi
-        }
-
-        # Create OCI annotation file
-        prepare_oci_annotations() {
-          echo "Preparing OCI annotations"
-
-          local manifests
-          if ! manifests=$(oras manifest fetch "$OCI_CONTAINER" 2>/dev/null | jq .annotations); then
-            echo "ERROR: Failed to fetch manifest from $OCI_CONTAINER" >&2
-            return 1
-          fi
-
-          jq -n --argjson manifest "$manifests" '{"$manifest": $manifest}' > "$ANNOTATION_FILE"
-          echo "Annotation file created: $ANNOTATION_FILE"
-        }
-
-        # Pull OCI container silently
-        pull_oci_container() {
-          echo "Pulling OCI container: $OCI_CONTAINER"
-          oras pull "$OCI_CONTAINER" >/dev/null 2>&1
-        }
-
-        # Push artifacts with retry mechanism
-        push_artifacts_with_retry() {
-          echo "Pushing test artifacts to OCI registry"
-
-          for attempt in $(seq 1 $MAX_PUSH_ATTEMPTS); do
-            if oras push "$OCI_CONTAINER" \
-                --username="$OCI_STORAGE_USERNAME" \
-                --password="$OCI_STORAGE_TOKEN" \
-                --annotation-file "$ANNOTATION_FILE" \
-                playwright-report/:application/vnd.acme.rocket.docs.layer.v1+tar \
-                tmp/project-configs.json:application/json; then
-              echo "Test results uploaded successfully"
-              return 0
-            fi
-
-            if [[ $attempt -lt $MAX_PUSH_ATTEMPTS ]]; then
-              echo "Push attempt $attempt failed, retrying in ${RETRY_DELAY}s..."
-              sleep $RETRY_DELAY
-            fi
-          done
-
-          echo "ERROR: Failed to push artifacts after $MAX_PUSH_ATTEMPTS attempts" >&2
-          return 1
-        }
-
-        prepare_report_for_upload() {
-          echo "Preparing report for upload"
-
-          # Show report directory contents for debugging
-          echo "Report directory contents:"
-          if ! ls -la "$REPORT_DIR" 2>/dev/null; then
-            echo "WARNING: Could not list report directory contents"
-            return 1
-          fi
-
-          # Verify source file exists before renaming
-          if [[ ! -f "$REPORT_FILE" ]]; then
-            echo "ERROR: Source report file not found: $REPORT_FILE" >&2
-            return 1
-          fi
-
-          # Rename report file for Artifactory UI compatibility
-          if ! mv "$REPORT_FILE" "$RENAMED_REPORT_FILE"; then
-            echo "ERROR: Failed to rename report file" >&2
-            return 1
-          fi
-
-          echo "Renamed report file to: $RENAMED_REPORT_FILE"
-          return 0
-        }
-
-        # Execute upload workflow
-        prepare_report_for_upload || exit 1
-        load_oci_credentials || exit 1
-        prepare_oci_annotations || exit 1
-        pull_oci_container || exit 1
-        push_artifacts_with_retry || exit 1
-
-        echo "Report collection completed successfully"
-
-        # Final step: if the tests failed, make this step fail too to preserve the overall task status
-        if [[ "${PREVIOUS_STEP_EXIT_CODE}" != "0" ]]; then
-          echo "Tests failed with exit code ${PREVIOUS_STEP_EXIT_CODE}, failing upload step to preserve task status"
-          exit "${PREVIOUS_STEP_EXIT_CODE}"
-        fi
+    - name: create-artifact-bundle
+      image: $(params.tssc-test-image)
+      workingDir: /workspace/e2e-test
+      command: ['/bin/sh', '-c']
+      args:
+        - |
+          set -ex
+          echo "Creating artifact bundle"
+          mkdir -p /workspace/e2e-test/artifacts && chmod 777 /workspace/e2e-test/artifacts
+          tar -czvf /workspace/e2e-test/artifacts/e2e-artifacts.tar.gz playwright-report test-results tmp
+    - name: upload-artifacts
+      onError: continue
+      ref:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/tekton-integration-catalog.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
+      params:
+        - name: workdir-path
+          value: /workspace/e2e-test/artifacts
+        - name: oci-ref
+          value: $(params.oci-container)-e2e-artifacts
+        - name: credentials-volume-name
+          value: konflux-test-infra-volume
+        - name: oci-tag-expiration
+          value: 1y
+        - name: always-pass
+          value: "false"
+    - name: fail-if-any-step-failed
+      ref:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/tekton-integration-catalog.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
