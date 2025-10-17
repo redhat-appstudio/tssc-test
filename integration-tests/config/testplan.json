@@ -50,6 +50,13 @@
     "acs": "remote"
   },
   {
+    "git": "bitbucket",
+    "ci": "jenkins",
+    "registry": "quay",
+    "tpa": "remote",
+    "acs": "remote"
+  },
+  {
     "git": "github",
     "ci": "azure",
     "registry": "quay",
