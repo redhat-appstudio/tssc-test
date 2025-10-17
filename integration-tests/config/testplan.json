@@ -1,4 +1,5 @@
-  "testPlans": [
+{
+"testPlans": [
     {
       "name": "backend-tests",
       "templates": ["go"],
