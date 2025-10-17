@@ -1,5 +1,6 @@
-import { TektonClient } from '../../../src/api/ci/tektonClient';
+import { TektonClient } from '../../../src/api/tekton/tekton.client';
 import { KubeClient } from '../../../src/api/ocp/kubeClient';
+import { TSSC_CI_NAMESPACE } from '../../../src/constants';
 import { expect, test } from '@playwright/test';
 
 const kubeClient = new KubeClient();
@@ -11,7 +12,7 @@ test.describe('TektonClient Integration Tests', () => {
   test.setTimeout(30000);
 
   test('Should fetch pipeline runs by Git repository', async () => {
-    const namespace = 'tssc-app-ci';
+    const namespace = TSSC_CI_NAMESPACE;
     const repositoryName = 'go-nvnnqqnl';
     const result = await tektonClient.getPipelineRunsByGitRepository(namespace, repositoryName);
 
@@ -27,7 +28,7 @@ test.describe('TektonClient Integration Tests', () => {
   });
 
   test('Should fetch pipeline run by name', async () => {
-    const namespace = 'tssc-app-ci';
+    const namespace = TSSC_CI_NAMESPACE;
     const pipelineRunName = 'go-fqzzzwtu-on-push-crkfc';
     const result = await tektonClient.getPipelineRunByName(namespace, pipelineRunName);
     console.log(`PipelineRun: ${result?.metadata?.name}`);

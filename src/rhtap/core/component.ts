@@ -1,7 +1,7 @@
 import { KubeClient } from '../../api/ocp/kubeClient';
 import { DeveloperHub } from '../../api/rhdh/developerhub';
 import { ScaffolderOptionsBuilder } from '../../api/rhdh/scaffoldOptionsBuilder';
-import { DEFAULT_APP_NAMESPACE } from '../../constants';
+import { TSSC_APP_DEPLOYMENT_NAMESPACE } from '../../constants';
 import { TestItem } from '../../playwright/testItem';
 import { ArgoCD } from '../core/integration/cd/argocd';
 import { CI, CIFactory, CIType } from '../core/integration/ci';
@@ -150,6 +150,7 @@ export class Component {
     git: Git
   ): ScaffolderScaffoldOptions {
     const template = testItem.getTemplate();
+
     let builder: any;
     switch (testItem.getGitType()) {
       case GitType.GITHUB:
@@ -163,7 +164,7 @@ export class Component {
             registry.getRegistryHost()
           )
           .withCIType(ci.getCIType())
-          .withNamespace(DEFAULT_APP_NAMESPACE)
+          .withNamespace(TSSC_APP_DEPLOYMENT_NAMESPACE)
           .forGitRepo(github.getOrganization(), github.getSourceRepoName());
         break;
       case GitType.GITLAB:
@@ -177,7 +178,7 @@ export class Component {
             registry.getRegistryHost()
           )
           .withCIType(ci.getCIType())
-          .withNamespace(DEFAULT_APP_NAMESPACE)
+          .withNamespace(TSSC_APP_DEPLOYMENT_NAMESPACE)
           .forGitRepo(gitlab.getGroup(), gitlab.getSourceRepoName());
         break;
       case GitType.BITBUCKET:
@@ -195,7 +196,7 @@ export class Component {
             registry.getRegistryHost()
           )
           .withCIType(ci.getCIType())
-          .withNamespace(DEFAULT_APP_NAMESPACE)
+          .withNamespace(TSSC_APP_DEPLOYMENT_NAMESPACE)
           .forGitRepo(username, workspaceName, projectName, repoName);
         break;
       default:
