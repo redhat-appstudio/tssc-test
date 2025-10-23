@@ -191,6 +191,36 @@ export class TektonPipelineRunService {
     }
   }
 
+  /**
+   * Cancel a running PipelineRun by patching its spec
+   */
+  public async cancelPipelineRun(namespace: string, name: string): Promise<void> {
+    try {
+      const options = this.kubeClient.createApiOptions(
+        this.API_GROUP,
+        this.API_VERSION,
+        this.PIPELINE_RUNS_PLURAL,
+        namespace,
+        { name }
+      );
+
+      // Patch the PipelineRun to set status to cancelled
+      const patchData = {
+        spec: {
+          status: 'PipelineRunCancelled'
+        }
+      };
+
+      await this.kubeClient.patchResource(options, patchData);
+
+      console.log(`Successfully cancelled PipelineRun: ${name} in namespace: ${namespace}`);
+    } catch (error: unknown) {
+      const errorMessage = (error as Error).message;
+      console.error(`Failed to cancel PipelineRun ${name}: ${errorMessage}`);
+      throw new Error(`Failed to cancel PipelineRun ${name}: ${errorMessage}`);
+    }
+  }
+
   private findPipelineRunByEventType(
     pipelineRuns: PipelineRunKind[],
     eventType: string,

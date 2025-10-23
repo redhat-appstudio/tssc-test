@@ -3,7 +3,17 @@ import { KubeClient } from '../../../../../api/ocp/kubeClient';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
 import { TSSC_CI_NAMESPACE } from '../../../../../constants';
-import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
+import {
+  CIType,
+  EventType,
+  Pipeline,
+  PipelineStatus,
+  CancelPipelineOptions,
+  CancelResult,
+  MutableCancelResult,
+  MutablePipelineCancelDetail,
+  MutableCancelError,
+} from '../ciInterface';
 import { PipelineRunKind } from '@janus-idp/shared-react/index';
 import retry from 'async-retry';
 
@@ -366,11 +376,7 @@ export class TektonCI extends BaseCI {
     }
   }
 
-  public override async cancelAllInitialPipelines(): Promise<void> {
-    throw new Error(
-      'Tekton does not support cancelling initial pipeline runs.'
-    );
-  }
+
 
   public override async getWebhookUrl(): Promise<string> {
     const tektonWebhookUrl = await this.kubeClient.getOpenshiftRoute(
@@ -406,4 +412,349 @@ export class TektonCI extends BaseCI {
       throw new Error(`Failed to get pipeline logs: ${error}`);
     }
   }
+
+  /**
+   * Cancel all pipelines for this component with optional filtering
+   */
+  public override async cancelAllPipelines(
+    options?: CancelPipelineOptions
+  ): Promise<CancelResult> {
+    // 1. Normalize options with defaults
+    const opts = this.normalizeOptions(options);
+
+    // 2. Initialize result object
+    const result: MutableCancelResult = {
+      total: 0,
+      cancelled: 0,
+      failed: 0,
+      skipped: 0,
+      details: [],
+      errors: [],
+    };
+
+    console.log(`[Tekton] Starting pipeline cancellation for ${this.componentName}`);
+
+    try {
+      // 3. Fetch all PipelineRuns from Tekton API
+      const allPipelineRuns = await this.fetchAllPipelineRuns();
+      result.total = allPipelineRuns.length;
+
+      if (allPipelineRuns.length === 0) {
+        console.log(`[Tekton] No PipelineRuns found for ${this.componentName}`);
+        return result;
+      }
+
+      console.log(`[Tekton] Found ${allPipelineRuns.length} total PipelineRuns`);
+
+      // 4. Apply filters
+      const pipelineRunsToCancel = this.filterPipelineRuns(allPipelineRuns, opts);
+
+      console.log(`[Tekton] ${pipelineRunsToCancel.length} PipelineRuns match filters`);
+      console.log(`[Tekton] ${allPipelineRuns.length - pipelineRunsToCancel.length} PipelineRuns filtered out`);
+
+      // 5. Cancel PipelineRuns in batches
+      await this.cancelPipelineRunsInBatches(pipelineRunsToCancel, opts, result);
+
+      // 6. Validate result counts (accounting invariant)
+      const accounted = result.cancelled + result.failed + result.skipped;
+      if (accounted !== result.total) {
+        const missing = result.total - accounted;
+        console.error(
+          `❌ [Tekton] ACCOUNTING ERROR: ${missing} PipelineRuns unaccounted for ` +
+          `(total: ${result.total}, accounted: ${accounted})`
+        );
+
+        result.errors.push({
+          pipelineId: 'ACCOUNTING_ERROR',
+          message: `${missing} PipelineRuns lost in processing`,
+          error: new Error('Result count mismatch - this indicates a bug in the cancellation logic'),
+        });
+      }
+
+      // 7. Log summary
+      console.log(`[Tekton] Cancellation complete:`, {
+        total: result.total,
+        cancelled: result.cancelled,
+        failed: result.failed,
+        skipped: result.skipped,
+      });
+
+    } catch (error: any) {
+      console.error(`[Tekton] Error in cancelAllPipelines: ${error.message}`);
+      throw new Error(`Failed to cancel pipelines: ${error.message}`);
+    }
+
+    return result;
+  }
+
+
+
+  /**
+   * Fetch all PipelineRuns from Tekton API (both source and gitops repos)
+   */
+  private async fetchAllPipelineRuns(): Promise<any[]> {
+    try {
+      const allPipelineRuns: any[] = [];
+
+      // Fetch PipelineRuns from source repository (errors should propagate for main repo)
+      const sourceRepoName = this.componentName;
+      const sourcePipelineRuns = await this.tektonClient.getPipelineRunsByGitRepository(
+        TektonCI.CI_NAMESPACE,
+        sourceRepoName
+      );
+
+      // Tag PipelineRuns with their repository name for later cancellation
+      const taggedSourcePipelineRuns = (sourcePipelineRuns || []).map(pr => ({
+        ...pr,
+        _repositoryName: sourceRepoName
+      }));
+      allPipelineRuns.push(...taggedSourcePipelineRuns);
+
+      // Fetch PipelineRuns from gitops repository
+      const gitopsRepoName = `${this.componentName}-gitops`;
+      try {
+        const gitopsPipelineRuns = await this.tektonClient.getPipelineRunsByGitRepository(
+          TektonCI.CI_NAMESPACE,
+          gitopsRepoName
+        );
+
+        // Tag PipelineRuns with their repository name for later cancellation
+        const taggedGitopsPipelineRuns = (gitopsPipelineRuns || []).map(pr => ({
+          ...pr,
+          _repositoryName: gitopsRepoName
+        }));
+        allPipelineRuns.push(...taggedGitopsPipelineRuns);
+      } catch (gitopsError: any) {
+        // Gitops repository might not exist, log but don't fail
+        console.log(`[Tekton] Gitops repository ${gitopsRepoName} not found or no PipelineRuns: ${gitopsError.message}`);
+      }
+
+      return allPipelineRuns;
+
+    } catch (error: any) {
+      console.error(`[Tekton] Failed to fetch PipelineRuns: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Filter PipelineRuns based on cancellation options
+   */
+  private filterPipelineRuns(
+    pipelineRuns: any[],
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>
+  ): any[] {
+    return pipelineRuns.filter(pr => {
+      const prName = pr.metadata?.name || 'unknown';
+
+      // Filter 1: Skip completed PipelineRuns unless includeCompleted is true
+      if (!options.includeCompleted && this.isCompletedStatus(pr)) {
+        const state = pr.metadata?.labels?.['pipelinesascode.tekton.dev/state'];
+        console.log(`[Filter] Skipping completed PipelineRun ${prName} (state: ${state})`);
+        return false;
+      }
+
+      // Filter 2: Check exclusion patterns
+      if (this.matchesExclusionPattern(pr, options.excludePatterns)) {
+        console.log(`[Filter] Excluding PipelineRun ${prName} by pattern`);
+        return false;
+      }
+
+      // Filter 3: Filter by event type if specified
+      if (options.eventType && !this.matchesEventType(pr, options.eventType)) {
+        const eventType = pr.metadata?.labels?.['pipelinesascode.tekton.dev/event-type'];
+        console.log(`[Filter] Skipping PipelineRun ${prName} (event type: ${eventType} doesn't match ${options.eventType})`);
+        return false;
+      }
+
+      // Filter 4: Filter by branch if specified
+      if (options.branch) {
+        const branch = pr.metadata?.labels?.['pipelinesascode.tekton.dev/branch'];
+        if (branch !== options.branch) {
+          console.log(`[Filter] Skipping PipelineRun ${prName} (branch: ${branch} doesn't match ${options.branch})`);
+          return false;
+        }
+      }
+
+      return true; // Include this PipelineRun for cancellation
+    });
+  }
+
+  /**
+   * Check if PipelineRun status is completed
+   */
+  private isCompletedStatus(pipelineRun: any): boolean {
+    const state = pipelineRun.metadata?.labels?.['pipelinesascode.tekton.dev/state'];
+    return state === 'completed';
+  }
+
+  /**
+   * Check if PipelineRun matches any exclusion pattern
+   */
+  private matchesExclusionPattern(pipelineRun: any, patterns: ReadonlyArray<RegExp>): boolean {
+    if (patterns.length === 0) {
+      return false;
+    }
+
+    const prName = pipelineRun.metadata?.name || 'unknown';
+
+    return patterns.some(pattern => pattern.test(prName));
+  }
+
+  /**
+   * Check if PipelineRun matches the event type
+   * Tekton uses labels to indicate event type
+   */
+  private matchesEventType(pipelineRun: any, eventType: EventType): boolean {
+    const tektonEventType = pipelineRun.metadata?.labels?.['pipelinesascode.tekton.dev/event-type'];
+    
+    if (!tektonEventType) {
+      return true; // If no event type label, allow all
+    }
+
+    switch (eventType) {
+      case EventType.PUSH:
+        return tektonEventType === 'push';
+      case EventType.PULL_REQUEST:
+        return tektonEventType === 'pull_request';
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Cancel PipelineRuns in batches with concurrency control
+   */
+  private async cancelPipelineRunsInBatches(
+    pipelineRuns: any[],
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>,
+    result: MutableCancelResult
+  ): Promise<void> {
+    // Split into batches
+    const batches = this.chunkArray(pipelineRuns, options.concurrency);
+
+    console.log(`[Tekton] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      console.log(`[Tekton] Processing batch ${i + 1}/${batches.length} (${batch.length} PipelineRuns)`);
+
+      // Create promises for all PipelineRuns in this batch
+      const promises = batch.map(pr =>
+        this.cancelSinglePipelineRun(pr, options, result)
+      );
+
+      // Wait for all in batch to complete (don't stop on errors)
+      const batchResults = await Promise.allSettled(promises);
+
+      // Inspect batch results for systemic failures
+      const batchSuccesses = batchResults.filter(r => r.status === 'fulfilled').length;
+      const batchFailures = batchResults.filter(r => r.status === 'rejected').length;
+
+      console.log(`[Tekton] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
+
+      // Alert on complete batch failure - indicates systemic issue
+      if (batchFailures === batch.length && batch.length > 0) {
+        console.error(`❌ [Tekton] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
+
+        // Log first rejection reason for debugging
+        const firstRejected = batchResults.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
+        if (firstRejected) {
+          console.error(`[Tekton] First failure reason: ${firstRejected.reason}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Cancel a single PipelineRun and update results
+   */
+  private async cancelSinglePipelineRun(
+    pipelineRun: any,
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>,
+    result: MutableCancelResult
+  ): Promise<void> {
+    const prName = pipelineRun.metadata?.name || 'unknown';
+    
+    // Initialize detail object
+    const detail: MutablePipelineCancelDetail = {
+      pipelineId: prName,
+      name: prName,
+      status: this.mapTektonStatusToPipelineStatus(pipelineRun),
+      result: 'skipped',
+      eventType: this.mapTektonEventType(pipelineRun),
+    };
+
+    try {
+      if (options.dryRun) {
+        // Dry run mode - don't actually cancel
+        detail.result = 'skipped';
+        detail.reason = 'Dry run mode';
+        result.skipped++;
+        console.log(`[DryRun] Would cancel PipelineRun ${prName}`);
+
+      } else {
+        // Extract repository name from tagged PipelineRun (added in fetchAllPipelineRuns)
+        const repositoryName = (pipelineRun as any)._repositoryName || this.componentName;
+
+        // Actually cancel the PipelineRun via Tekton API
+        await this.cancelPipelineRunViaAPI(prName);
+
+        detail.result = 'cancelled';
+        result.cancelled++;
+        const state = pipelineRun.metadata?.labels?.['pipelinesascode.tekton.dev/state'];
+        console.log(`✅ [Tekton] Cancelled PipelineRun ${prName} in ${repositoryName} (state: ${state || 'unknown'})`);
+      }
+
+    } catch (error: any) {
+      // Cancellation failed
+      detail.result = 'failed';
+      detail.reason = error.message;
+      result.failed++;
+
+      // Add to errors array
+      const cancelError: MutableCancelError = {
+        pipelineId: prName,
+        message: error.message,
+        error: error,
+      };
+
+      result.errors.push(cancelError);
+
+      console.error(`❌ [Tekton] Failed to cancel PipelineRun ${prName}: ${error.message}`);
+    }
+
+    // Add detail to results
+    result.details.push(detail);
+  }
+
+  /**
+   * Actually cancel the PipelineRun via Tekton API
+   */
+  private async cancelPipelineRunViaAPI(pipelineRunName: string): Promise<void> {
+    try {
+      await this.tektonClient.cancelPipelineRun(TektonCI.CI_NAMESPACE, pipelineRunName);
+
+    } catch (error: any) {
+      // Re-throw - the tektonClient.cancelPipelineRun already has error handling
+      throw error;
+    }
+  }
+
+  /**
+   * Map Tekton PipelineRun to EventType
+   */
+  private mapTektonEventType(pipelineRun: any): EventType | undefined {
+    const eventType = pipelineRun.metadata?.labels?.['pipelinesascode.tekton.dev/event-type'];
+    
+    if (eventType === 'push') {
+      return EventType.PUSH;
+    }
+    if (eventType === 'pull_request') {
+      return EventType.PULL_REQUEST;
+    }
+    return undefined;
+  }
+
+
 }

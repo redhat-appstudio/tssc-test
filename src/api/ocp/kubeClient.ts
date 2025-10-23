@@ -266,6 +266,37 @@ export class KubeClient {
   }
 
   /**
+   * Generic method to patch a resource with proper error handling
+   *
+   * @template T The resource type to return
+   * @param {K8sApiOptions} options - API options for the request (must include name)
+   * @param {any} patchData - The patch data to apply
+   * @returns {Promise<T>} The patched resource of type T
+   */
+  public async patchResource<T>(options: K8sApiOptions, patchData: any): Promise<T> {
+    try {
+      if (!options.name) {
+        throw new Error('Resource name is required for patchResource');
+      }
+
+      const response = await this.customApi.patchNamespacedCustomObject({
+        group: options.group,
+        version: options.version,
+        namespace: options.namespace,
+        plural: options.plural,
+        name: options.name,
+        body: patchData,
+      });
+      return response as T;
+    } catch (error) {
+      console.error(
+        `Error patching resource '${options.name}' in namespace '${options.namespace}': ${error}`
+      );
+      throw new Error(`Failed to patch resource '${options.name}': ${error}`);
+    }
+  }
+
+  /**
    * Retrieves logs from a pod or specific containers within a pod
    * @param podName The name of the pod
    * @param namespace The namespace where the pod is located (default: 'default')

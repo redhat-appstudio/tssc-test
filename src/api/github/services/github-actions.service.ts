@@ -590,4 +590,74 @@ export class GithubActionsService {
       throw new GithubApiError(`Error finding workflow run for commit ${sha.substring(0, 7)}`, error.status, error);
     }
   }
+
+  /**
+   * Cancel a workflow run
+   * 
+   * @param owner Repository owner
+   * @param repo Repository name
+   * @param runId Workflow run ID to cancel
+   * @returns Promise resolving when the workflow run is cancelled
+   * @throws GithubNotFoundError if the workflow run is not found
+   * @throws GithubApiError for other API errors
+   */
+  async cancelWorkflowRun(
+    owner: string,
+    repo: string,
+    runId: number
+  ): Promise<void> {
+    try {
+      await retry(
+        async () => {
+          await this.octokit.actions.cancelWorkflowRun({
+            owner,
+            repo,
+            run_id: runId,
+          });
+        },
+        {
+          retries: this.maxRetries,
+          minTimeout: this.minTimeout,
+          maxTimeout: this.maxTimeout,
+          factor: this.factor,
+          onRetry: (error: Error, attempt: number) => {
+            console.log(
+              `[GitHub Actions] Retry ${attempt}/${this.maxRetries} - Cancelling workflow run ${runId}: ${error.message}`
+            );
+          },
+        }
+      );
+
+      console.log(`[GitHub Actions] Successfully cancelled workflow run ${runId}`);
+    } catch (error: any) {
+      // Handle specific error cases
+      if (error.status === 404) {
+        throw new GithubNotFoundError(
+          'workflow run',
+          `${runId} in repository ${owner}/${repo}`
+        );
+      }
+
+      if (error.status === 403) {
+        throw new GithubApiError(
+          `Insufficient permissions to cancel workflow run ${runId}`,
+          error.status
+        );
+      }
+
+      if (error.status === 409) {
+        throw new GithubApiError(
+          `Workflow run ${runId} cannot be cancelled (already completed or not cancellable)`,
+          error.status
+        );
+      }
+
+      // Re-throw with more context
+      throw new GithubApiError(
+        `Failed to cancel workflow run ${runId}: ${error.message}`,
+        error.status || 500,
+        error
+      );
+    }
+  }
 }
