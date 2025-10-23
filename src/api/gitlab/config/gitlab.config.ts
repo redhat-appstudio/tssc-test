@@ -11,7 +11,7 @@ export interface GitLabConfig {
   
   /**
    * Request timeout in milliseconds
-   * @default 30000
+   * @default 60000
    */
   readonly timeout?: number;
   
@@ -93,7 +93,7 @@ export class GitLabConfigBuilder {
       throw new Error('GitLab token is required');
     }
   
-    const timeout = this.config.timeout ?? 30000;
+    const timeout = this.config.timeout ?? 60000;
     if (timeout <= 0) {
       throw new Error('Timeout must be greater than 0');
     }
