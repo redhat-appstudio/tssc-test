@@ -214,7 +214,7 @@ The framework also supports multiple test plans in a single `testplan.json` file
           "acs": "local"
         }
       ],
-      "tests": ["ui", "tssc"]
+      "tests": ["full_workflow.test.ts"]
     },
     {
       "name": "gitlab-tests",
@@ -228,7 +228,7 @@ The framework also supports multiple test plans in a single `testplan.json` file
           "acs": "local"
         }
       ],
-      "tests": ["ui", "tssc"]
+      "tests": ["full_workflow.test.ts"]
     },
     {
       "name": "bitbucket-tests",
@@ -242,7 +242,7 @@ The framework also supports multiple test plans in a single `testplan.json` file
           "acs": "local"
         }
       ],
-      "tests": ["ui", "tssc"]
+      "tests": ["full_workflow.test.ts"]
     }
   ]
 }
