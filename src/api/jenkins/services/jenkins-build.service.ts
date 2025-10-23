@@ -166,6 +166,25 @@ export class JenkinsBuildService {
   }
 
   /**
+   * Stop/abort a running build
+   */
+  async stopBuild(jobName: string, buildNumber: number, folderName?: string): Promise<void> {
+    try {
+      const path = JenkinsPathBuilder.buildBuildPath(
+        jobName,
+        buildNumber,
+        folderName,
+        'stop'
+      );
+
+      await this.httpClient.post(path, null);
+    } catch (error) {
+      // If build is not found or already stopped, throw specific error
+      throw new JenkinsBuildNotFoundError(jobName, buildNumber, folderName);
+    }
+  }
+
+  /**
    * Wait for a build to complete with timeout
    */
   async waitForBuildCompletion(options: WaitForBuildOptions): Promise<JenkinsBuild> {

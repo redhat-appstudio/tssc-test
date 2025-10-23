@@ -374,19 +374,6 @@ export async function buildApplicationImageWithPR(git: Git, ci: CI): Promise<voi
   }
 }
 
-export async function handleInitialPipelineRuns(ci: CI): Promise<void> {
-  if (ci.getCIType() === CIType.GITLABCI) {
-    // Cancel initial GitLab CI pipelines triggered by the first commit.
-    // Gitlabci pipelines takes longer than other CIs, canceling helps reduce total test duration.
-    console.log('CI Provider is gitlabci - cancelling initial pipelines');
-    await ci.cancelAllInitialPipelines();
-  } else {
-    // For other CI providers, wait for the initial pipelines to complete.
-    console.log(`CI Provider is ${ci.getCIType()} - waiting for initial pipelines to finish`);
-    await ci.waitForAllPipelineRunsToFinish();
-  }
-}
-
 export async function handlePromotionToEnvironmentandGetPipeline(
   git: Git,
   ci: CI,
