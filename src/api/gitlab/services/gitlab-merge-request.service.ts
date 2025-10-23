@@ -142,6 +142,31 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
         mergeCommitSha: String(mergeCommitSha || ''),
       };
     } catch (error: any) {
+      // Handle GitLab API inconsistency: merge succeeds but returns 405
+      if (error.cause?.response?.status === 405) {
+        console.warn(`⚠️  GitLab returned 405, verifying actual MR state...`);
+
+        try {
+          const mrDetails = await this.gitlabClient.MergeRequests.show(
+            projectId,
+            mergeRequestId
+          );
+
+          // If MR is actually merged, treat as success
+          if (mrDetails.state === 'merged' && mrDetails.merge_commit_sha) {
+            console.log(`✅ MR #${mergeRequestId} successfully merged (despite 405)`);
+            return {
+              id: String(mrDetails.id || mergeRequestId),
+              sha: String(mrDetails.sha || ''),
+              mergeCommitSha: String(mrDetails.merge_commit_sha),
+            };
+          }
+        } catch (verifyError) {
+          console.error(`Failed to verify MR state:`, verifyError);
+        }
+      }
+
+      // Re-throw for genuine failures
       console.error(`Failed to merge merge request #${mergeRequestId}:`, error);
       throw createGitLabErrorFromResponse('mergeMergeRequest', error);
     }

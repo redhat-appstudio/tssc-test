@@ -35,7 +35,7 @@
         "sodium-native": "^5.0.6"
     },
     "overrides": {
-        "ansi-regex": "^6.0.1 <=6.2.0"
+        "ansi-regex": "^6.0.1 <=6.2.2"
     },
     "devDependencies": {
         "@backstage/plugin-scaffolder-react": "^1.18.0",
@@ -51,7 +51,7 @@
         "@typescript-eslint/parser": "^8.37.0",
         "axios": "^1.10.0",
         "dotenv": "^17.2.0",
-        "eslint": "^8.57.0",
+        "eslint": "^9.0.0",
         "eslint-config-prettier": "^10.1.5",
         "eslint-plugin-prettier": "^5.5.1",
         "glob": "^11.0.3",
