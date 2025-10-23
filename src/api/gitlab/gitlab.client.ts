@@ -21,7 +21,7 @@ import { BaseApiClient } from '../common/base-api.client';
  * const client = new GitLabClient({
  *   token: 'glpat_your_token_here',
  *   baseUrl: 'https://gitlab.example.com', // Your GitLab instance URL
- *   timeout: 30000 // Optional, defaults to 30 seconds
+ *   timeout: 60000 // Optional, defaults to 60 seconds
  * });
  * 
  * // Check connectivity
@@ -98,7 +98,7 @@ export class GitLabClient extends BaseApiClient {
    * @param config Configuration options for the GitLab client
    * @param config.token GitLab personal access token (required)
    * @param config.baseUrl GitLab instance base URL (required)
-   * @param config.timeout Request timeout in milliseconds (optional, defaults to 30000)
+   * @param config.timeout Request timeout in milliseconds (optional, defaults to 60000)
    * 
    * @example
    * ```typescript
@@ -110,10 +110,12 @@ export class GitLabClient extends BaseApiClient {
    * ```
    */
   constructor(config: GitLabConfig) {
-    super(config.baseUrl || 'https://gitlab.com', config.timeout || 30000);
+    super(config.baseUrl || 'https://gitlab.com', config.timeout || 60000);
     this.client = new Gitlab({
       host: this.baseUrl,
       token: config.token,
+      queryTimeout: this.timeout,
+      rejectUnauthorized: config.sslVerify,
     });
 
     this.projects = new GitLabProjectService(this.client);
