@@ -170,4 +170,63 @@ export function createGitLabErrorFromResponse(
       super(error?.message || 'Unknown GitLab error', operation);
     }
   }();
+}
+
+/**
+ * Determines if an error is retryable (transient infrastructure issue)
+ *
+ * Retryable errors include:
+ * - 502 Bad Gateway (upstream server errors)
+ * - 503 Service Unavailable (temporary overload)
+ * - 504 Gateway Timeout (upstream timeout)
+ * - 429 Rate Limit (should retry after delay)
+ * - Network timeouts (ECONNABORTED, ETIMEDOUT)
+ * - Connection errors (ECONNRESET, ENOTFOUND)
+ *
+ * Non-retryable errors include:
+ * - 400 Bad Request (invalid input)
+ * - 401 Unauthorized (authentication failure)
+ * - 403 Forbidden (permission denied)
+ * - 404 Not Found (resource doesn't exist)
+ * - 422 Unprocessable Entity (validation failure)
+ */
+export function isRetryableError(error: any): boolean {
+  // Check for transient HTTP status codes
+  const statusCode = error?.response?.status || error?.statusCode;
+  if (statusCode) {
+    // Retryable status codes
+    if ([502, 503, 504, 429].includes(statusCode)) {
+      return true;
+    }
+    // Non-retryable client errors (4xx except 429)
+    if (statusCode >= 400 && statusCode < 500 && statusCode !== 429) {
+      return false;
+    }
+    // 5xx errors are generally retryable except 501 (Not Implemented)
+    if (statusCode >= 500 && statusCode !== 501) {
+      return true;
+    }
+  }
+
+  // Check for network/timeout errors
+  const errorCode = error?.code;
+  const retryableNetworkErrors = [
+    'ECONNABORTED',
+    'ETIMEDOUT',
+    'ECONNRESET',
+    'ENOTFOUND',
+    'ENETUNREACH',
+    'EAI_AGAIN'
+  ];
+  if (errorCode && retryableNetworkErrors.includes(errorCode)) {
+    return true;
+  }
+
+  // Check if error has explicit isRetryable flag
+  if (error?.isRetryable === true) {
+    return true;
+  }
+
+  // Default to non-retryable for unknown errors
+  return false;
 } 
