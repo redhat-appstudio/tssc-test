@@ -60,6 +60,11 @@ export class BaseHttpClient {
     return response.data;
   }
 
+  public async patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+    const response: AxiosResponse<T> = await this.client.patch(url, data, config);
+    return response.data;
+  }
+
   // Raw response methods for advanced use cases (headers, status, etc.)
   public async getRaw<T>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.get<T>(url, config);
@@ -75,5 +80,9 @@ export class BaseHttpClient {
 
   public async deleteRaw<T>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.delete<T>(url, config);
+  }
+
+  public async patchRaw<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+    return this.client.patch<T>(url, data, config);
   }
 }
