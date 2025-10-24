@@ -126,9 +126,11 @@ export class GitlabScaffolderOptionsBuilder extends BaseScaffolderOptionsBuilder
   forGitRepo(
     group: string,
     repoName: string,
-    host: string = 'gitlab.com'
+    host: string = 'gitlab.com',
+    port: number = 443
   ): GitlabScaffolderOptionsBuilder {
     this.options.values.glHost = host;
+    this.options.values.glPort = port;
     this.options.values.glOwner = group;
     this.options.values.repoName = repoName;
     return this;
