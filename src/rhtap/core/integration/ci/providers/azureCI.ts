@@ -1,13 +1,13 @@
+import { AzureClient } from '../../../../../api/azure';
 import {
   AzureBuild,
-  AzureClient,
   AzurePipelineDefinition,
   AzurePipelineRun,
   AzurePipelineRunResult,
   AzurePipelineRunStatus,
   AzurePipelineTriggerReason,
   ServiceEndpoint,
-} from '../../../../../api/ci/azureClient';
+} from '../../../../../api/azure/types/azure.types';
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
@@ -197,8 +197,8 @@ export class AzureCI extends BaseCI {
     eventType?: EventType
   ): Promise<Pipeline | null> {
     try {
-      const pipelineDefSource = await this.azureClient.getPipelineDefinition(this.componentName);
-      const pipelineDefGitops = await this.azureClient.getPipelineDefinition(
+      const pipelineDefSource = await this.azureClient.pipelines.getPipelineDefinition(this.componentName);
+      const pipelineDefGitops = await this.azureClient.pipelines.getPipelineDefinition(
         this.componentName + '-gitops'
       );
       if (!pipelineDefSource || !pipelineDefGitops) {
@@ -209,10 +209,10 @@ export class AzureCI extends BaseCI {
         `Retrieving pipelineruns for pipelines with id: ${pipelineDefSource.id} and ${pipelineDefGitops.id}`
       );
 
-      const runsSource: AzurePipelineRun[] = await this.azureClient.listPipelineRuns(
+      const runsSource: AzurePipelineRun[] = await this.azureClient.pipelines.listPipelineRuns(
         pipelineDefSource.id
       );
-      const runsGitops: AzurePipelineRun[] = await this.azureClient.listPipelineRuns(
+      const runsGitops: AzurePipelineRun[] = await this.azureClient.pipelines.listPipelineRuns(
         pipelineDefGitops.id
       );
       let runs = [...runsSource, ...runsGitops];
@@ -228,7 +228,7 @@ export class AzureCI extends BaseCI {
       }
 
       let builds: AzureBuild[] = await Promise.all(
-        runs.map(run => this.azureClient.getBuild(run.id))
+        runs.map(run => this.azureClient.pipelines.getBuild(run.id))
       );
 
       if (eventType == EventType.PULL_REQUEST) {
@@ -262,7 +262,7 @@ export class AzureCI extends BaseCI {
   }
 
   public async getPipelineLogs(pipeline: Pipeline): Promise<string> {
-    const pipelineRun = await this.azureClient.getPipelineRunLogs(
+    const pipelineRun = await this.azureClient.pipelines.getPipelineRunLogs(
       Number(pipeline.id),
       pipeline.buildNumber!
     );
@@ -270,7 +270,7 @@ export class AzureCI extends BaseCI {
   }
 
   protected async checkPipelinerunStatus(pipeline: Pipeline): Promise<PipelineStatus> {
-    const pipelineRun = await this.azureClient.getPipelineRun(
+    const pipelineRun = await this.azureClient.pipelines.getPipelineRun(
       Number(pipeline.id),
       pipeline.buildNumber!
     );
@@ -286,11 +286,11 @@ export class AzureCI extends BaseCI {
     await retry(
       async () => {
         console.log(`Waiting for all pipelines to finish for component: ${this.componentName}`);
-        const pipelineId = await this.azureClient.getPipelineIdByName(this.componentName);
+        const pipelineId = await this.azureClient.pipelines.getPipelineIdByName(this.componentName);
         if (!pipelineId) {
           return;
         }
-        const pipelineRuns = await this.azureClient.listPipelineRuns(pipelineId);
+        const pipelineRuns = await this.azureClient.pipelines.listPipelineRuns(pipelineId);
 
         if (
           pipelineRuns.filter(
@@ -317,9 +317,9 @@ export class AzureCI extends BaseCI {
     gitToken: string
   ): Promise<ServiceEndpoint> {
     try {
-      const projectId = await this.azureClient.getProjectIdByName(this.projectName);
+      const projectId = await this.azureClient.projects.getProjectIdByName(this.projectName);
 
-      const serviceEndpoint = await this.azureClient.createServiceEndpoint(
+      const serviceEndpoint = await this.azureClient.serviceEndpoints.createServiceEndpoint(
         serviceEndpointName,
         serviceEndpointType,
         gitHost,
@@ -342,7 +342,7 @@ export class AzureCI extends BaseCI {
     yamlPath: string
   ): Promise<unknown> {
     try {
-      const pipelineDefinition = await this.azureClient.createPipelineDefinition(
+      const pipelineDefinition = await this.azureClient.pipelines.createPipelineDefinition(
         pipelineName,
         repoId,
         repoType,
@@ -359,13 +359,13 @@ export class AzureCI extends BaseCI {
 
   public async deletePipeline(pipelineName: string): Promise<void> {
     try {
-      const pipelineId = await this.azureClient.getPipelineIdByName(pipelineName);
+      const pipelineId = await this.azureClient.pipelines.getPipelineIdByName(pipelineName);
       if (!pipelineId) {
         console.warn(`Pipeline with name '${pipelineName}' not found. Skipping deletion.`);
         return;
       }
 
-      await this.azureClient.deletePipeline(pipelineId);
+      await this.azureClient.pipelines.deletePipeline(pipelineId);
       console.log(`Successfully deleted pipeline '${pipelineName}' with ID: ${pipelineId}`);
     } catch (error) {
       console.error(`Failed to delete Azure pipeline '${pipelineName}':`, error);
@@ -387,7 +387,7 @@ export class AzureCI extends BaseCI {
     }
 
     try {
-      await this.azureClient.createVariableGroup(
+      await this.azureClient.variableGroups.createVariableGroup(
         groupName,
         description || `Variable group for ${groupName}`,
         azureVariables
@@ -404,14 +404,14 @@ export class AzureCI extends BaseCI {
         await this.initialize();
       }
 
-      const variableGroup = await this.azureClient.getVariableGroupByName(groupName);
+      const variableGroup = await this.azureClient.variableGroups.getVariableGroupByName(groupName);
       if (!variableGroup) {
         console.warn(`Variable group with name '${groupName}' not found. Skipping deletion.`);
         return;
       }
 
-      const projectId = await this.azureClient.getProjectIdByName(this.projectName);
-      await this.azureClient.deleteVariableGroup(variableGroup.id, projectId);
+      const projectId = await this.azureClient.projects.getProjectIdByName(this.projectName);
+      await this.azureClient.variableGroups.deleteVariableGroup(variableGroup.id, projectId);
       console.log(
         `Successfully deleted variable group '${groupName}' with ID: ${variableGroup.id}`
       );
@@ -425,28 +425,28 @@ export class AzureCI extends BaseCI {
     pipelineName: string,
     poolName: string
   ): Promise<unknown> {
-    const pipelineId = await this.azureClient.getPipelineIdByName(pipelineName);
-    const agentQueueId = await this.azureClient.getAgentQueueByName(poolName);
-    return await this.azureClient.authorizePipelineForAgentPool(pipelineId!, agentQueueId!.id);
+    const pipelineId = await this.azureClient.pipelines.getPipelineIdByName(pipelineName);
+    const agentQueueId = await this.azureClient.agentPools.getAgentQueueByName(poolName);
+    return await this.azureClient.agentPools.authorizePipelineForAgentPool(pipelineId!, agentQueueId!.id);
   }
 
   public async authorizePipelineForVariableGroup(
     pipelineName: string,
     varGroupName: string
   ): Promise<unknown> {
-    const pipelineId = await this.azureClient.getPipelineIdByName(pipelineName);
-    const variableGroup = await this.azureClient.getVariableGroupByName(varGroupName);
-    return await this.azureClient.authorizePipelineForVariableGroup(pipelineId!, variableGroup!.id);
+    const pipelineId = await this.azureClient.pipelines.getPipelineIdByName(pipelineName);
+    const variableGroup = await this.azureClient.variableGroups.getVariableGroupByName(varGroupName);
+    return await this.azureClient.variableGroups.authorizePipelineForVariableGroup(pipelineId!, variableGroup!.id);
   }
 
   public async deleteServiceEndpoint(endpointName: string): Promise<void> {
-    const endpoint = await this.azureClient.getServiceEndpointByName(endpointName);
-    const projectId = await this.azureClient.getProjectIdByName(this.projectName);
+    const endpoint = await this.azureClient.serviceEndpoints.getServiceEndpointByName(endpointName);
+    const projectId = await this.azureClient.projects.getProjectIdByName(this.projectName);
     if (!endpoint) {
       console.warn(`Service endpoint with name '${endpointName}' not found. Skipping deletion.`);
       return;
     }
-    await this.azureClient.deleteServiceEndpoint(endpoint.id, projectId);
+    await this.azureClient.serviceEndpoints.deleteServiceEndpoint(endpoint.id, projectId);
   }
 
   public async cancelAllInitialPipelines(): Promise<void> {
