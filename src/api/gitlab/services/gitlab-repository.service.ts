@@ -11,7 +11,8 @@ import {
   ProjectIdentifier,
   ContentExtractionResult,
 } from '../types/gitlab.types';
-import { createGitLabErrorFromResponse } from '../errors/gitlab.errors';
+import retry from 'async-retry';
+import { createGitLabErrorFromResponse, isRetryableError } from '../errors/gitlab.errors';
 
 export class GitLabRepositoryService implements IGitLabRepositoryService {
   constructor(private readonly gitlabClient: InstanceType<typeof Gitlab>) {}
@@ -84,12 +85,47 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
       // If startBranch is provided, create branch + commit in one operation
       const commitOptions: any = startBranch ? { startBranch } : {};
 
-      const response = await this.gitlabClient.Commits.create(
-        projectId,
-        branch,
-        commitMessage,
-        formattedActions,
-        commitOptions
+      // Wrap commit creation with retry logic for transient errors
+      const response = await retry(
+        async (bail, attempt) => {
+          try {
+            return await this.gitlabClient.Commits.create(
+              projectId,
+              branch,
+              commitMessage,
+              formattedActions,
+              commitOptions
+            );
+          } catch (error) {
+            // Check if error is retryable
+            if (isRetryableError(error)) {
+              // Let retry mechanism handle it
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              console.log(
+                `[GITLAB-RETRY ${attempt}/3] 🔄 Commit to ${branch} failed (retryable): ${errorMessage}`
+              );
+              throw error;
+            } else {
+              // Non-retryable errors should fail immediately
+              console.error(
+                `[GITLAB-COMMIT] ❌ Non-retryable error on branch ${branch}:`,
+                error
+              );
+              bail(error as Error);
+              return null as any; // TypeScript requirement, never reached
+            }
+          }
+        },
+        {
+          retries: 3,
+          minTimeout: 2000,
+          maxTimeout: 10000,
+          onRetry: (error: Error, attempt: number) => {
+            console.log(
+              `[GITLAB-RETRY ${attempt}/3] ⚠️  Retrying commit to ${branch} | Reason: ${error.message}`
+            );
+          },
+        }
       );
 
       console.log(
