@@ -2,6 +2,7 @@ import { TektonClient } from '../../../../../api/tekton';
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
+import { TSSC_CI_NAMESPACE } from '../../../../../constants';
 import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
 import { PipelineRunKind } from '@janus-idp/shared-react/index';
 import retry from 'async-retry';
@@ -9,7 +10,7 @@ import retry from 'async-retry';
 export class TektonCI extends BaseCI {
   private tektonClient: TektonClient;
   private componentName: string;
-  private static readonly CI_NAMESPACE = 'tssc-app-ci';
+  private static readonly CI_NAMESPACE = TSSC_CI_NAMESPACE;
 
   /**
    * @param componentName The name of the component to associate with this CI instance
