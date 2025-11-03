@@ -168,6 +168,41 @@ export class AzurePipelineService {
     }
   }
 
+  public async cancelBuild(buildId: number): Promise<void> {
+    try {
+      await retry(
+        async () => {
+          await this.client.patch(
+            `${this.project}/_apis/build/builds/${buildId}?${this.getApiVersionParam()}`,
+            { status: 'cancelling' }
+          );
+        },
+        {
+          retries: 3,
+          minTimeout: 1000,
+          maxTimeout: 5000,
+          onRetry: (error: Error, attempt: number) => {
+            console.log(`[Azure] Retry ${attempt}/3 - Cancelling build ${buildId}: ${error.message}`);
+          },
+        }
+      );
+
+      console.log(`[Azure] Successfully cancelled build ${buildId}`);
+    } catch (error: any) {
+      // Handle specific error cases
+      if (error.response?.status === 404) {
+        throw new Error(`Build ${buildId} not found`);
+      }
+      if (error.response?.status === 403) {
+        throw new Error(`Insufficient permissions to cancel build ${buildId}`);
+      }
+      if (error.response?.status === 400) {
+        throw new Error(`Build ${buildId} cannot be cancelled (already completed or not cancellable)`);
+      }
+      throw new Error(`Failed to cancel build ${buildId}: ${error.message}`);
+    }
+  }
+
   public async getAllPipelines(): Promise<AzurePipelineDefinition[]> {
     try {
       const pipelines = await this.client.get<{ value: AzurePipelineDefinition[] }>(
