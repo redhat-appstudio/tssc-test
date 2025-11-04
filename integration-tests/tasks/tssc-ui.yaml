@@ -24,19 +24,17 @@ spec:
     - name: rhtap-cli-volume
       secret:
         secretName: rhtap-cli-install
-    - name: tssc-test-dir
-      emptyDir: {}
   steps:
     - name: prepare-environment
       image: $(params.tssc-test-image)
+      securityContext:
+        runAsUser: 0
       command: ['/bin/sh', '-c']
-      args: ['cp -r /tssc-test/* /ui-test && chmod -R +x /ui-test/*']
-      volumeMounts:
-        - name: tssc-test-dir
-          mountPath: /ui-test
+      args: ['mkdir -p /workspace/ui-test && cp -r /tssc-test/* /workspace/ui-test && chown -R 1001:0 /workspace/ui-test && chmod -R 777 /workspace/ui-test']
+      workingDir: /workspace/ui-test
     - name: setup-test-environment
       image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
-      workingDir: /ui-test
+      workingDir: /workspace/ui-test
       computeResources:
         limits:
           memory: 1Gi
@@ -44,8 +42,6 @@ spec:
           cpu: 100m
           memory: 512Mi
       volumeMounts:
-        - name: tssc-test-dir
-          mountPath: /ui-test
         - name: konflux-test-infra-volume
           mountPath: /usr/local/konflux-test-infra
         - name: rhtap-cli-volume
@@ -105,8 +101,8 @@ spec:
         fi    
 
         # Download test artifacts from OCI container
-        echo "Pulling OCI container: $OCI_CONTAINER"
-        if PULL_OUTPUT=$(oras pull "$OCI_CONTAINER" --output . 2>&1); then
+        echo "Pulling OCI container: $OCI_CONTAINER-e2e-artifacts"
+        if PULL_OUTPUT=$(oras pull "$OCI_CONTAINER-e2e-artifacts" --output . 2>&1); then
           echo "Successfully downloaded files from OCI container"
         else
           echo "ERROR: Failed to download from OCI container"
@@ -114,6 +110,9 @@ spec:
           echo "$PULL_OUTPUT"
           exit 1
         fi
+
+        # Extract project-configs.json
+        tar -xvzf e2e-artifacts.tar.gz tmp/project-configs.json
 
         echo "Creating .env file with environment variables..."
         cat <<EOF > .env
@@ -146,28 +145,26 @@ spec:
         $(params.ocp-login-command)
 
         echo "Copying kubeconfig to shared directory..."
-        mkdir -p /ui-test/.kube
-        cp "$HOME/.kube/config" /ui-test/.kube/config
+        mkdir -p ./.kube
+        cp "$HOME/.kube/config" ./.kube/config
 
-        chown -R 1001:0 /ui-test
+        chown -R 1001:0 ./.kube
 
     - name: run-ui-tests
       image: $(params.tssc-test-image)
-      workingDir: /ui-test
+      workingDir: /workspace/ui-test
+      onError: continue
       computeResources:
         limits:
           memory: 6Gi
         requests:
           cpu: 100m
           memory: 3Gi
-      volumeMounts:
-        - name: tssc-test-dir
-          mountPath: /ui-test
       env:
         - name: UI_TEST
           value: "true"
         - name: KUBECONFIG
-          value: /ui-test/.kube/config
+          value: ./.kube/config
       script: |
         #!/usr/bin/env bash
         set -eu
@@ -176,4 +173,50 @@ spec:
         source .env
 
         echo "Running UI tests with 'npm run test:ui'"
-        npm run test:ui
+        TEST_EXIT_CODE=0
+        npm run test:ui || TEST_EXIT_CODE=$?
+
+        echo "UI tests completed with exit code: $TEST_EXIT_CODE"
+        exit $TEST_EXIT_CODE
+    - name: create-artifact-bundle
+      image: $(params.tssc-test-image)
+      workingDir: /workspace/ui-test
+      command: ['/bin/sh', '-c']
+      args:
+        - |
+          set -ex
+          echo "Creating artifact bundle"
+          mkdir -p /workspace/ui-test/artifacts
+          tar -czvf /workspace/ui-test/artifacts/ui-artifacts.tar.gz playwright-report test-results tmp
+    - name: upload-artifacts
+      onError: continue
+      ref:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/tekton-integration-catalog.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
+      params:
+        - name: workdir-path
+          value: /workspace/ui-test/artifacts
+        - name: oci-ref
+          value: $(params.oci-container)-ui-artifacts
+        - name: credentials-volume-name
+          value: konflux-test-infra-volume
+        - name: oci-tag-expiration
+          value: 1y
+        - name: always-pass
+          value: "false"
+    - name: fail-if-any-step-failed
+      ref:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/tekton-integration-catalog.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
