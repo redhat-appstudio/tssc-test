@@ -1,5 +1,5 @@
 # Multi-stage build for tools
-FROM registry.redhat.io/openshift4/ose-tools-rhel9@sha256:119675bddf04c652b25513174cedfc3dcc67d4af4a942d2a803c03df5d745d1f AS ose-tools
+FROM registry.redhat.io/openshift4/ose-tools-rhel9@sha256:e1ab3a20193da1433980fb1012313f6ca727d249d965fc388cef83d0d842148d AS ose-tools
 
 # Builder stage for ArgoCD CLI
 FROM registry.access.redhat.com/ubi9/ubi:9.6-1760340943 AS builder
