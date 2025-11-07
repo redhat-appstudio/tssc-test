@@ -164,7 +164,7 @@ spec:
         - name: workdir-path
           value: /workspace/e2e-test/artifacts
         - name: oci-ref
-          value: $(params.oci-container)-e2e-artifacts
+          value: $(params.oci-container)
         - name: credentials-volume-name
           value: konflux-test-infra-volume
         - name: oci-tag-expiration
