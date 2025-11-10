@@ -208,7 +208,7 @@ export default defineConfig({
   reporter: [
     ['html', { open: 'never', outputFolder: 'playwright-report' }],
     ['list'],
-    ['junit', { outputFile: 'test-results/junit.xml' }],
+    ['junit', { outputFile: 'test-results/devlake-junit.xml' }],
   ],
   // Global setup and teardown
   globalSetup: './global-setup.ts',

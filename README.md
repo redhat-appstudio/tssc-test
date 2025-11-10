@@ -271,13 +271,47 @@ npm test
 
 ### Step 2: Configure Environment Variables
 
-Copy the template file from `templates/.env` to the root directory:
+Copy the template file from [templates/.env](templates/.env) to the root directory:
 
 ```bash
 cp templates/.env .env
 ```
 
-Edit the `.env` file to set required environment variables for running automation tests. After that, source the file before running tests:
+Edit the `.env` file to set required environment variables for running automation tests. Below are the key variables you need to configure:
+
+#### Required Variables (E2E Tests)
+
+Image Registry Configuration:
+- `QUAY_REGISTRY_ORG` - Organization name for Quay.io registry
+- `ARTIFACTORY_REGISTRY_ORG` - Organization name for Artifactory registry (if using Artifactory)
+- `NEXUS_REGISTRY_ORG` - Organization name for Nexus registry (if using Nexus)
+
+Git Provider Configuration:
+- `GITHUB_ORGANIZATION` - GitHub organization name (required when using GitHub as git provider)
+- `BITBUCKET_WORKSPACE` - Bitbucket workspace name (required when using Bitbucket)
+- `BITBUCKET_PROJECT` - Bitbucket project key (required when using Bitbucket)
+
+CI Provider Configuration:
+- `AZURE_PROJECT` - Azure DevOps project name (required when using Azure Pipelines as CI)
+
+#### Optional Variables (E2E Tests)
+
+Component Configuration:
+- `TSSC_APP_DEPLOYMENT_NAMESPACE` - Custom deployment namespace (default: `tssc-app`). Update this if you have modified the default `developerHub: namespacePrefixes` during the installation process.
+
+Multi CI Testing:
+- `CI_TEST_RUNNER_IMAGE` - Container image to use as the CI runner/builder, overriding the default image in generated component CI configuration files (for eg., .github/workflows, .gitlab-ci.yml, azure-pipeline.yml)
+
+
+#### UI Test Variables (Required for UI tests)
+
+GitHub UI Authentication:
+- `GH_USERNAME` - GitHub username for UI login
+- `GH_PASSWORD` - GitHub password for UI login
+- `GH_SECRET` - GitHub 2FA secret
+
+
+After editing the file, source it before running tests:
 
 ```bash
 source .env
