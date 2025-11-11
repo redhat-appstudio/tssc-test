@@ -737,6 +737,11 @@ export class GithubProvider extends BaseGitProvider {
    */
   public async deleteFileInRepository(owner: string, repoName: string, filePath: string, branch: string = 'main', commitMessage: string = 'Delete file'): Promise<void> {
     try {
+      // Ensure the GitHub client is initialized
+      if (!this.githubClient) {
+        await this.initialize();
+      }
+
       // First, get the current file to get its SHA
       const fileContent = await this.githubClient.repository.getContent(owner, repoName, filePath, branch);
       
@@ -765,8 +770,15 @@ export class GithubProvider extends BaseGitProvider {
    */
   public async deleteFolderInRepository(owner: string, repoName: string, folderPath: string, branch: string = 'main', commitMessage: string = 'Delete folder'): Promise<void> {
     try {
+      // Ensure the GitHub client is initialized
+      if (!this.githubClient) {
+        await this.initialize();
+      }
+
+      const octokit = (this.githubClient as any).octokit;
+
       // Get the current branch ref and base commit SHA
-      const { data: refData } = await this.githubClient.octokitInstance.rest.git.getRef({
+      const { data: refData } = await octokit.rest.git.getRef({
         owner,
         repo: repoName,
         ref: `heads/${branch}`,
@@ -774,7 +786,7 @@ export class GithubProvider extends BaseGitProvider {
       const baseCommitSha = refData.object.sha;
 
       // Get the base commit to retrieve the tree SHA
-      const { data: commitData } = await this.githubClient.octokitInstance.rest.git.getCommit({
+      const { data: commitData } = await octokit.rest.git.getCommit({
         owner,
         repo: repoName,
         commit_sha: baseCommitSha,
@@ -782,7 +794,7 @@ export class GithubProvider extends BaseGitProvider {
       const baseTreeSha = commitData.tree.sha;
 
       // Get the current tree
-      const { data: treeData } = await this.githubClient.octokitInstance.rest.git.getTree({
+      const { data: treeData } = await octokit.rest.git.getTree({
         owner,
         repo: repoName,
         tree_sha: baseTreeSha,
@@ -796,7 +808,7 @@ export class GithubProvider extends BaseGitProvider {
       });
 
       // Create a new tree without the folder
-      const { data: newTreeData } = await this.githubClient.octokitInstance.rest.git.createTree({
+      const { data: newTreeData } = await octokit.rest.git.createTree({
         owner,
         repo: repoName,
         base_tree: baseTreeSha,
@@ -809,7 +821,7 @@ export class GithubProvider extends BaseGitProvider {
       });
 
       // Create a new commit with the new tree
-      const { data: newCommitData } = await this.githubClient.octokitInstance.rest.git.createCommit({
+      const { data: newCommitData } = await octokit.rest.git.createCommit({
         owner,
         repo: repoName,
         message: commitMessage,
@@ -818,7 +830,7 @@ export class GithubProvider extends BaseGitProvider {
       });
 
       // Update the branch ref to point to the new commit
-      await this.githubClient.octokitInstance.rest.git.updateRef({
+      await octokit.rest.git.updateRef({
         owner,
         repo: repoName,
         ref: `heads/${branch}`,
