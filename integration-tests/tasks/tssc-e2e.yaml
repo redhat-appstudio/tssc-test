@@ -142,7 +142,7 @@ spec:
         source .env
         # Run tests and capture exit code
         TEST_EXIT_CODE=0
-        FORCE_COLOR=false npm run test:e2e || TEST_EXIT_CODE=$?
+        FORCE_COLOR=false npm run test:backend || TEST_EXIT_CODE=$?
 
         echo "Test execution completed with exit code: $TEST_EXIT_CODE"
 
