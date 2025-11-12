@@ -35,7 +35,7 @@ test.describe.serial('Import Template Tests', () => {
 
   let component: Component;
   let importedComponent: Component;
-  const templateName = process.env.TEMPLATE_NAME || 'go';
+  const templateName = process.env.TEMPLATE_NAME + "-import";
 
   test(`verifies if ${templateName} template exists in the catalog`, async () => {
     // This would require implementing a method to get golden path templates
@@ -45,7 +45,9 @@ test.describe.serial('Import Template Tests', () => {
   });
 
   test(`creates ${templateName} component`, async ({ testItem }) => {
-    const componentName = testItem.getName();
+    // Add test-specific suffix to ensure uniqueness when running with other test suites
+    const baseName = testItem.getName();
+    const componentName = `${baseName}-import`;
     const imageName = `${componentName}`;
     console.log(`Creating component: ${componentName}`);
 
