@@ -51,15 +51,6 @@ export abstract class BaseRegistryPlugin implements RegistryPlugin {
         expect(indexedRowsAfterClear.length).toBe(initialRowCount);
     }
 
-    async checkTableColumnHeaders(page: Page): Promise<void> {
-        await expect(page.getByRole('columnheader', { name: RegistryPO.tagColumnHeader })).toBeVisible();
-        await expect(page.getByRole('columnheader', { name: RegistryPO.lastModifiedColumnHeader })).toBeVisible();
-        await expect(page.getByRole('columnheader', { name: RegistryPO.securityScanColumnHeader })).toBeVisible();
-        await expect(page.getByRole('columnheader', { name: RegistryPO.sizeColumnHeader })).toBeVisible();
-        await expect(page.getByRole('columnheader', { name: RegistryPO.expiresColumnHeader })).toBeVisible();
-        await expect(page.getByRole('columnheader', { name: RegistryPO.manifestColumnHeader })).toBeVisible();
-    }
-
     async checkImageTableContent(page: Page): Promise<void> {
         const rows = await this.getTableRows(page);
         expect(rows.length).toBeGreaterThan(0);
@@ -71,5 +62,5 @@ export abstract class BaseRegistryPlugin implements RegistryPlugin {
     // eslint-disable-next-line no-unused-vars
     abstract checkRepositoryLink(page: Page): Promise<void>;
     // eslint-disable-next-line no-unused-vars
-    abstract checkVulnerabilities(page: Page): Promise<void>;
+    abstract checkTableColumnHeaders(page: Page): Promise<void>;
 }
