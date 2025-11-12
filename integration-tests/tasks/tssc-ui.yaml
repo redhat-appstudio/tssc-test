@@ -104,8 +104,9 @@ spec:
         echo "Pulling OCI container: $OCI_CONTAINER"
         if PULL_OUTPUT=$(oras pull "$OCI_CONTAINER" --output . 2>&1); then
           echo "Successfully downloaded files from OCI container"
-          # Remove test-results and playwright-report directories to avoid uploading the same artifacts again
-          rm -rf test-results playwright-report
+          # Copy project-configs.json to tmp directory
+          mkdir -p tmp
+          cp artifacts-e2e/tmp/project-configs.json tmp/project-configs.json
         else
           echo "ERROR: Failed to download from OCI container"
           echo "ORAS pull error output:"
