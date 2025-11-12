@@ -11,7 +11,7 @@
         "validate": "npm run type-check && npm run lint && npm run format:check",
         "generate-config": "npx ts-node scripts/generateProjectConfig.ts",
         "test": "npm run generate-config && playwright test",
-        "test:e2e": "TESTPLAN_NAME=e2e-tests, npm run generate-config &&  playwright test",
+        "test:e2e": "TESTPLAN_NAME=e2e-tests npm run generate-config &&  playwright test",
         "test:import": "TESTPLAN_NAME=import-tests npm run generate-config &&  playwright test",
         "test:backend": "TESTPLAN_NAME=e2e-tests,import-tests npm run generate-config &&  playwright test",
         "test:ui": "TESTPLAN_NAME=ui-tests playwright test",
