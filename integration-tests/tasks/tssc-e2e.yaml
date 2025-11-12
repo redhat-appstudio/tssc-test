@@ -139,16 +139,18 @@ spec:
 
         echo "Test execution completed with exit code: $TEST_EXIT_CODE"
         exit $TEST_EXIT_CODE
-    - name: create-artifact-bundle
+    - name: consolidate-artifacts
       image: $(params.tssc-test-image)
       workingDir: /workspace/e2e-test
       command: ['/bin/sh', '-c']
       args:
         - |
           set -ex
-          echo "Creating artifact bundle"
-          mkdir -p /workspace/e2e-test/artifacts && chmod 777 /workspace/e2e-test/artifacts
-          tar -czvf /workspace/e2e-test/artifacts/e2e-artifacts.tar.gz playwright-report test-results tmp
+          echo "Consolidating artifacts"
+          mkdir -p /workspace/e2e-test/artifacts/artifacts-e2e && chmod 777 /workspace/e2e-test/artifacts/artifacts-e2e
+          if [ -d playwright-report ]; then cp -r playwright-report /workspace/e2e-test/artifacts/artifacts-e2e/; fi
+          if [ -d test-results ]; then cp -r test-results /workspace/e2e-test/artifacts/artifacts-e2e/; fi
+          if [ -d tmp ]; then cp -r tmp /workspace/e2e-test/artifacts/artifacts-e2e/; fi
     - name: upload-artifacts
       onError: continue
       ref:
@@ -164,7 +166,7 @@ spec:
         - name: workdir-path
           value: /workspace/e2e-test/artifacts
         - name: oci-ref
-          value: $(params.oci-container)-e2e-artifacts
+          value: $(params.oci-container)
         - name: credentials-volume-name
           value: konflux-test-infra-volume
         - name: oci-tag-expiration
