@@ -413,4 +413,17 @@ export class KubeClient {
     }
     return key;
   }
+
+  public async getConfigMap(configMapName: string, namespace: string = 'default'): Promise<Record<string, string>> {
+    try {
+      const response = await this.k8sApi.readNamespacedConfigMap({
+        name: configMapName,
+        namespace: namespace,
+      });
+      return response.data || {};
+    } catch (error) {
+      console.error(`Failed to retrieve config map '${configMapName}': ${error}`);
+      throw error;
+    }
+  }
 }
