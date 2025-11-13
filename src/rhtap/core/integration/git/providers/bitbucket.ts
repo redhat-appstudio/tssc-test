@@ -7,6 +7,7 @@ import { ContentModifications } from '../../../../modification/contentModificati
 
 import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
+import * as path from 'path';
 
 /**
  * Bitbucket provider class
@@ -1051,11 +1052,14 @@ export class BitbucketProvider extends BaseGitProvider {
 
       // Delete each file in the folder
       for (const item of folderContents) {
-        if (item.type === 'file') {
-          await this.deleteFileInRepository(owner, repoName, item.path, branch, `${commitMessage}: ${item.name}`);
-        } else if (item.type === 'directory') {
+        // Extract basename from path for commit messages
+        const itemName = path.basename(item.path);
+        
+        if (item.type === 'commit_file') {
+          await this.deleteFileInRepository(owner, repoName, item.path, branch, `${commitMessage}: ${itemName}`);
+        } else if (item.type === 'commit_directory') {
           // Recursively delete subdirectories
-          await this.deleteFolderInRepository(owner, repoName, item.path, branch, `${commitMessage}: ${item.name}`);
+          await this.deleteFolderInRepository(owner, repoName, item.path, branch, `${commitMessage}: ${itemName}`);
         }
       }
 

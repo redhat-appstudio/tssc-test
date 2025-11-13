@@ -59,7 +59,7 @@
         "tpa": "remote",
         "acs": "remote"
       }],
-      "tests": ["full_workflow.test.ts"]
+      "tests": ["tssc/full_workflow.test.ts"]
     },
     {
       "name": "import-tests",
