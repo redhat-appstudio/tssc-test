@@ -1009,7 +1009,13 @@ export class GitlabProvider extends BaseGitProvider {
       await this.gitlabClient.getFileContent(project.id, filePath, branch);
       return true;
     } catch (error: any) {
-      if (error.status === 404 || error.message?.includes('not found')) {
+      // Check for all possible 404 error shapes from GitLab API
+      if (error instanceof GitLabNotFoundError ||
+          (error instanceof GitLabApiError && error.statusCode === 404) ||
+          error.response?.status === 404 ||
+          error.status === 404 ||
+          error.message?.includes('not found') ||
+          error.message?.includes('404')) {
         return false;
       }
       throw error;
