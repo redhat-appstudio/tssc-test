@@ -7,6 +7,7 @@ import { PullRequest } from '../models';
 import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
 import { LoggerFactory, Logger } from '../../../../../logger/logger';
+import * as path from 'path';
 
 /**
  * Bitbucket provider class
@@ -1038,7 +1039,7 @@ export class BitbucketProvider extends BaseGitProvider {
 
       // Delete each file in the folder (BitbucketDirectoryEntry uses 'commit_file' | 'commit_directory')
       for (const item of folderContents) {
-        const itemLabel = item.path.split('/').pop() ?? item.path;
+        const itemLabel = path.basename(item.path);
         if (item.type === 'commit_file') {
           await this.deleteFileInRepository(owner, repoName, item.path, branch, `${commitMessage}: ${itemLabel}`);
         } else if (item.type === 'commit_directory') {
