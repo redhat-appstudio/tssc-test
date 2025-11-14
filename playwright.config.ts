@@ -195,6 +195,9 @@ try {
   allProjects = [];
 }
 
+// Determine JUnit output file from environment variable, default to test-results/devlake-junit.xml
+const junitOutputFile = process.env.JUNIT_OUTPUT_FILE || 'test-results/devlake-junit.xml';
+
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.test.ts',
@@ -208,7 +211,7 @@ export default defineConfig({
   reporter: [
     ['html', { open: 'never', outputFolder: 'playwright-report' }],
     ['list'],
-    ['junit', { outputFile: 'test-results/devlake-junit.xml' }],
+    ['junit', { outputFile: junitOutputFile }],
   ],
   // Global setup and teardown
   globalSetup: './global-setup.ts',
