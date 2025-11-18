@@ -238,32 +238,32 @@ export class GithubRepositoryService {
     sha: string,
     branch: string = 'main'
   ): Promise<void> {
-    // Input validation
-    if (!owner || owner.trim() === '') {
-      throw new Error('Owner is required and cannot be empty');
-    }
-    if (!repo || repo.trim() === '') {
-      throw new Error('Repository name is required and cannot be empty');
-    }
-    if (!path || path.trim() === '') {
-      throw new Error('File path is required and cannot be empty');
-    }
-    if (!message || message.trim() === '') {
-      throw new Error('Commit message is required and cannot be empty');
-    }
-    if (!sha || sha.trim() === '') {
-      throw new Error('File SHA is required and cannot be empty');
-    }
-    if (!branch || branch.trim() === '') {
-      throw new Error('Branch is required and cannot be empty');
-    }
+    // Trim inputs first
+    const trimmedOwner = owner?.trim() || '';
+    const trimmedRepo = repo?.trim() || '';
+    const trimmedPath = path?.trim() || '';
+    const trimmedMessage = message?.trim() || '';
+    const trimmedSha = sha?.trim() || '';
+    const trimmedBranch = branch?.trim() || '';
 
-    const trimmedOwner = owner.trim();
-    const trimmedRepo = repo.trim();
-    const trimmedPath = path.trim();
-    const trimmedMessage = message.trim();
-    const trimmedSha = sha.trim();
-    const trimmedBranch = branch.trim();
+    // Aggregate missing or empty fields
+    const missingFields: string[] = [];
+    if (!trimmedOwner) missingFields.push('owner');
+    if (!trimmedRepo) missingFields.push('repo');
+    if (!trimmedPath) missingFields.push('path');
+    if (!trimmedMessage) missingFields.push('message');
+    if (!trimmedSha) missingFields.push('sha');
+    if (!trimmedBranch) missingFields.push('branch');
+
+    // Throw GithubApiError with status 400 if any fields are missing
+    if (missingFields.length > 0) {
+      const errorMessage = `Invalid deleteFile parameters: missing or empty ${missingFields.join(', ')}`;
+      throw new GithubApiError(
+        errorMessage,
+        400,
+        new Error(`Missing required fields: ${missingFields.join(', ')}`)
+      );
+    }
 
     try {
       await retry(
