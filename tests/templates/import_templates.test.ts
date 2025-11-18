@@ -47,9 +47,15 @@ test.describe.serial('Import Template Tests', () => {
   test(`creates ${templateName} component`, async ({ testItem }) => {
     // Add test-specific suffix to ensure uniqueness when running with other test suites
     const baseName = testItem.getName();
+    
+    // Validate that testItem has a valid name
+    if (!baseName || baseName === 'undefined' || baseName.trim() === '') {
+      throw new Error(`Invalid testItem name: "${baseName}". TestItem may not be properly initialized.`);
+    }
+    
     const componentName = `${baseName}-import`;
     const imageName = `${componentName}`;
-    console.log(`Creating component: ${componentName}`);
+    console.log(`Creating component: ${componentName} (baseName: ${baseName})`);
 
     try {
       // Create component using the TSSC framework
