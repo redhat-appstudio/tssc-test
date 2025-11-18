@@ -30,5 +30,5 @@ export interface RegistryPlugin {
      * Checks table column headers
      * @param page - The page object
      */
-    checkTableColumnHeaders(page: Page): Promise<void>;
+    checkTableColumns(page: Page): Promise<void>;
 }
