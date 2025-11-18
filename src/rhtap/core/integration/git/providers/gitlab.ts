@@ -985,7 +985,7 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public async checkIfRepositoryExists(owner: string, repoName: string): Promise<boolean> {
     try {
-      await this.gitlabClient.getProject(`${owner}/${repoName}`);
+      await this.gitlabClient.projects.getProject(`${owner}/${repoName}`);
       return true;
     } catch (error: any) {
       if (error.status === 404 || error.message?.includes('not found')) {
@@ -1005,8 +1005,8 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public async checkIfFileExistsInRepository(owner: string, repoName: string, filePath: string, branch: string = 'main'): Promise<boolean> {
     try {
-      const project = await this.gitlabClient.getProject(`${owner}/${repoName}`);
-      await this.gitlabClient.getFileContent(project.id, filePath, branch);
+      const project = await this.gitlabClient.projects.getProject(`${owner}/${repoName}`);
+      await this.gitlabClient.repositories.getFileContent(project.id, filePath, branch);
       return true;
     } catch (error: any) {
       // Check for all possible 404 error shapes from GitLab API
@@ -1033,7 +1033,7 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public async deleteFileInRepository(owner: string, repoName: string, filePath: string, branch: string = 'main', commitMessage: string = 'Delete file'): Promise<void> {
     try {
-      const project = await this.gitlabClient.getProject(`${owner}/${repoName}`);
+      const project = await this.gitlabClient.projects.getProject(`${owner}/${repoName}`);
       
       // Delete the file using GitLab API
       await this.gitlabClient.deleteFile(project.id, filePath, branch, commitMessage);
@@ -1062,7 +1062,7 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public async deleteFolderInRepository(owner: string, repoName: string, folderPath: string, branch: string = 'main', commitMessage: string = 'Delete folder'): Promise<void> {
     try {
-      const project = await this.gitlabClient.getProject(`${owner}/${repoName}`);
+      const project = await this.gitlabClient.projects.getProject(`${owner}/${repoName}`);
       
       // Get the contents of the folder
       const folderContents = await this.gitlabClient.getRepositoryTree(project.id, folderPath, branch);
