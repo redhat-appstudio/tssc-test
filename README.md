@@ -271,13 +271,47 @@ npm test
 
 ### Step 2: Configure Environment Variables
 
-Copy the template file from `templates/.env` to the root directory:
+Copy the template file from [templates/.env](templates/.env) to the root directory:
 
 ```bash
 cp templates/.env .env
 ```
 
-Edit the `.env` file to set required environment variables for running automation tests. After that, source the file before running tests:
+Edit the `.env` file to set required environment variables for running automation tests. Below are the key variables you need to configure:
+
+#### Required Variables (E2E Tests)
+
+Image Registry Configuration:
+- `QUAY_REGISTRY_ORG` - Organization name for Quay.io registry
+- `ARTIFACTORY_REGISTRY_ORG` - Organization name for Artifactory registry (if using Artifactory)
+- `NEXUS_REGISTRY_ORG` - Organization name for Nexus registry (if using Nexus)
+
+Git Provider Configuration:
+- `GITHUB_ORGANIZATION` - GitHub organization name (required when using GitHub as git provider)
+- `BITBUCKET_WORKSPACE` - Bitbucket workspace name (required when using Bitbucket)
+- `BITBUCKET_PROJECT` - Bitbucket project key (required when using Bitbucket)
+
+CI Provider Configuration:
+- `AZURE_PROJECT` - Azure DevOps project name (required when using Azure Pipelines as CI)
+
+#### Optional Variables (E2E Tests)
+
+Component Configuration:
+- `TSSC_APP_DEPLOYMENT_NAMESPACE` - Custom deployment namespace (default: `tssc-app`). Update this if you have modified the default `developerHub: namespacePrefixes` during the installation process.
+
+Multi CI Testing:
+- `CI_TEST_RUNNER_IMAGE` - Container image to use as the CI runner/builder, overriding the default image in generated component CI configuration files (for eg., .github/workflows, .gitlab-ci.yml, azure-pipeline.yml)
+
+
+#### UI Test Variables (Required for UI tests)
+
+GitHub UI Authentication:
+- `GH_USERNAME` - GitHub username for UI login
+- `GH_PASSWORD` - GitHub password for UI login
+- `GH_SECRET` - GitHub 2FA secret
+
+
+After editing the file, source it before running tests:
 
 ```bash
 source .env
@@ -414,13 +448,14 @@ After test execution, Playwright automatically generates an heml formated report
 
 ## UI Tests
 
-The framework includes UI automation tests that validate the tssc user interface using Playwright. These tests ensure the correct functionality of the web interface and its integration with various plugins and backend services.
+The framework includes UI automation tests that validate the RHADS SSC user interface using Playwright. These tests ensure the correct functionality of the web interface and its integration with various plugins and backend services. For high-level overview, please see [UI tests design](docs/UI_TESTS_DESIGN.md).
 
 ### Prerequisites for UI Tests
 
 - Complete all backend test setup steps above
 - Component should be created manually or during backend tests
 - Set UI-specific variables in the `.env` file
+- Setup Github app for UI testing (see [Github App UI Setup](docs/GITHUB_APP_UI_SETUP.md))
 
 ### Running UI Tests
 
@@ -447,7 +482,7 @@ The UI tests are organized as follows:
 
 - `src/ui/plugins/` - UI-specific automation for various plugins (Git providers, CI providers, image registries, etc.)
 - `src/ui/page-objects/` - Page Object Models (POMs) for UI elements
-- `tests/ui/ui.test.ts` - Main UI automation test file
+- `tests/ui/` - UI test automation suites
 
 ### Naming convention
 
@@ -455,11 +490,11 @@ All UI related files should be placed to the `/src/ui` or `/tests/ui` directorie
 
 Page object identifiers are located in the `/src/ui/page-objects` directory. Each file should have a `Po.ts` suffix.
 
-Plugin-related functionality is stored in the `/src/ui/plugins` directory, organized by plugins type - for example, `git` or `ci`. The file name should match the short name of a plugin. Classes defined in these files must include either `Ui` or `plugin` in their names.
+Plugin-related functionality is stored in the `/src/ui/plugins` directory, organized by plugin's type - for example, `git` or `ci`. The file name should match the short name of a plugin. Classes defined in these files must include either `Ui` or `plugin` in their names.
 
 ### UI Test Artifacts
 
-UI tests save screenshots and videos to the same directories as the backend E2E tests. However, those artifacts are not yet archived from the CI runs.
+UI tests save screenshots and videos to the same directories as the backend E2E tests.
 
 ### Security concerns
 
@@ -472,8 +507,7 @@ const inputFieldLocator = page.locator(fieldPO);
 await inputFieldLocator.evaluate((el) => el.style.filter = 'blur(5px)');
 ```
 
-- the logging level is lower then TRACE (trace level catches for example also network requests, which usually contains also secrets) [RHTAP-5351](https://issues.redhat.com/browse/RHTAP-5351)
-
+- the logging level is lower then TRACE (trace level catches for example also network requests, which usually contains also secrets)
 ## Development
 
 ### High-level Architecture

@@ -6,6 +6,7 @@
  */
 
 import { Git, GitType } from '../../../rhtap/core/integration/git/gitInterface';
+import { BitbucketUiPlugin } from './bitbucketUi';
 import { GithubUiPlugin } from './githubUi';
 import { GitlabUiPlugin } from './gitlabUi';
 import { GitPlugin } from './gitUiInterface';
@@ -28,6 +29,8 @@ export class GitUiFactory {
                 return new GithubUiPlugin(git);
             case GitType.GITLAB:
                 return new GitlabUiPlugin(git);
+            case GitType.BITBUCKET:
+                return new BitbucketUiPlugin(git);
             default:
                 console.warn(`Unsupported Git type: ${gitType}`);
                 return undefined;
