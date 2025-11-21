@@ -148,9 +148,8 @@ spec:
           set -ex
           echo "Consolidating artifacts"
           mkdir -p /workspace/e2e-test/artifacts/artifacts-e2e && chmod 777 /workspace/e2e-test/artifacts/artifacts-e2e
-          if [ -d playwright-report ]; then cp -r playwright-report /workspace/e2e-test/artifacts/artifacts-e2e/; fi
-          if [ -d test-results ]; then cp -r test-results /workspace/e2e-test/artifacts/artifacts-e2e/; fi
-          if [ -d tmp ]; then cp -r tmp /workspace/e2e-test/artifacts/artifacts-e2e/; fi
+          //TODO: Need to consider the directory structure of the artifacts in future
+          tar -czvf /workspace/e2e-test/artifacts/artifacts-e2e/e2e-artifacts.tar.gz playwright-report test-results tmp
     - name: upload-artifacts
       onError: continue
       ref:
