@@ -21,6 +21,7 @@ export class AddGitlabProjectVariablesCommand extends BaseCommand {
       this.addCosignSecretVariables(),
       this.addImageRegistryAuthVariables(),
       this.addTpaVariables(),
+      this.addCustomRootCAVariable(),
     ]);
 
     this.logComplete('Environment variables addition');
@@ -118,5 +119,19 @@ export class AddGitlabProjectVariablesCommand extends BaseCommand {
       TRUSTIFICATION_OIDC_CLIENT_SECRET: this.tpa.getOidc_client_secret(),
       TRUSTIFICATION_SUPPORTED_CYCLONEDX_VERSION: this.tpa.getSupported_cyclonedx_version(),
     });
+  }
+
+  private async addCustomRootCAVariable(): Promise<void> {
+    const gitlab = this.git as unknown as GitlabProvider;
+    const rootCA = await this.getCustomRootCA();
+    
+    if (rootCA) {
+      await gitlab.setProjectVariableOnSourceRepo({
+        CUSTOM_ROOT_CA: rootCA,
+      });
+      await gitlab.setProjectVariableOnGitOpsRepo({
+        CUSTOM_ROOT_CA: rootCA,
+      });
+    }
   }
 }

@@ -105,6 +105,22 @@ export class UpdateImageRegistryUser implements EnvModification {
     };
   }
 }
+
+/**
+ * Custom Root CA modification
+ */
+export class UpdateCustomRootCA implements EnvModification {
+  getModification(caCert: string): ContentModifications {
+    return {
+      'rhtap/env.sh': [
+        {
+          oldContent: '# gather images params',
+          newContent: '# gather images params\nexport CUSTOM_ROOT_CA="' + caCert + '"',
+        },
+      ],
+    };
+  }
+}
 /**
  * Enum of available environment modification types
  */
@@ -115,6 +131,7 @@ export enum EnvModificationType {
   ROX_CENTRAL_ENDPOINT = 'ROX_CENTRAL_ENDPOINT',
   COSIGN_PUBLIC_KEY = 'COSIGN_PUBLIC_KEY',
   IMAGE_REGISTRY_USER = 'IMAGE_REGISTRY_USER',
+  CUSTOM_ROOT_CA = 'CUSTOM_ROOT_CA',
 }
 
 /**
@@ -140,6 +157,8 @@ export class EnvModificationFactory {
         return new UpdateCosignPublicKey();
       case EnvModificationType.IMAGE_REGISTRY_USER:
         return new UpdateImageRegistryUser();
+      case EnvModificationType.CUSTOM_ROOT_CA:
+        return new UpdateCustomRootCA();
       default:
         throw new Error(`Unknown environment modification type: ${type}`);
     }
@@ -209,6 +228,14 @@ export class RhtapEnvModifier {
     const modification = EnvModificationFactory.create(
       EnvModificationType.IMAGE_REGISTRY_USER
     ).getModification(username);
+    this.container.merge(modification);
+    return this;
+  }
+
+  updateCustomRootCA(caCert: string): RhtapEnvModifier {
+    const modification = EnvModificationFactory.create(
+      EnvModificationType.CUSTOM_ROOT_CA
+    ).getModification(caCert);
     this.container.merge(modification);
     return this;
   }
