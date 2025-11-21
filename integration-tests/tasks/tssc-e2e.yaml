@@ -137,6 +137,13 @@ spec:
         TEST_EXIT_CODE=0
         FORCE_COLOR=false npm run test:e2e || TEST_EXIT_CODE=$?
 
+        # workaround for the issue that the content of index.html file is not being displayed in the Artifacts Browser page
+        echo "Renaming test result file to report.html"
+        mv playwright-report/index.html playwright-report/report.html || {
+          echo "Error: Failed to rename playwright-report/index.html to report.html" >&2
+          exit 1
+        }
+
         echo "Test execution completed with exit code: $TEST_EXIT_CODE"
         exit $TEST_EXIT_CODE
     - name: consolidate-artifacts
