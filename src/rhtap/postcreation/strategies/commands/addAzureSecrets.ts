@@ -28,11 +28,12 @@ export class AddAzureVarsAndSecrets extends BaseCommand {
   }
 
   private async addVarsAndSecrets(): Promise<void> {
-    const [encodedCosignPublicKey, encodedCosignPrivateKey, encodedCosignPrivateKeyPassword] =
+    const [encodedCosignPublicKey, encodedCosignPrivateKey, encodedCosignPrivateKeyPassword, rootCA] =
       await Promise.all([
         this.credentialService.getCosignPublicKey(),
         this.credentialService.getEncodedCosignPrivateKey(),
         this.credentialService.getEncodedCosignPrivateKeyPassword(),
+        this.getCustomRootCA(),
       ]);
 
     const variables: AzureVariable[] = [
@@ -91,6 +92,7 @@ export class AddAzureVarsAndSecrets extends BaseCommand {
         value: this.tas.getTufMirrorURL(),
         isSecret: false,
       },
+      ...(rootCA ? [{ key: `CUSTOM_ROOT_CA`, value: rootCA, isSecret: false }] : []),
     ];
 
     await this.azureCI.createVariableGroup(this.component.getName(), variables);
