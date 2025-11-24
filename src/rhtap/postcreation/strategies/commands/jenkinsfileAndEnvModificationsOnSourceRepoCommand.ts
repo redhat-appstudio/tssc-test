@@ -4,7 +4,7 @@ import {
   ContentModificationsContainer,
 } from '../../../modification/contentModification';
 import { JenkinsfileModifier } from '../../../modification/jenkinsfile';
-import { RhtapEnvModifier } from '../../../modification/rhtap-env';
+import { TsscEnvModifier } from '../../../modification/tssc-env';
 import { BaseCommand } from './baseCommand';
 
 /**
@@ -48,7 +48,7 @@ export class JenkinsfileAndEnvModificationsOnSourceRepoCommand extends BaseComma
     );
 
     modificationsContainer.merge(
-      RhtapEnvModifier.create()
+      TsscEnvModifier.create()
         .updateTUFMirrorURL(this.tas.getTufMirrorURL())
         .updateRokorServerURL(this.tas.getRekorServerURL())
         .updateRoxCentralEndpoint(this.acs.getRoxCentralEndpoint())

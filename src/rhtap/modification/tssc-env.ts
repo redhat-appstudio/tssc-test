@@ -17,7 +17,7 @@ export interface EnvModification {
 export class DisableACS implements EnvModification {
   getModification(): ContentModifications {
     return {
-      'rhtap/env.sh': [
+      'tssc/env.sh': [
         {
           oldContent: 'export DISABLE_ACS=${DISABLE_ACS-false}',
           newContent: 'export DISABLE_ACS=true',
@@ -33,7 +33,7 @@ export class DisableACS implements EnvModification {
 export class UpdateTUFMirrorURL implements EnvModification {
   getModification(tufURL: string): ContentModifications {
     return {
-      'rhtap/env.sh': [
+      'tssc/env.sh': [
         {
           oldContent: 'http://tuf.tssc-tas.svc',
           newContent: tufURL,
@@ -49,7 +49,7 @@ export class UpdateTUFMirrorURL implements EnvModification {
 export class UpdateRokorServerURL implements EnvModification {
   getModification(rokorURL: string): ContentModifications {
     return {
-      'rhtap/env.sh': [
+      'tssc/env.sh': [
         {
           oldContent: 'http://rekor-server.tssc-tas.svc',
           newContent: rokorURL,
@@ -65,7 +65,7 @@ export class UpdateRokorServerURL implements EnvModification {
 export class UpdateRoxCentralEndpoint implements EnvModification {
   getModification(roxURL: string): ContentModifications {
     return {
-      'rhtap/env.sh': [
+      'tssc/env.sh': [
         {
           oldContent: '# export ROX_CENTRAL_ENDPOINT=central-acs.apps.user.cluster.domain.com:443',
           newContent: 'export ROX_CENTRAL_ENDPOINT="' + roxURL + '"',
@@ -78,7 +78,7 @@ export class UpdateRoxCentralEndpoint implements EnvModification {
 export class UpdateCosignPublicKey implements EnvModification {
   getModification(cosignPublicKey: string): ContentModifications {
     return {
-      'rhtap/env.sh': [
+      'tssc/env.sh': [
         {
           oldContent: '# gather images params', // Use regex to match end of a line
           newContent: '# gather images params\nexport COSIGN_PUBLIC_KEY="' + cosignPublicKey + '"',
@@ -91,7 +91,7 @@ export class UpdateCosignPublicKey implements EnvModification {
 export class UpdateImageRegistryUser implements EnvModification {
   getModification(username: string): ContentModifications {
     return {
-      'rhtap/env.sh': [
+      'tssc/env.sh': [
         {
           oldContent: '# gather images params',
           newContent: '# gather images params\nexport IMAGE_REGISTRY_USER="' + username + '"',
@@ -142,9 +142,9 @@ export class EnvModificationFactory {
 }
 
 /**
- * RhtapEnvModifier class to manage environment modifications
+ * TsscEnvModifier class to manage environment modifications
  * Example usage:
- * const modifier = RhtapEnvModifier.create()
+ * const modifier = TsscEnvModifier.create()
  *   .enableACS()
  *   .updateTUFMirrorURL('http://new-tuf-url')
  *   .updateRokorServerURL('http://new-rekor-url')
@@ -155,20 +155,20 @@ export class EnvModificationFactory {
  * The modifications can then be applied to the relevant files.
  * Note: The methods are chainable, allowing for a fluent interface.
  */
-export class RhtapEnvModifier {
+export class TsscEnvModifier {
   private container: ContentModificationsContainer;
 
   private constructor() {
     this.container = new ContentModificationsContainer();
   }
 
-  disableACS(): RhtapEnvModifier {
+  disableACS(): TsscEnvModifier {
     const modification = EnvModificationFactory.create(EnvModificationType.ACS).getModification();
     this.container.merge(modification);
     return this;
   }
 
-  updateTUFMirrorURL(tufURL: string): RhtapEnvModifier {
+  updateTUFMirrorURL(tufURL: string): TsscEnvModifier {
     const modification = EnvModificationFactory.create(
       EnvModificationType.TUF_MIRROR
     ).getModification(tufURL);
@@ -176,7 +176,7 @@ export class RhtapEnvModifier {
     return this;
   }
 
-  updateRokorServerURL(rokorURL: string): RhtapEnvModifier {
+  updateRokorServerURL(rokorURL: string): TsscEnvModifier {
     const modification = EnvModificationFactory.create(
       EnvModificationType.ROKOR_SERVER
     ).getModification(rokorURL);
@@ -184,7 +184,7 @@ export class RhtapEnvModifier {
     return this;
   }
 
-  updateRoxCentralEndpoint(roxURL: string): RhtapEnvModifier {
+  updateRoxCentralEndpoint(roxURL: string): TsscEnvModifier {
     const modification = EnvModificationFactory.create(
       EnvModificationType.ROX_CENTRAL_ENDPOINT
     ).getModification(roxURL);
@@ -192,7 +192,7 @@ export class RhtapEnvModifier {
     return this;
   }
 
-  updateCosignPublicKey(cosignPublicKey: string): RhtapEnvModifier {
+  updateCosignPublicKey(cosignPublicKey: string): TsscEnvModifier {
     const modification = EnvModificationFactory.create(
       EnvModificationType.COSIGN_PUBLIC_KEY
     ).getModification(cosignPublicKey);
@@ -200,7 +200,7 @@ export class RhtapEnvModifier {
     return this;
   }
 
-  updateImageRegistryUser(username: string): RhtapEnvModifier {
+  updateImageRegistryUser(username: string): TsscEnvModifier {
     const modification = EnvModificationFactory.create(
       EnvModificationType.IMAGE_REGISTRY_USER
     ).getModification(username);
@@ -214,11 +214,11 @@ export class RhtapEnvModifier {
 
   // Updated to align with the latest ContentModificationsContainer usage
   applyModifications(content: string): string {
-    return this.container.applyToContent('rhtap/env.sh', content);
+    return this.container.applyToContent('tssc/env.sh', content);
   }
 
   // Static factory method for easy creation
-  static create(): RhtapEnvModifier {
-    return new RhtapEnvModifier();
+  static create(): TsscEnvModifier {
+    return new TsscEnvModifier();
   }
 }
