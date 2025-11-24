@@ -1,6 +1,11 @@
 import { ContentModifications, ContentModificationsContainer } from './contentModification';
 
 /**
+ * Path to the environment configuration file in the repository
+ */
+const ENV_FILE_PATH = 'tssc/env.sh';
+
+/**
  * Interface for environment variable modifications
  */
 export interface EnvModification {
@@ -17,7 +22,7 @@ export interface EnvModification {
 export class DisableACS implements EnvModification {
   getModification(): ContentModifications {
     return {
-      'rhtap/env.sh': [
+      [ENV_FILE_PATH]: [
         {
           oldContent: 'export DISABLE_ACS=${DISABLE_ACS-false}',
           newContent: 'export DISABLE_ACS=true',
@@ -33,7 +38,7 @@ export class DisableACS implements EnvModification {
 export class UpdateTUFMirrorURL implements EnvModification {
   getModification(tufURL: string): ContentModifications {
     return {
-      'rhtap/env.sh': [
+      [ENV_FILE_PATH]: [
         {
           oldContent: 'http://tuf.tssc-tas.svc',
           newContent: tufURL,
@@ -49,7 +54,7 @@ export class UpdateTUFMirrorURL implements EnvModification {
 export class UpdateRokorServerURL implements EnvModification {
   getModification(rokorURL: string): ContentModifications {
     return {
-      'rhtap/env.sh': [
+      [ENV_FILE_PATH]: [
         {
           oldContent: 'http://rekor-server.tssc-tas.svc',
           newContent: rokorURL,
@@ -65,7 +70,7 @@ export class UpdateRokorServerURL implements EnvModification {
 export class UpdateRoxCentralEndpoint implements EnvModification {
   getModification(roxURL: string): ContentModifications {
     return {
-      'rhtap/env.sh': [
+      [ENV_FILE_PATH]: [
         {
           oldContent: '# export ROX_CENTRAL_ENDPOINT=central-acs.apps.user.cluster.domain.com:443',
           newContent: 'export ROX_CENTRAL_ENDPOINT="' + roxURL + '"',
@@ -78,7 +83,7 @@ export class UpdateRoxCentralEndpoint implements EnvModification {
 export class UpdateCosignPublicKey implements EnvModification {
   getModification(cosignPublicKey: string): ContentModifications {
     return {
-      'rhtap/env.sh': [
+      [ENV_FILE_PATH]: [
         {
           oldContent: '# gather images params', // Use regex to match end of a line
           newContent: '# gather images params\nexport COSIGN_PUBLIC_KEY="' + cosignPublicKey + '"',
@@ -91,7 +96,7 @@ export class UpdateCosignPublicKey implements EnvModification {
 export class UpdateImageRegistryUser implements EnvModification {
   getModification(username: string): ContentModifications {
     return {
-      'rhtap/env.sh': [
+      [ENV_FILE_PATH]: [
         {
           oldContent: '# gather images params',
           newContent: '# gather images params\nexport IMAGE_REGISTRY_USER="' + username + '"',
@@ -214,7 +219,7 @@ export class RhtapEnvModifier {
 
   // Updated to align with the latest ContentModificationsContainer usage
   applyModifications(content: string): string {
-    return this.container.applyToContent('rhtap/env.sh', content);
+    return this.container.applyToContent(ENV_FILE_PATH, content);
   }
 
   // Static factory method for easy creation

@@ -4,7 +4,6 @@ import {
   ContentModificationsContainer,
 } from '../../../modification/contentModification';
 import JenkinsfileModifier from '../../../modification/jenkinsfile';
-import { RhtapEnvModifier } from '../../../modification/rhtap-env';
 import { BaseCommand } from './baseCommand';
 
 /**
@@ -30,7 +29,6 @@ export class JenkinsfileAndEnvModificationsOnGitopsRepoCommand extends BaseComma
   }
 
   private async getGitOpsRepoModifications(): Promise<ContentModifications> {
-    const cosignPublicKey = await this.credentialService.getCosignPublicKey();
     const modificationsContainer = new ContentModificationsContainer();
 
     modificationsContainer.merge(
@@ -39,16 +37,6 @@ export class JenkinsfileAndEnvModificationsOnGitopsRepoCommand extends BaseComma
         .enableRegistryPassword()
         .disableQuayCredentials()
         .enableTPAVariables()
-        .getModifications()
-    );
-
-    modificationsContainer.merge(
-      RhtapEnvModifier.create()
-        .updateTUFMirrorURL(this.tas.getTufMirrorURL())
-        .updateRokorServerURL(this.tas.getRekorServerURL())
-        .updateRoxCentralEndpoint(this.acs.getRoxCentralEndpoint())
-        .updateCosignPublicKey(cosignPublicKey)
-        .updateImageRegistryUser(this.component.getRegistry().getImageRegistryUser())
         .getModifications()
     );
 
