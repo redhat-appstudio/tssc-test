@@ -84,14 +84,6 @@ export class JenkinsXmlBuilder {
   <description></description>
   <keepDependencies>false</keepDependencies>
   <properties>
-    //TODO: Uncomment this when we have a way to trigger the Jenkins job automatically
-    // <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
-    //   <triggers>
-    //     <com.cloudbees.jenkins.GitHubPushTrigger plugin="${JenkinsConfig.PLUGINS.GITHUB}">
-    //       <spec/>
-    //     </com.cloudbees.jenkins.GitHubPushTrigger>
-    //   </triggers>
-    // </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
   </properties>
   <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition" plugin="${JenkinsConfig.PLUGINS.WORKFLOW_CPS}">
     <scm class="hudson.plugins.git.GitSCM" plugin="${JenkinsConfig.PLUGINS.GIT}">
