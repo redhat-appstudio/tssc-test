@@ -19,7 +19,7 @@ setup('authenticate', async ({ page }) => {
   const configMap = await kubeClient.getConfigMap('tssc-developer-hub-app-config', 'tssc-dh');
   const raw = configMap['app-config.tssc.yaml'];
   const cfg = yaml.load(raw) as any;
-  const signInPage = cfg?.signInPage; ;
+  const signInPage = cfg?.signInPage;
 
   // Create GitHubUiPlugin for login (pass empty object as Git since it's not used for login)
   const githubUI = new GithubUiPlugin({} as Git);
