@@ -1,5 +1,6 @@
 import { KubeClient } from '../../src/api/ocp/kubeClient';
 import { Git, GitType } from '../../src/rhtap/core/integration/git';
+import { OidcUi } from '../../src/ui/plugins/auth/oidcUi';
 import { GithubUiPlugin } from '../../src/ui/plugins/git/githubUi';
 import { test as setup } from '@playwright/test';
 import yaml from 'js-yaml';
@@ -22,12 +23,17 @@ setup('authenticate', async ({ page }) => {
   const signInPage = cfg?.signInPage;
 
   // Create GitHubUiPlugin for login (pass empty object as Git since it's not used for login)
-  const githubUI = new GithubUiPlugin({} as Git);
+ 
 
   switch (signInPage) {
+    case 'oidc':
+      { const oidcUI = new OidcUi();
+      await oidcUI.login(page);
+      break; }
     case GitType.GITHUB:
+      { const githubUI = new GithubUiPlugin({} as Git);
       await githubUI.login(page);
-      break;
+      break; }
     default:
       setup.skip(true, `Unsupported sign in page: ${String(signInPage)}`);
       return;
