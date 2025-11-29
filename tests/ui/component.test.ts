@@ -154,6 +154,10 @@ test.describe('Component UI Test Suite', () => {
         timeout: 20000,
       });
 
+      await test.step('Hide Quick start side panel', async () => {
+        await hideQuickStartIfVisible(page);
+      }, { timeout: 20000 });
+
       await test.step('Check repository heading', async () => {
         await registryPlugin.checkRepositoryHeading(page);
       }, { timeout: 20000 });
