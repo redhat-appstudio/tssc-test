@@ -5,8 +5,8 @@ import { CreateJenkinsJobsCommand } from './commands/createJenkinsJobsCommand';
 import { CreateWebhookCommand } from './commands/createWebhookCommand';
 import { JenkinsfileAndEnvModificationsOnGitopsRepoCommand } from './commands/jenkinsfileAndEnvModificationsOnGitopsRepoCommand';
 import { JenkinsfileAndEnvModificationsOnSourceRepoCommand } from './commands/jenkinsfileAndEnvModificationsOnSourceRepoCommand';
-import { TriggerJenkinsJobCommand } from './commands/triggerJenkinsJobCommand';
 import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
+import { UpdateCIRunnerImage } from './commands/updateCIRunnerImage';
 
 /**
  * Jenkins-specific implementation of post-creation action strategy
@@ -32,6 +32,7 @@ export class JenkinsPostCreateActionStrategy implements ComponentActionStrategy 
         new AddJenkinsSecretsCommand(component),
         new CreateJenkinsJobsCommand(component),
         new CreateWebhookCommand(component),
+        new UpdateCIRunnerImage(component),
         //First run must be triggered manually:
         // https://stackoverflow.com/questions/56714213/jenkins-not-triggered-by-github-webhook#comment109322558_60625199 
         // new TriggerJenkinsJobCommand(component),// 18/09/2025:  We decided to trigger the Jenkins job manually without using Jenkins Plugins
