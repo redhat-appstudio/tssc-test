@@ -64,7 +64,9 @@ spec:
           echo "No testplan parameter provided, downloading from repository"
           GIT_REPO="$(jq -r '.git.repo // empty' <<< $JOB_SPEC)"
           REPO_ORG=$(jq -r '.git.source_repo_org' <<< $JOB_SPEC)
-          BRANCH=$(jq -r '.git.source_repo_branch' <<< $JOB_SPEC)
+          # Sanitize Branch name - Get all after refs/heads/
+          GIT_BRANCH=$(jq -r '.git.source_repo_branch' <<< $JOB_SPEC)
+          BRANCH="${GIT_BRANCH##refs/heads/}"
           testplan_file_location="integration-tests/config/testplan.json"
           echo "downloading testplan.json from $REPO_ORG/$GIT_REPO/refs/heads/$BRANCH/$testplan_file_location"
           curl -o testplan.json https://raw.githubusercontent.com/$REPO_ORG/$GIT_REPO/refs/heads/$BRANCH/$testplan_file_location
