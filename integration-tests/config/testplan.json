@@ -3,7 +3,8 @@
       {
         "name": "backend-tests",
         "templates": ["go"],
-        "tssc": [{
+        "tssc": [
+        {
           "git": "github",
           "ci": "tekton",
           "registry": "quay",
@@ -51,7 +52,15 @@
           "registry": "quay",
           "tpa": "remote",
           "acs": "remote"
-        }],
+        },
+        {
+          "git": "bitbucket",
+          "ci": "jenkins",
+          "registry": "quay",
+          "tpa": "remote",
+          "acs": "remote"
+        }
+      ],
         "tests": ["full_workflow.test.ts"]
       }
     ]
