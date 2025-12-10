@@ -31,10 +31,4 @@ export interface RegistryPlugin {
      * @param page - The page object
      */
     checkTableColumnHeaders(page: Page): Promise<void>;
-
-    /**
-     * Checks vulnerabilities table content
-     * @param page - The page object
-     */
-    checkVulnerabilities(page: Page): Promise<void>;
 }

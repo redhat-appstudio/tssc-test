@@ -14,6 +14,13 @@ export const RegistryPO = {
     expiresColumnHeader: 'Expires',
     manifestColumnHeader: 'Manifest',
 
+    // Nexus repository headers
+    versionColumnHeader: 'Version',
+    artifactColumnHeader: 'Artifact',
+    repositoryTypeColumnHeader: 'Repository Type',
+    checksumColumnHeader: 'Checksum',
+    modifiedColumnHeader: 'Modified',
+
     // Vulnerabilities table headers
     advisoryColumnHeader: 'Advisory',
     severityColumnHeader: 'Severity',
@@ -27,5 +34,6 @@ export const RegistryPO = {
 
     // Repository elements
     quayRepositoryPrefix: 'Quay repository:',
+    nexusRepositoryPrefix: 'Nexus Repository Manager:',
     backToRepositoryLinkLabel: 'Back to repository'
 }; 
