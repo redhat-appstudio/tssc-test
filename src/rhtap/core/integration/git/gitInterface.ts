@@ -115,4 +115,6 @@ export interface Git extends IntegrationSecret {
   ): Promise<string>;
 
   getToken(): string;
+
+  getUsername(): string;
 }
