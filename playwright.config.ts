@@ -5,6 +5,8 @@ import { getTestMatchPattern } from './src/utils/testFilterLoader';
 import { TestPlan } from './src/playwright/testplan';
 import path from 'path';
 
+export const AUTH_STORAGE_FILE = path.join('playwright', '.auth', 'user.json');
+
 // Extend Playwright types to include testItem
 declare module '@playwright/test' {
   interface PlaywrightTestOptions {
@@ -25,9 +27,6 @@ let allProjects: any[] = [];
 try {
   // Load pre-generated configurations
   projectConfigs = loadProjectConfigurations();
-
-  // Authentication file path
-  const authFile = path.join('./playwright/.auth/user.json');
 
   // Detect if UI tests are needed based on test plan content
   let hasUITests = false;
@@ -146,7 +145,7 @@ try {
       testMatch: uiTests,
       use: {
         testItem: config.testItem,
-        storageState: authFile,
+        storageState: AUTH_STORAGE_FILE,
       },
       expect: {
         timeout: DEFAULT_UI_TIMEOUT,
@@ -169,7 +168,7 @@ try {
       testMatch: uiTests,
       use: {
         testItem: config.testItem,
-        storageState: authFile,
+        storageState: AUTH_STORAGE_FILE,
       },
       expect: {
         timeout: DEFAULT_UI_TIMEOUT,
@@ -195,6 +194,9 @@ try {
   allProjects = [];
 }
 
+// Determine JUnit output file from environment variable, default to test-results/devlake-junit.xml
+const junitOutputFile = process.env.JUNIT_OUTPUT_FILE || 'test-results/devlake-junit.xml';
+
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.test.ts',
@@ -208,7 +210,7 @@ export default defineConfig({
   reporter: [
     ['html', { open: 'never', outputFolder: 'playwright-report' }],
     ['list'],
-    ['junit', { outputFile: 'test-results/devlake-junit.xml' }],
+    ['junit', { outputFile: junitOutputFile }],
   ],
   // Global setup and teardown
   globalSetup: './global-setup.ts',

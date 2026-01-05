@@ -1,8 +1,10 @@
 import { createBasicFixture } from '../../src/utils/test/fixtures';
+import { existsSync } from 'fs';
 import { UiComponent } from '../../src/ui/uiComponent';
 import { CommonPO } from '../../src/ui/page-objects/commonPo';
 import { hideQuickStartIfVisible } from '../../src/ui/commonUi';
 import { waitForPageLoad } from '../../src/ui/commonUi';
+import { AUTH_STORAGE_FILE } from '../../playwright.config';
 
 /**
  * Create a basic test fixture with testItem
@@ -23,6 +25,13 @@ const test = createBasicFixture();
  * 6. Check the Image Registry tab and verify information shown
  */
 test.describe('Component UI Test Suite', () => {
+  // Skip the entire UI suite if auth storage state is missing
+  test.beforeAll(async () => {
+    if (!existsSync(AUTH_STORAGE_FILE)) {
+      test.skip(true, 'Authentication setup was skipped or failed; skipping dependent UI tests');
+    }
+  });
+
   // Shared variables for test steps
   let component: UiComponent;
 
@@ -144,6 +153,10 @@ test.describe('Component UI Test Suite', () => {
       await page.goto(`${component.getComponentUrl()}/image-registry`, {
         timeout: 20000,
       });
+
+      await test.step('Hide Quick start side panel', async () => {
+        await hideQuickStartIfVisible(page);
+      }, { timeout: 20000 });
 
       await test.step('Check repository heading', async () => {
         await registryPlugin.checkRepositoryHeading(page);

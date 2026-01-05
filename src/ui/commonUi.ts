@@ -1,4 +1,4 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Page, Locator } from '@playwright/test';
 
 /**
  * Checks if a website URL returns an expected status code
@@ -59,4 +59,12 @@ export async function waitForPageLoad(page: Page, name: string) {
 export async function openTab(page: Page, tabName: string) {
     const tab = page.getByRole('tablist').getByText(tabName);
     await tab.click();
+}
+
+/**
+ * Applies a blur filter to the locator element
+ * @param locator - Locator to blur
+ */
+export async function blurLocator(locator: Locator): Promise<void> {
+    await locator.evaluate(el => { (el as HTMLElement).style.filter = 'blur(5px)'; });
 }

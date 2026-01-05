@@ -13,8 +13,10 @@ import { GitPO } from '../../page-objects/commonPo';
 import { authenticator } from 'otplib';
 import retry from 'async-retry';
 import { GitUi } from './gitUi';
+import { AuthUi } from '../auth/authUi';
+import { blurLocator } from '../../commonUi';
 
-export class GithubUiPlugin extends GitUi implements GitPlugin {
+export class GithubUiPlugin extends GitUi implements GitPlugin, AuthUi {
 
     /**
      * Performs GitHub login through the Developer Hub UI.
@@ -49,7 +51,7 @@ export class GithubUiPlugin extends GitUi implements GitPlugin {
             async (): Promise<void> => {
                 const token = await this.getGitHub2FAOTP();
                 // blur the field to avoid 2FA token being captured by screenshot or video
-                await twoFactorField.evaluate((el) => el.style.filter = 'blur(5px)');
+                await blurLocator(twoFactorField);
                 await twoFactorField.fill(token);
                 // The field should detach after successful auth
                 await twoFactorField.waitFor({ state: 'detached', timeout: 5000 });

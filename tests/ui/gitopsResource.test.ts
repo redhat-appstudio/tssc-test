@@ -4,6 +4,8 @@ import { UiComponent } from '../../src/ui/uiComponent';
 import { hideQuickStartIfVisible, openTab } from '../../src/ui/commonUi';
 import { waitForPageLoad } from '../../src/ui/commonUi';
 import { CIType } from '../../src/rhtap/core/integration/ci';
+import { existsSync } from 'fs';
+import { AUTH_STORAGE_FILE } from '../../playwright.config';
 
 /**
  * Create a basic test fixture with testItem
@@ -11,6 +13,13 @@ import { CIType } from '../../src/rhtap/core/integration/ci';
 const test = createBasicFixture();
 
 test.describe('Gitops Resource UI Test Suite', () => {
+  // Skip the entire UI suite if auth storage state is missing
+  test.beforeAll(async () => {
+    if (!existsSync(AUTH_STORAGE_FILE)) {
+      test.skip(true, 'Authentication setup was skipped or failed; skipping dependent UI tests');
+    }
+  });
+
   // Shared variables for test steps
   let component: UiComponent;
 

@@ -1,8 +1,8 @@
 # Multi-stage build for tools
-FROM registry.redhat.io/openshift4/ose-tools-rhel9@sha256:e1ab3a20193da1433980fb1012313f6ca727d249d965fc388cef83d0d842148d AS ose-tools
+FROM registry.redhat.io/openshift4/ose-tools-rhel9@sha256:ec763a4e90cb4b256a7210cd2e30949a7bc8e83ee04a95c649270febcc892210 AS ose-tools
 
 # Builder stage for ArgoCD CLI
-FROM registry.access.redhat.com/ubi9/ubi:9.6-1760340943 AS builder
+FROM registry.access.redhat.com/ubi9/ubi:9.7-1764794285 AS builder
 
 # Install ArgoCD CLI
 RUN VERSION=$(curl -L -s https://raw.githubusercontent.com/argoproj/argo-cd/stable/VERSION) \
@@ -18,7 +18,7 @@ RUN curl --proto "=https" --tlsv1.2 -sSf -L "https://github.com/mikefarah/yq/rel
     && yq --version
 
 # Final stage
-FROM registry.access.redhat.com/ubi9/nodejs-20:9.6-1762359669
+FROM registry.access.redhat.com/ubi9/nodejs-20:9.7-1766414952
 
 LABEL name="tssc-test" \
     maintainers="TSSC Team"

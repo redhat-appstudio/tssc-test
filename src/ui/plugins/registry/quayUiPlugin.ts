@@ -4,21 +4,28 @@ import { BaseRegistryPlugin } from "./baseRegistryPlugin";
 import { RegistryPO } from "../../page-objects/registryPo";
 
 export class QuayUiPlugin extends BaseRegistryPlugin {
-    private quayProvider: ImageRegistry;
 
     constructor(registry: ImageRegistry) {
         super(registry);
-        this.quayProvider = registry;
     }
 
     async checkRepositoryHeading(page: Page): Promise<void> {
-        await expect(page.getByRole('heading', { name: `${RegistryPO.quayRepositoryPrefix} ${this.quayProvider.getOrganization()}/${this.quayProvider.getImageName()}` })).toBeVisible();
+        await expect(page.getByRole('heading', { name: `${RegistryPO.quayRepositoryPrefix} ${this.registry.getOrganization()}/${this.registry.getImageName()}` })).toBeVisible();
     }
 
     async checkRepositoryLink(page: Page): Promise<void> {
-        const repositoryLink = `${this.quayProvider.getOrganization()}/${this.quayProvider.getImageName()}`;
+        const repositoryLink = `${this.registry.getOrganization()}/${this.registry.getImageName()}`;
 
         await expect(page.getByRole('link', { name: repositoryLink })).toBeVisible();
+    }
+
+    async checkTableColumnHeaders(page: Page): Promise<void> {
+        await expect(page.getByRole('columnheader', { name: RegistryPO.tagColumnHeader })).toBeVisible();
+        await expect(page.getByRole('columnheader', { name: RegistryPO.lastModifiedColumnHeader })).toBeVisible();
+        await expect(page.getByRole('columnheader', { name: RegistryPO.securityScanColumnHeader })).toBeVisible();
+        await expect(page.getByRole('columnheader', { name: RegistryPO.sizeColumnHeader })).toBeVisible();
+        await expect(page.getByRole('columnheader', { name: RegistryPO.expiresColumnHeader })).toBeVisible();
+        await expect(page.getByRole('columnheader', { name: RegistryPO.manifestColumnHeader })).toBeVisible();
     }
 
     async checkVulnerabilities(page: Page): Promise<void> {
@@ -47,7 +54,7 @@ export class QuayUiPlugin extends BaseRegistryPlugin {
         await goBackButton.click();
 
         // Check that the repository link is visible
-        const repositoryLink = `${this.quayProvider.getOrganization()}/${this.quayProvider.getImageName()}`;
+        const repositoryLink = `${this.registry.getOrganization()}/${this.registry.getImageName()}`;
         await expect(page.getByRole('link', { name: repositoryLink })).toBeVisible();
     }
 }
