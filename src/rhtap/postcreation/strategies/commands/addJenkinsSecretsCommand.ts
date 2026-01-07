@@ -27,8 +27,13 @@ export class AddJenkinsSecretsCommand extends BaseCommand {
       this.addAcsSecrets(),
       this.addCosignSecrets(),
       this.addGitAuthSecrets(),
+      this.addImageRegistryUserSecrets(),
       this.addImageRegistrySecrets(),
       this.addTpaSecrets(),
+      this.addRoxCentralEndpointSecrets(),
+      this.addRekorHostSecrets(),
+      this.addTufMirrorSecrets(),
+      this.addCosignPublicKeySecrets(),
     ]);
 
     this.logComplete('secrets addition');
@@ -72,6 +77,14 @@ export class AddJenkinsSecretsCommand extends BaseCommand {
       this.folderName,
       Credential.IMAGE_REGISTRY_PASSWORD,
       this.component.getRegistry().getImageRegistryPassword()
+    );
+  }
+
+  private async addImageRegistryUserSecrets(): Promise<void> {
+    await this.jenkinsCI.addCredential(
+      this.folderName,
+      Credential.IMAGE_REGISTRY_USER,
+      this.component.getRegistry().getImageRegistryUser()
     );
   }
 
@@ -119,5 +132,40 @@ export class AddJenkinsSecretsCommand extends BaseCommand {
       default:
         throw new Error('Unsupported Git type');
     }
+  }
+  //add ROX_CENTRAL_ENDPOINT
+  private async addRoxCentralEndpointSecrets(): Promise<void> {
+    await this.jenkinsCI.addCredential(
+      this.folderName,
+      Credential.ROX_CENTRAL_ENDPOINT,
+      this.acs.getRoxCentralEndpoint()
+    );
+  }
+
+  //add REKOR_HOST
+  private async addRekorHostSecrets(): Promise<void> {
+    await this.jenkinsCI.addCredential(
+      this.folderName,
+      Credential.REKOR_HOST,
+      this.tas.getRekorServerURL()
+    );
+  }
+
+  //add TUF_MIRROR
+  private async addTufMirrorSecrets(): Promise<void> {
+    await this.jenkinsCI.addCredential(
+      this.folderName,
+      Credential.TUF_MIRROR,
+      this.tas.getTufMirrorURL()
+    );
+  }
+
+  //add COSIGN_PUBLIC_KEY
+  private async addCosignPublicKeySecrets(): Promise<void> {
+    await this.jenkinsCI.addCredential(
+      this.folderName,
+      Credential.COSIGN_PUBLIC_KEY,
+      await this.credentialService.getCosignPublicKey()
+    );
   }
 }

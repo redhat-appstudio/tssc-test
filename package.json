@@ -11,8 +11,8 @@
         "validate": "npm run type-check && npm run lint && npm run format:check",
         "generate-config": "npx ts-node scripts/generateProjectConfig.ts",
         "test": "npm run generate-config && playwright test",
-        "test:e2e": "TESTPLAN_NAME=backend-tests npm run generate-config &&  playwright test",
-        "test:ui": "TESTPLAN_NAME=ui-tests playwright test",
+        "test:e2e": "TESTPLAN_NAME=backend-tests npm run generate-config && JUNIT_OUTPUT_FILE=test-results/devlake-backend-e2e.junit playwright test",
+        "test:ui": "TESTPLAN_NAME=ui-tests JUNIT_OUTPUT_FILE=test-results/devlake-frontend-e2e.junit  playwright test",
         "test:ui-interactive": "TESTPLAN_NAME=ui-tests playwright test --ui",
         "test:all": "TESTPLAN_NAME=backend-tests npm run generate-config &&  playwright test && TESTPLAN_NAME=ui-tests playwright test",
         "test:report": "playwright show-report"
@@ -54,7 +54,7 @@
         "eslint": "^9.0.0",
         "eslint-config-prettier": "^10.1.5",
         "eslint-plugin-prettier": "^5.5.1",
-        "glob": "^11.0.3",
+        "glob": "^13.0.0",
         "nock": "^14.0.5",
         "otplib": "^12.0.1",
         "pino": "^10.0.0",
@@ -62,7 +62,8 @@
         "prettier": "^3.6.2",
         "rimraf": "^6.0.1",
         "ts-node": "^10.9.2",
-        "typescript": "^5.8.3"
+        "typescript": "^5.8.3",
+        "js-yaml": "^4.1.1"
     },
     "engines": {
         "node": ">=18.0.0",

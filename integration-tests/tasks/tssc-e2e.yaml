@@ -64,7 +64,9 @@ spec:
           echo "No testplan parameter provided, downloading from repository"
           GIT_REPO="$(jq -r '.git.repo // empty' <<< $JOB_SPEC)"
           REPO_ORG=$(jq -r '.git.source_repo_org' <<< $JOB_SPEC)
-          BRANCH=$(jq -r '.git.source_repo_branch' <<< $JOB_SPEC)
+          # Sanitize Branch name - Get all after refs/heads/
+          GIT_BRANCH=$(jq -r '.git.source_repo_branch' <<< $JOB_SPEC)
+          BRANCH="${GIT_BRANCH##refs/heads/}"
           testplan_file_location="integration-tests/config/testplan.json"
           echo "downloading testplan.json from $REPO_ORG/$GIT_REPO/refs/heads/$BRANCH/$testplan_file_location"
           curl -o testplan.json https://raw.githubusercontent.com/$REPO_ORG/$GIT_REPO/refs/heads/$BRANCH/$testplan_file_location
@@ -137,18 +139,27 @@ spec:
         TEST_EXIT_CODE=0
         FORCE_COLOR=false npm run test:e2e || TEST_EXIT_CODE=$?
 
+        # workaround for the issue that the content of index.html file is not being displayed in the Artifacts Browser page
+        echo "Renaming test result file to report.html"
+        mv playwright-report/index.html playwright-report/report.html || {
+          echo "Error: Failed to rename playwright-report/index.html to report.html" >&2
+          exit 1
+        }
+
         echo "Test execution completed with exit code: $TEST_EXIT_CODE"
         exit $TEST_EXIT_CODE
-    - name: create-artifact-bundle
+    - name: consolidate-artifacts
       image: $(params.tssc-test-image)
       workingDir: /workspace/e2e-test
       command: ['/bin/sh', '-c']
       args:
         - |
           set -ex
-          echo "Creating artifact bundle"
-          mkdir -p /workspace/e2e-test/artifacts && chmod 777 /workspace/e2e-test/artifacts
-          tar -czvf /workspace/e2e-test/artifacts/e2e-artifacts.tar.gz playwright-report test-results tmp
+          echo "Consolidating artifacts"
+          mkdir -p /workspace/e2e-test/artifacts/artifacts-e2e && chmod 777 /workspace/e2e-test/artifacts/artifacts-e2e
+          if [ -d playwright-report ]; then cp -r playwright-report /workspace/e2e-test/artifacts/artifacts-e2e/; fi
+          if [ -d test-results ]; then cp -r test-results /workspace/e2e-test/artifacts/artifacts-e2e/; fi
+          if [ -d tmp ]; then cp -r tmp /workspace/e2e-test/artifacts/artifacts-e2e/; fi
     - name: upload-artifacts
       onError: continue
       ref:
@@ -164,7 +175,7 @@ spec:
         - name: workdir-path
           value: /workspace/e2e-test/artifacts
         - name: oci-ref
-          value: $(params.oci-container)-e2e-artifacts
+          value: $(params.oci-container)
         - name: credentials-volume-name
           value: konflux-test-infra-volume
         - name: oci-tag-expiration
