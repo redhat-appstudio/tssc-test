@@ -11,7 +11,16 @@ import {
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
-import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
+import {
+  CIType,
+  EventType,
+  Pipeline,
+  PipelineStatus,
+  CancelPipelineOptions,
+  CancelResult,
+  PipelineCancelDetail,
+  CancelError,
+} from '../ciInterface';
 import retry from 'async-retry';
 
 export interface Variable {
@@ -451,8 +460,340 @@ export class AzureCI extends BaseCI {
     await this.azureClient.serviceEndpoints.deleteServiceEndpoint(endpoint.id, projectId);
   }
 
-  public async cancelAllInitialPipelines(): Promise<void> {
-    // TODO: Implement Azure pipeline cancellation logic
-    console.log(`Azure CI: cancelAllInitialPipelines not yet implemented for ${this.componentName}`);
+
+
+  /**
+   * Cancel all pipelines for this component with optional filtering
+   */
+  public override async cancelAllPipelines(
+    options?: CancelPipelineOptions
+  ): Promise<CancelResult> {
+    // 1. Normalize options with defaults
+    const opts = this.normalizeOptions(options);
+
+    // 2. Initialize result object
+    const result: CancelResult = {
+      total: 0,
+      cancelled: 0,
+      failed: 0,
+      skipped: 0,
+      details: [],
+      errors: [],
+    };
+
+    console.log(`[Azure] Starting build cancellation for ${this.componentName}`);
+
+    try {
+      // 3. Fetch all builds from Azure API
+      const allBuilds = await this.fetchAllBuilds();
+      result.total = allBuilds.length;
+
+      if (allBuilds.length === 0) {
+        console.log(`[Azure] No builds found for ${this.componentName}`);
+        return result;
+      }
+
+      console.log(`[Azure] Found ${allBuilds.length} total builds`);
+
+      // 4. Apply filters
+      const buildsToCancel = this.filterBuilds(allBuilds, opts);
+
+      console.log(`[Azure] ${buildsToCancel.length} builds match filters`);
+      console.log(`[Azure] ${allBuilds.length - buildsToCancel.length} builds filtered out`);
+
+      // 5. Cancel builds in batches
+      await this.cancelBuildsInBatches(buildsToCancel, opts, result);
+
+      // 6. Log summary
+      console.log(`[Azure] Cancellation complete:`, {
+        total: result.total,
+        cancelled: result.cancelled,
+        failed: result.failed,
+        skipped: result.skipped,
+      });
+
+    } catch (error: any) {
+      console.error(`[Azure] Error in cancelAllPipelines: ${error.message}`);
+      throw new Error(`Failed to cancel pipelines: ${error.message}`);
+    }
+
+    return result;
+  }
+
+  /**
+   * Normalize options with defaults
+   */
+  private normalizeOptions(
+    options?: CancelPipelineOptions
+  ): Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'> {
+    return {
+      excludePatterns: options?.excludePatterns || [],
+      includeCompleted: options?.includeCompleted || false,
+      eventType: options?.eventType,
+      branch: options?.branch,
+      concurrency: options?.concurrency || 10,
+      dryRun: options?.dryRun || false,
+    };
+  }
+
+  /**
+   * Fetch all builds from Azure API
+   */
+  private async fetchAllBuilds(): Promise<AzureBuild[]> {
+    try {
+      // Get pipeline definitions for both source and gitops repos
+      const pipelineDefSource = await this.azureClient.pipelines.getPipelineDefinition(this.componentName);
+      const pipelineDefGitops = await this.azureClient.pipelines.getPipelineDefinition(
+        this.componentName + '-gitops'
+      );
+
+      const builds: AzureBuild[] = [];
+
+      // Fetch builds from source pipeline if it exists
+      if (pipelineDefSource) {
+        const runsSource = await this.azureClient.pipelines.listPipelineRuns(pipelineDefSource.id);
+        const buildsSource = await Promise.all(
+          runsSource.map(run => this.azureClient.pipelines.getBuild(run.id))
+        );
+
+        // Tag builds with their pipeline name for later cancellation logging
+        const taggedSourceBuilds = buildsSource.map(build => ({
+          ...build,
+          _pipelineName: this.componentName
+        }));
+        builds.push(...taggedSourceBuilds);
+      }
+
+      // Fetch builds from gitops pipeline if it exists
+      if (pipelineDefGitops) {
+        const runsGitops = await this.azureClient.pipelines.listPipelineRuns(pipelineDefGitops.id);
+        const buildsGitops = await Promise.all(
+          runsGitops.map(run => this.azureClient.pipelines.getBuild(run.id))
+        );
+
+        // Tag builds with their pipeline name for later cancellation logging
+        const taggedGitopsBuilds = buildsGitops.map(build => ({
+          ...build,
+          _pipelineName: `${this.componentName}-gitops`
+        }));
+        builds.push(...taggedGitopsBuilds);
+      }
+
+      return builds;
+
+    } catch (error: any) {
+      console.error(`[Azure] Failed to fetch builds: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Filter builds based on cancellation options
+   */
+  private filterBuilds(
+    builds: AzureBuild[],
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>
+  ): AzureBuild[] {
+    return builds.filter(build => {
+      // Filter 1: Skip completed builds unless includeCompleted is true
+      if (!options.includeCompleted && this.isCompletedStatus(build)) {
+        console.log(`[Filter] Skipping completed build ${build.id} (${build.status})`);
+        return false;
+      }
+
+      // Filter 2: Check exclusion patterns
+      if (this.matchesExclusionPattern(build, options.excludePatterns)) {
+        console.log(`[Filter] Excluding build ${build.id} by pattern`);
+        return false;
+      }
+
+      // Filter 3: Filter by event type if specified
+      if (options.eventType && !this.matchesEventType(build, options.eventType)) {
+        console.log(`[Filter] Skipping build ${build.id} (event type mismatch)`);
+        return false;
+      }
+
+      // Note: Azure builds don't have branch information directly,
+      // so we skip branch filtering for Azure
+      if (options.branch) {
+        console.log(`[Filter] Branch filtering not supported for Azure DevOps, ignoring branch filter`);
+      }
+
+      return true; // Include this build for cancellation
+    });
+  }
+
+  /**
+   * Check if build status is completed
+   */
+  private isCompletedStatus(build: AzureBuild): boolean {
+    const completedStatuses = ['succeeded', 'failed', 'stopped'];
+    return completedStatuses.includes(build.status);
+  }
+
+  /**
+   * Check if build matches any exclusion pattern
+   */
+  private matchesExclusionPattern(build: AzureBuild, patterns: RegExp[]): boolean {
+    if (patterns.length === 0) {
+      return false;
+    }
+
+    const buildName = build.buildNumber || `Build-${build.id}`;
+
+    return patterns.some(pattern => pattern.test(buildName));
+  }
+
+  /**
+   * Check if build matches the event type
+   * Azure uses 'reason' field to indicate trigger type
+   */
+  private matchesEventType(build: AzureBuild, eventType: EventType): boolean {
+    switch (eventType) {
+      case EventType.PUSH:
+        return build.reason === AzurePipelineTriggerReason.INDIVIDUAL_CI ||
+               build.reason === AzurePipelineTriggerReason.BATCH_CI;
+      case EventType.PULL_REQUEST:
+        // PR Automated shows as manual build in Azure
+        return build.reason === AzurePipelineTriggerReason.MANUAL ||
+               build.reason === AzurePipelineTriggerReason.PULL_REQUEST;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Cancel builds in batches with concurrency control
+   */
+  private async cancelBuildsInBatches(
+    builds: AzureBuild[],
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>,
+    result: CancelResult
+  ): Promise<void> {
+    // Split into batches
+    const batches = this.chunkArray(builds, options.concurrency);
+
+    console.log(`[Azure] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      console.log(`[Azure] Processing batch ${i + 1}/${batches.length} (${batch.length} builds)`);
+
+      // Create promises for all builds in this batch
+      const promises = batch.map(build =>
+        this.cancelSingleBuild(build, options, result)
+      );
+
+      // Wait for all in batch to complete (don't stop on errors)
+      await Promise.allSettled(promises);
+    }
+  }
+
+  /**
+   * Cancel a single build and update results
+   */
+  private async cancelSingleBuild(
+    build: AzureBuild,
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>,
+    result: CancelResult
+  ): Promise<void> {
+    // Initialize detail object
+    const detail: PipelineCancelDetail = {
+      pipelineId: build.id,
+      name: build.buildNumber || `Build-${build.id}`,
+      status: this.mapAzureBuildStatusToPipelineStatus(build),
+      result: 'skipped',
+      eventType: this.mapAzureEventType(build),
+    };
+
+    try {
+      if (options.dryRun) {
+        // Dry run mode - don't actually cancel
+        detail.result = 'skipped';
+        detail.reason = 'Dry run mode';
+        result.skipped++;
+        console.log(`[DryRun] Would cancel build ${build.id}`);
+
+      } else {
+        // Extract pipeline name from tagged build (added in fetchAllBuilds)
+        const pipelineName = (build as any)._pipelineName || this.componentName;
+
+        // Actually cancel the build via Azure API
+        await this.cancelBuildViaAPI(build.id);
+
+        detail.result = 'cancelled';
+        result.cancelled++;
+        console.log(`✅ [Azure] Cancelled build ${build.id} in ${pipelineName} (status: ${build.status})`);
+      }
+
+    } catch (error: any) {
+      // Cancellation failed
+      detail.result = 'failed';
+      detail.reason = error.message;
+      result.failed++;
+
+      // Add to errors array
+      const cancelError: CancelError = {
+        pipelineId: build.id,
+        message: error.message,
+        error: error,
+      };
+
+      // Add status code if available
+      if (error.response?.status) {
+        cancelError.statusCode = error.response.status;
+      }
+
+      // Add provider error code if available
+      if (error.response?.data?.message) {
+        cancelError.providerErrorCode = error.response.data.message;
+      }
+
+      result.errors.push(cancelError);
+
+      console.error(`❌ [Azure] Failed to cancel build ${build.id}: ${error.message}`);
+    }
+
+    // Add detail to results
+    result.details.push(detail);
+  }
+
+  /**
+   * Actually cancel the build via Azure API
+   */
+  private async cancelBuildViaAPI(buildId: number): Promise<void> {
+    try {
+      await this.azureClient.pipelines.cancelBuild(buildId);
+
+    } catch (error: any) {
+      // Re-throw - the azureClient.pipelines.cancelBuild already has detailed error handling
+      throw error;
+    }
+  }
+
+  /**
+   * Map Azure build to EventType
+   */
+  private mapAzureEventType(build: AzureBuild): EventType | undefined {
+    if (build.reason === AzurePipelineTriggerReason.INDIVIDUAL_CI ||
+        build.reason === AzurePipelineTriggerReason.BATCH_CI) {
+      return EventType.PUSH;
+    }
+    if (build.reason === AzurePipelineTriggerReason.MANUAL ||
+        build.reason === AzurePipelineTriggerReason.PULL_REQUEST) {
+      return EventType.PULL_REQUEST;
+    }
+    return undefined;
+  }
+
+  /**
+   * Utility: Split array into chunks
+   */
+  private chunkArray<T>(array: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
   }
 }

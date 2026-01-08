@@ -1,6 +1,14 @@
 import { PullRequest } from '../git/models';
 import { KubeClient } from './../../../../../src/api/ocp/kubeClient';
-import { CI, CIType, EventType, Pipeline, PipelineStatus } from './ciInterface';
+import {
+  CI,
+  CIType,
+  EventType,
+  Pipeline,
+  PipelineStatus,
+  CancelPipelineOptions,
+  CancelResult,
+} from './ciInterface';
 import retry from 'async-retry';
 
 /**
@@ -118,7 +126,16 @@ export abstract class BaseCI implements CI {
 
   public abstract waitForAllPipelineRunsToFinish(): Promise<void>;
 
-  public abstract cancelAllInitialPipelines(): Promise<void>;
+  /**
+   * Abstract method for cancelling all pipelines
+   * Must be implemented by each provider
+   *
+   * @param options Optional configuration for filtering and behavior
+   * @returns Promise resolving to detailed cancellation results
+   */
+  public abstract cancelAllPipelines(
+    options?: CancelPipelineOptions
+  ): Promise<CancelResult>;
 
   public abstract getWebhookUrl(): Promise<string>;
 

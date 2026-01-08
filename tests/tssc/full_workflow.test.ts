@@ -68,9 +68,11 @@ test.describe.serial('TSSC Complete Workflow', () => {
       await postCreateAction.execute();
       console.log('✅ Post-creation actions executed successfully!');
 
-      // Handle initial pipeline runs based on CI provider type
-      await handleInitialPipelineRuns(ci);
-      console.log('All initial pipelines have ended!');
+      // It is possible to trigger multiple pipelines when a new component is created and make some changes 
+      // to the both source and gitops repos. These pipelines are not needed for the test and should be cancelled.
+      await ci.cancelAllPipelines();
+      console.log('All pipelines have been cancelled!');
+      console.log('Component creation is complete!');
     });
   });
 

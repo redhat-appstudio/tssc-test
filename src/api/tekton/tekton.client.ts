@@ -45,6 +45,10 @@ export class TektonClient {
     return this.pipelineRunService.getPipelineRunLogs(namespace, pipelineRunName);
   }
 
+  public async cancelPipelineRun(namespace: string, name: string): Promise<void> {
+    return this.pipelineRunService.cancelPipelineRun(namespace, name);
+  }
+
   public get pipelineRuns(): TektonPipelineRunService {
     return this.pipelineRunService;
   }
