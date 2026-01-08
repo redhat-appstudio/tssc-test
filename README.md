@@ -12,7 +12,7 @@
 
 ## Overview
 
-This project is an end-to-end automation testing framework designed to validate the functionality of the [Red Hat Trusted Software Supply Chain CLI](https://github.com/redhat-appstudio/rhtap-cli) (tssc). Built with Playwright and TypeScript, this framework simulates real-world user interactions and backend processes to ensure the reliability and correctness of tssc's core features.
+This project is an end-to-end automation testing framework designed to validate the functionality of the [Red Hat Trusted Software Supply Chain CLI](https://github.com/redhat-appstudio/tssc-cli) (tssc). Built with Playwright and TypeScript, this framework simulates real-world user interactions and backend processes to ensure the reliability and correctness of tssc's core features.
 
 
 ## Test Execution Control
@@ -437,7 +437,7 @@ npm run validate
 
 ## Test Reports
 
-After test execution, Playwright automatically generates an heml formated report under playwright-report directory
+After test execution, Playwright automatically generates an html formated report under playwright-report directory and JUnit files.
 
 
 ## UI Tests
