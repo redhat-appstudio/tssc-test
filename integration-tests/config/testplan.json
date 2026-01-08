@@ -53,7 +53,21 @@
           "acs": "remote"
         }],
         "tests": ["full_workflow.test.ts"]
-      }
+      },
+    {
+      "name": "import-tests",
+      "templates": ["go"],
+      "tssc": [
+        {
+          "git": "github",
+          "ci": "tekton",
+          "registry": "quay",
+          "tpa": "remote",
+          "acs": "remote"
+        }
+      ],
+      "tests": ["templates/import_templates.test.ts"]
+    }
     ]
   }
   
