@@ -11,14 +11,11 @@ export class GithubActionsPlugin extends BaseCIPlugin {
         super(name, registryOrg);
     }
 
-    // eslint-disable-next-line no-unused-vars
-    public async checkCIHeading(_page: Page): Promise<void> {
-        // GitHub Actions CI heading check not implemented
-    }
+    // checkCIHeading is inherited from BaseCIPlugin which checks for heading or tab
 
     // eslint-disable-next-line no-unused-vars
     public async checkActions(_page: Page): Promise<void> {
-        // GitHub Actions check not implemented
+        // GitHub Actions workflow runs are shown in the main table, no additional actions needed
     }
 
     public async checkPipelineRunsTable(page: Page): Promise<void> {

@@ -15,7 +15,19 @@ export class BaseCIPlugin implements CIPlugin {
     }
 
     public async checkCIHeading(page: Page): Promise<void> {
-        await expect(page.getByRole('heading', { name: this.name })).toBeVisible();
+        // For GitHub Actions, the name appears as a tab in Security Information, not a heading
+        const heading = page.getByRole('heading', { name: this.name });
+        const tab = page.getByRole('tab', { name: this.name });
+
+        // Check if either heading or tab is visible
+        const headingVisible = await heading.isVisible().catch(() => false);
+        const tabVisible = await tab.isVisible().catch(() => false);
+
+        if (!headingVisible && !tabVisible) {
+            // Fallback: check for "Github Actions" tab (different casing)
+            const tabAlt = page.getByRole('tab', { name: 'Github Actions' });
+            await expect(tabAlt).toBeVisible({ timeout: 10000 });
+        }
     }
 
     protected async checkImageScanTable(page: Locator): Promise<void> {

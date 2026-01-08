@@ -6,7 +6,7 @@ import { GithubActionsPlugin } from './githubActionsPlugin';
 export class CIFactory {
     /**
     * Creates a CI UI plugin instance based on the CI type.
-     * 
+     *
      * @param name - The name of the component
      * @param ciType - The type of CI provider
      * @returns A Promise resolving to the appropriate CIPlugin instance
