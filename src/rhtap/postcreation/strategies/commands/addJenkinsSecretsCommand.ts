@@ -63,11 +63,12 @@ export class AddJenkinsSecretsCommand extends BaseCommand {
   }
 
   private async addGitAuthSecrets(): Promise<void> {
+    const username = this.git.getUsername();
     const password = this.getGitOpsAuthPassword();
     await this.jenkinsCI.addCredential(
       this.folderName,
       Credential.GITOPS_AUTH_PASSWORD,
-      `fakeUsername:${password}`,
+      `${username}:${password}`,
       CredentialType.USERNAME_PASSWORD
     );
   }
@@ -133,6 +134,7 @@ export class AddJenkinsSecretsCommand extends BaseCommand {
         throw new Error('Unsupported Git type');
     }
   }
+
   //add ROX_CENTRAL_ENDPOINT
   private async addRoxCentralEndpointSecrets(): Promise<void> {
     await this.jenkinsCI.addCredential(
