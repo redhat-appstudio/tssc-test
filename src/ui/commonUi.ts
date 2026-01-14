@@ -1,8 +1,75 @@
 import { expect, Page, Locator } from '@playwright/test';
 import { GhLoginPO } from './page-objects/loginPo';
+import { CiPo } from './page-objects/ciPo';
 import { loadFromEnv } from '../utils/util';
 import { authenticator } from 'otplib';
 import retry from 'async-retry';
+
+/**
+ * Configuration options for GitHub authentication
+ */
+interface GitHubAuthOptions {
+    /** Context name for logging (e.g., 'GITHUB-ACTIONS', 'OAUTH') */
+    logPrefix?: string;
+}
+
+/**
+ * Shared helper to perform GitHub login with username/password and 2FA.
+ * This consolidates authentication logic used across different contexts.
+ *
+ * @param page - Playwright Page object where login form is displayed
+ * @param options - Configuration options
+ */
+export async function performGitHubLogin(page: Page, options: GitHubAuthOptions = {}): Promise<void> {
+    const logPrefix = options.logPrefix || 'GITHUB-AUTH';
+
+    // Load credentials once before retry loop
+    const username = loadFromEnv('GH_USERNAME');
+    const password = loadFromEnv('GH_PASSWORD');
+    const secret = loadFromEnv('GH_SECRET');
+
+    // Fill login credentials
+    await page.locator(GhLoginPO.githubLoginField).fill(username);
+    await page.locator(GhLoginPO.githubPasswordField).fill(password);
+    await page.locator(GhLoginPO.githubSignInButton).click();
+    await page.waitForLoadState('domcontentloaded');
+
+    // Handle 2FA if required
+    const twoFactorField = page.locator(GhLoginPO.github2FAField);
+
+    try {
+        await twoFactorField.waitFor({ state: 'visible', timeout: 5000 });
+    } catch {
+        // 2FA not required
+        console.warn(`[${logPrefix}] 2FA not required`);
+        return;
+    }
+
+    console.warn(`[${logPrefix}] 2FA required, entering token...`);
+
+    // Retry inserting 2FA token for cases when it was already used
+    const maxRetries = 5;
+    const retryTimeout = 30000; // token resets every 30 seconds
+
+    await retry(
+        async (): Promise<void> => {
+            const token = authenticator.generate(secret);
+            await blurLocator(twoFactorField);
+            await twoFactorField.fill(token);
+            await twoFactorField.waitFor({ state: 'detached', timeout: 5000 });
+        },
+        {
+            retries: maxRetries,
+            minTimeout: retryTimeout,
+            maxTimeout: retryTimeout,
+            onRetry: (_error: Error, attemptNumber: number) => {
+                console.warn(`[${logPrefix}] Retry ${attemptNumber}/${maxRetries}: 2FA token entry failed, waiting ${retryTimeout}ms...`);
+            },
+        }
+    );
+
+    console.warn(`[${logPrefix}] Authentication completed successfully`);
+}
 
 /**
  * Checks if a website URL returns an expected status code
@@ -78,14 +145,14 @@ export async function blurLocator(locator: Locator): Promise<void> {
  * @param page - The Playwright page object
  */
 export async function handleGitHubActionsLoginDialog(page: Page): Promise<void> {
-    const loginDialog = page.getByRole('heading', { name: 'Login Required' });
+    const loginDialog = page.getByRole('heading', { name: CiPo.loginRequiredDialogTitle });
 
     try {
         await loginDialog.waitFor({ state: 'visible', timeout: 3000 });
         console.log('GitHub Actions Login Required dialog detected');
 
         // Click the "Log in" button to start OAuth flow
-        const logInButton = page.getByRole('button', { name: 'Log in' });
+        const logInButton = page.getByRole('button', { name: CiPo.githubLoginButtonText });
 
         // Wait for the popup page
         const popupPromise = page.context().waitForEvent('page');
@@ -95,34 +162,8 @@ export async function handleGitHubActionsLoginDialog(page: Page): Promise<void> 
         await popup.bringToFront();
         await popup.waitForLoadState();
 
-        // Fill GitHub credentials
-        await popup.locator(GhLoginPO.githubLoginField).fill(loadFromEnv("GH_USERNAME"));
-        await popup.locator(GhLoginPO.githubPasswordField).fill(loadFromEnv('GH_PASSWORD'));
-        await popup.locator(GhLoginPO.githubSignInButton).click();
-        await popup.waitForLoadState();
-
-        // Handle 2FA
-        const twoFactorField = popup.locator(GhLoginPO.github2FAField);
-        const maxRetries = 5;
-        const timeout = 30000;
-
-        await retry(
-            async (): Promise<void> => {
-                const secret = loadFromEnv("GH_SECRET");
-                const token = authenticator.generate(secret);
-                await blurLocator(twoFactorField);
-                await twoFactorField.fill(token);
-                await twoFactorField.waitFor({ state: 'detached', timeout: 5000 });
-            },
-            {
-                retries: maxRetries,
-                minTimeout: timeout,
-                maxTimeout: timeout,
-                onRetry: (_error: Error, attemptNumber: number) => {
-                    console.log(`[GITHUB-ACTIONS-RETRY ${attemptNumber}/${maxRetries}] 2FA token entry failed, retrying...`);
-                },
-            }
-        );
+        // Use shared authentication helper
+        await performGitHubLogin(popup, { logPrefix: 'GITHUB-ACTIONS-OAUTH' });
 
         // Handle authorize button if needed
         const authorizeButton = popup.getByRole('button', { name: 'authorize' });
