@@ -14,17 +14,20 @@ export interface CertificateInfo {
  * Check if a URL has a trusted certificate
  */
 export async function checkCertificateTrust(url: string): Promise<CertificateInfo> {
-  return new Promise((resolve) => {
-    const parsedUrl = new URL(url);
-    const isHttps = parsedUrl.protocol === 'https:';
-    
-    if (!isHttps) {
-      resolve({
-        isTrusted: true,
-        error: 'Not an HTTPS URL - no certificate to check'
-      });
-      return;
-    }
+    return new Promise((resolve) => {
+      let parsedUrl: URL;
+
+      try {
+        parsedUrl = new URL(url);
+      } catch (error) {
+        resolve({ isTrusted: false, error: 'Invalid URL' });
+        return;
+      }
+
+      if (parsedUrl.protocol !== 'https:') {
+        resolve({ isTrusted: false, error: 'Not an HTTPS URL' });
+        return;
+      }
 
     const options = {
       hostname: parsedUrl.hostname,
