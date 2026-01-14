@@ -9,7 +9,7 @@ export class TektonPlugin extends BaseCIPlugin {
     }
 
     private async checkActionButtons(onPushRow: Locator): Promise<void> {
-        for (const testId of [TektonPO.logsIconTestId, TektonPO.internalSbomLinkTestId, TektonPO.viewOutputTestId]) {
+        for (const testId of [TektonPO.logsIconTestId, TektonPO.sbomIconTestId, TektonPO.viewOutputTestId]) {
             const button = onPushRow.getByTestId(testId);
             await expect(button).toBeVisible();
         }
@@ -40,7 +40,7 @@ export class TektonPlugin extends BaseCIPlugin {
     }
 
     async checkSBOMpopup(page: Page, row: Locator): Promise<void> {
-        const sbomButton = row.getByTestId(TektonPO.internalSbomLinkTestId);
+        const sbomButton = row.getByTestId(TektonPO.sbomIconTestId);
         await sbomButton.click();
 
         const searchBox = page.getByRole('textbox', { name: TektonPO.searchBoxName });
@@ -117,7 +117,8 @@ export class TektonPlugin extends BaseCIPlugin {
 
     async checkActions(page: Page): Promise<void> {
         // Scroll to the action column header to make action buttons visible
-        await page.getByRole('columnheader', { name: TektonPO.actionsColumnHeader }).scrollIntoViewIfNeeded();
+        // Use exact: true to distinguish from 'Actions' column in other tables (e.g., ArgoCD)
+        await page.getByRole('columnheader', { name: TektonPO.actionsColumnHeader, exact: true }).scrollIntoViewIfNeeded();
 
         const onPushRow = page.locator('tr').filter({ hasText: TektonPO.onPushRowRegex }).first();
 

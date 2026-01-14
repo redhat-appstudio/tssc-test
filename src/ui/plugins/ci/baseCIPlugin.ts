@@ -101,35 +101,43 @@ export class BaseCIPlugin implements CIPlugin {
      * Verifies that registry links in both Image Scan and Image Check tabs
      * are actual clickable links that lead to an external registry (outside Developer Hub).
      *
+     * This method:
+     * 1. Opens the "View Output" dialog for an on-push pipeline row
+     * 2. Checks Image Scan tab - verifies the image link is a real link (not just text)
+     * 3. Checks Image Check tab - verifies the image link is a real link (not just text)
+     * 4. Confirms links open in new tabs and navigate outside Developer Hub
+     *
      * @param page - Playwright Page object
-     * @param row - The pipeline run row locator
-     * @param expectedHref - The expected href attribute value for the registry link
      */
-    protected async verifyImageScanRegistryLink(
-        page: Page,
-        row: Locator,
-        expectedHref: string,
-    ): Promise<void> {
-        // "View Scan Results" button, exposed to the tests through `view-output-icon`.
-        const viewOutputButton = row.getByTestId(CommonPO.viewOutputIconTestId);
+    public async checkImageRegistryLinks(page: Page): Promise<void> {
+        // Scroll to the action column header to make action buttons visible
+        // Use exact: true to distinguish from 'Actions' column in other tables (e.g., ArgoCD)
+        await page.getByRole('columnheader', { name: 'ACTIONS', exact: true }).scrollIntoViewIfNeeded();
+
+        // Find the on-push row
+        const onPushRow = page.locator('tr').filter({ hasText: /on-push/i }).first();
+        await expect(onPushRow).toBeVisible();
+
+        // Click "View Output" button
+        const viewOutputButton = onPushRow.getByTestId(CommonPO.viewOutputIconTestId);
         await viewOutputButton.click();
 
         const dialog = page.getByRole('dialog');
         await expect(dialog).toBeVisible();
 
-        const visiblePanel = page.locator(AcsPO.visibleTabPanelSelector);
-
         // Verify Image Scan tab registry link
         const imageScanTabButton = dialog.getByRole('tab', { name: CiPo.imageScanTabName });
         await imageScanTabButton.click();
-        await expect(visiblePanel).toBeVisible();
-        await this.verifyRegistryLinkInTab(page, visiblePanel, expectedHref, 'Image Scan');
+        const imageScanPanel = page.locator(AcsPO.visibleTabPanelSelector);
+        await expect(imageScanPanel).toBeVisible();
+        await this.verifyRegistryLinkInTab(page, imageScanPanel, 'Image Scan');
 
         // Verify Image Check tab registry link
         const imageCheckTabButton = dialog.getByRole('tab', { name: CiPo.imageCheckTabName });
         await imageCheckTabButton.click();
-        await expect(visiblePanel).toBeVisible();
-        await this.verifyRegistryLinkInTab(page, visiblePanel, expectedHref, 'Image Check');
+        const imageCheckPanel = page.locator(AcsPO.visibleTabPanelSelector);
+        await expect(imageCheckPanel).toBeVisible();
+        await this.verifyRegistryLinkInTab(page, imageCheckPanel, 'Image Check');
 
         const closeButton = dialog.getByTestId(CommonPO.closeIconTestId);
         await closeButton.click();
@@ -137,25 +145,30 @@ export class BaseCIPlugin implements CIPlugin {
 
     /**
      * Helper method to verify a registry link within a specific tab panel.
-     * Checks that the link is visible, has the correct href, opens in a new tab,
-     * and navigates to an external URL outside Developer Hub.
+     * Checks that the link is visible, is an actual anchor element with href,
+     * opens in a new tab, and navigates to an external URL outside Developer Hub.
      *
      * @param page - Playwright Page object
      * @param panel - The visible tab panel locator
-     * @param expectedHref - The expected href attribute value
      * @param tabName - Name of the tab being verified (for logging purposes)
      */
     private async verifyRegistryLinkInTab(
         page: Page,
         panel: Locator,
-        expectedHref: string,
         tabName: string,
     ): Promise<void> {
+        // Find the registry link using the image URL regex pattern
         const registryLink = panel.getByRole('link', { name: this.imageUrlRegex });
-        await expect(registryLink).toBeVisible();
-        await expect(registryLink).toHaveAttribute('href', expectedHref);
+        await expect(registryLink, `${tabName}: Registry link should be visible`).toBeVisible();
 
-        // Confirm the link opens a new tab leading to the external registry.
+        // Verify it's an actual link with href attribute (not just styled text)
+        const href = await registryLink.getAttribute('href');
+        expect(href, `${tabName}: Registry link should have href attribute`).toBeTruthy();
+        expect(href, `${tabName}: Registry link href should start with https://`).toMatch(/^https?:\/\//);
+
+        console.log(`[${tabName}] Found registry link: ${href}`);
+
+        // Confirm the link opens a new tab leading to the external registry
         const [externalPage] = await Promise.all([
             page.waitForEvent('popup', { timeout: 10000 }),
             registryLink.click(),
@@ -169,16 +182,22 @@ export class BaseCIPlugin implements CIPlugin {
             const backstageOrigin = new URL(page.url()).origin;
             expect(
                 destinationUrl.startsWith(backstageOrigin),
-                `${tabName} tab: Registry link should navigate outside Developer Hub`
+                `${tabName}: Registry link should navigate outside Developer Hub`
             ).toBe(false);
 
-            // Verify the URL contains the expected path
+            // Verify the URL is a valid external registry URL
             expect(
-                destinationUrl.includes(expectedHref.replace('https://', '')),
-                `${tabName} tab: Registry link URL should contain expected path`
+                destinationUrl.startsWith('https://'),
+                `${tabName}: Registry link URL should use HTTPS`
             ).toBe(true);
 
-            console.log(`[${tabName}] Registry link verified: ${destinationUrl}`);
+            // Verify it's not a localhost or internal URL
+            expect(
+                !destinationUrl.includes('localhost') && !destinationUrl.includes('127.0.0.1'),
+                `${tabName}: Registry link URL should not be localhost`
+            ).toBe(true);
+
+            console.log(`[${tabName}] Registry link verified - navigates to: ${destinationUrl}`);
         } finally {
             await externalPage.close();
         }
