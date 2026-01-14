@@ -5,26 +5,23 @@
 - [Prerequisites](#prerequisites)
 - [Configuration](#configuration)
   - [Test Filtering](#test-filtering)
+  - [Multiple Test Plans](#multiple-test-plans-new-format)
 - [Running Tests](#running-tests)
 - [UI Tests](#ui-tests)
 - [Development](#development)
 
 ## Overview
 
-This project is an end-to-end automation testing framework designed to validate the functionality of the [Red Hat Trusted Software Supply Chain CLI](https://github.com/redhat-appstudio/rhtap-cli) (tssc). Built with Playwright and TypeScript, this framework simulates real-world user interactions and backend processes to ensure the reliability and correctness of tssc's core features.
+This project is an end-to-end automation testing framework designed to validate the functionality of the [Red Hat Trusted Software Supply Chain CLI](https://github.com/redhat-appstudio/tssc-cli) (tssc). Built with Playwright and TypeScript, this framework simulates real-world user interactions and backend processes to ensure the reliability and correctness of tssc's core features.
 
-### Recent Updates (RHTAP-5691)
-
-The framework now includes **test filtering functionality** that allows you to run specific tests or test categories by configuring the `tests` array in `testplan.json`. This feature improves test execution efficiency and reduces runtime by allowing targeted test execution.
 
 ## Test Execution Control
 
-The framework supports environment variables to control which types of tests run:
 
 ### Environment Variables
 
-- **`ENABLE_E2E_TESTS`** (default: `true`) - Controls backend E2E test execution
-- **`ENABLE_UI_TESTS`** (default: `false`) - Controls UI test execution
+- **`TESTPLAN_PATH`** (default: `./testplan.json`) - Path to the test plan configuration file
+- **`TESTPLAN_NAME`** - Name of specific test plan(s) to run (supports comma-separated values for multiple test plans)
 - **`UI_DEPENDS_ON_ALL_E2E`** (default: `false`) - Controls UI test dependency behavior
   - When `false`: Each UI test depends only on its corresponding E2E test
   - When `true`: All UI tests depend on ALL E2E tests (sequential execution)
@@ -32,26 +29,27 @@ The framework supports environment variables to control which types of tests run
 ### Usage Examples
 
 ```bash
-# Run only E2E tests (default behavior) - generates fresh config
-npm run test:e2e
-# or
-ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=false npm test
-
-# Run only UI tests - uses existing config from previous E2E runs
-npm run test:ui
-# or
-ENABLE_E2E_TESTS=false ENABLE_UI_TESTS=true playwright test
-
-# Run both E2E and UI tests - generates fresh config, UI depends on E2E
-npm run test:all
-# or
-npm run generate-config && ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=true npm test
-
-# Run UI tests with dependency on ALL E2E tests (sequential execution)
-UI_DEPENDS_ON_ALL_E2E=true ENABLE_E2E_TESTS=true ENABLE_UI_TESTS=true npm test
-
-# Default: Only E2E tests - generates fresh config
+# Run tests based on test plan content (automatic detection)
 npm test
+
+# Run E2E tests only (uses automatic detection)
+npm run test:e2e
+
+# Run UI tests only (forces UI test execution)
+npm run test:ui
+
+# Run all tests (E2E + UI)
+npm run test:all
+
+# Run tests with custom test plan path
+TESTPLAN_PATH=./custom-testplan.json npm test
+
+# Run specific test plan from custom path
+TESTPLAN_PATH=./custom-testplan.json TESTPLAN_NAME=backend-tests npm test
+
+# Run multiple test plans
+TESTPLAN_NAME=backend-tests,ui-tests npm test
+
 ```
 
 ### Test Dependencies
@@ -196,15 +194,124 @@ This configuration will:
 - Run only tests in the `ui/` and `tssc/` directories
 - Skip any tests outside these directories
 
+#### Multiple Test Plans (New Format)
+
+The framework also supports multiple test plans in a single `testplan.json` file, allowing you to organize tests by different scenarios or environments.
+
+**Multiple Test Plans Structure:**
+```json
+{
+  "testPlans": [
+    {
+      "name": "github-tests",
+      "templates": ["go", "python"],
+      "tssc": [
+        {
+          "git": "github",
+          "ci": "tekton",
+          "registry": "quay",
+          "tpa": "remote",
+          "acs": "local"
+        }
+      ],
+      "tests": ["full_workflow.test.ts"]
+    },
+    {
+      "name": "gitlab-tests",
+      "templates": ["go", "python"],
+      "tssc": [
+        {
+          "git": "gitlab",
+          "ci": "tekton",
+          "registry": "quay",
+          "tpa": "remote",
+          "acs": "local"
+        }
+      ],
+      "tests": ["full_workflow.test.ts"]
+    },
+    {
+      "name": "bitbucket-tests",
+      "templates": ["go", "python"],
+      "tssc": [
+        {
+          "git": "bitbucket",
+          "ci": "tekton",
+          "registry": "quay",
+          "tpa": "remote",
+          "acs": "local"
+        }
+      ],
+      "tests": ["full_workflow.test.ts"]
+    }
+  ]
+}
+```
+
+**Multiple Test Plans Fields:**
+
+- **`testPlans`**: Array of individual test plan configurations
+- **`name`**: Unique identifier for each test plan
+- **`templates`**: Application templates specific to each test plan
+- **`tssc`**: TSSC configurations specific to each test plan
+- **`tests`**: Test filtering specific to each test plan
+
+**Running Specific Test Plans:**
+
+You can run specific test plans using the `TESTPLAN_NAME` environment variable:
+
+```bash
+# Run only the github-tests plan
+TESTPLAN_NAME=github-tests npm test
+
+# Run all test plans (default behavior)
+npm test
+```
+
+
 ### Step 2: Configure Environment Variables
 
-Copy the template file from `templates/.env` to the root directory:
+Copy the template file from [templates/.env](templates/.env) to the root directory:
 
 ```bash
 cp templates/.env .env
 ```
 
-Edit the `.env` file to set required environment variables for running automation tests. After that, source the file before running tests:
+Edit the `.env` file to set required environment variables for running automation tests. Below are the key variables you need to configure:
+
+#### Required Variables (E2E Tests)
+
+Image Registry Configuration:
+- `QUAY_REGISTRY_ORG` - Organization name for Quay.io registry
+- `ARTIFACTORY_REGISTRY_ORG` - Organization name for Artifactory registry (if using Artifactory)
+- `NEXUS_REGISTRY_ORG` - Organization name for Nexus registry (if using Nexus)
+
+Git Provider Configuration:
+- `GITHUB_ORGANIZATION` - GitHub organization name (required when using GitHub as git provider)
+- `BITBUCKET_WORKSPACE` - Bitbucket workspace name (required when using Bitbucket)
+- `BITBUCKET_PROJECT` - Bitbucket project key (required when using Bitbucket)
+
+CI Provider Configuration:
+- `AZURE_PROJECT` - Azure DevOps project name (required when using Azure Pipelines as CI)
+
+#### Optional Variables (E2E Tests)
+
+Component Configuration:
+- `TSSC_APP_DEPLOYMENT_NAMESPACE` - Custom deployment namespace (default: `tssc-app`). Update this if you have modified the default `developerHub: namespacePrefixes` during the installation process.
+
+Multi CI Testing:
+- `CI_TEST_RUNNER_IMAGE` - Container image to use as the CI runner/builder, overriding the default image in generated component CI configuration files (for eg., .github/workflows, .gitlab-ci.yml, azure-pipeline.yml)
+
+
+#### UI Test Variables (Required for UI tests)
+
+GitHub UI Authentication:
+- `GH_USERNAME` - GitHub username for UI login
+- `GH_PASSWORD` - GitHub password for UI login
+- `GH_SECRET` - GitHub 2FA secret
+
+
+After editing the file, source it before running tests:
 
 ```bash
 source .env
@@ -233,14 +340,35 @@ npm install
 
 #### Run Tests
 ```bash
-# Run all tests
+# Run tests based on test plan content (automatic workflow detection)
+npm test
+
+# Run E2E tests only (uses automatic detection)
+npm run test:e2e
+
+# Run UI tests only (forces UI test execution)
+npm run test:ui
+
+# Run all tests (E2E + UI)
 npm run test:all
 
 # Run a specific test file
 npm test -- tests/tssc/full_workflow.test.ts
 
-# Run tests with filtering (using testplan.json tests array)
-npm test
+# Run tests with custom test plan path
+TESTPLAN_PATH=./custom-testplan.json npm test
+
+# Run specific test plan (multiple test plans format)
+TESTPLAN_NAME=backend-tests npm test
+
+# Run multiple test plans
+TESTPLAN_NAME=backend-tests,ui-tests npm test
+
+# Run specific test plan from custom path
+TESTPLAN_PATH=./custom-testplan.json TESTPLAN_NAME=backend-tests npm test
+
+# Force UI test execution
+ENABLE_UI_TESTS=true npm test
 
 # View test report
 npm run test:report
@@ -287,6 +415,9 @@ npm run test:all
 # Run a specific test file
 npm test -- tests/tssc/full_workflow.test.ts
 
+# Run specific test plan (multiple test plans format)
+TESTPLAN_NAME=github-tests npm test
+
 # Run UI tests
 npm run test:ui
 
@@ -306,18 +437,19 @@ npm run validate
 
 ## Test Reports
 
-After test execution, Playwright automatically generates an heml formated report under playwright-report directory
+After test execution, Playwright automatically generates an html formated report under playwright-report directory and JUnit files.
 
 
 ## UI Tests
 
-The framework includes UI automation tests that validate the tssc user interface using Playwright. These tests ensure the correct functionality of the web interface and its integration with various plugins and backend services.
+The framework includes UI automation tests that validate the RHADS SSC user interface using Playwright. These tests ensure the correct functionality of the web interface and its integration with various plugins and backend services. For high-level overview, please see [UI tests design](docs/UI_TESTS_DESIGN.md).
 
 ### Prerequisites for UI Tests
 
 - Complete all backend test setup steps above
 - Component should be created manually or during backend tests
 - Set UI-specific variables in the `.env` file
+- Setup Github app for UI testing (see [Github App UI Setup](docs/GITHUB_APP_UI_SETUP.md))
 
 ### Running UI Tests
 
@@ -344,7 +476,7 @@ The UI tests are organized as follows:
 
 - `src/ui/plugins/` - UI-specific automation for various plugins (Git providers, CI providers, image registries, etc.)
 - `src/ui/page-objects/` - Page Object Models (POMs) for UI elements
-- `tests/ui/ui.test.ts` - Main UI automation test file
+- `tests/ui/` - UI test automation suites
 
 ### Naming convention
 
@@ -352,11 +484,11 @@ All UI related files should be placed to the `/src/ui` or `/tests/ui` directorie
 
 Page object identifiers are located in the `/src/ui/page-objects` directory. Each file should have a `Po.ts` suffix.
 
-Plugin-related functionality is stored in the `/src/ui/plugins` directory, organized by plugins type - for example, `git` or `ci`. The file name should match the short name of a plugin. Classes defined in these files must include either `Ui` or `plugin` in their names.
+Plugin-related functionality is stored in the `/src/ui/plugins` directory, organized by plugin's type - for example, `git` or `ci`. The file name should match the short name of a plugin. Classes defined in these files must include either `Ui` or `plugin` in their names.
 
 ### UI Test Artifacts
 
-UI tests save screenshots and videos to the same directories as the backend E2E tests. However, those artifacts are not yet archived from the CI runs.
+UI tests save screenshots and videos to the same directories as the backend E2E tests.
 
 ### Security concerns
 
@@ -369,8 +501,7 @@ const inputFieldLocator = page.locator(fieldPO);
 await inputFieldLocator.evaluate((el) => el.style.filter = 'blur(5px)');
 ```
 
-- the logging level is lower then TRACE (trace level catches for example also network requests, which usually contains also secrets) [RHTAP-5351](https://issues.redhat.com/browse/RHTAP-5351)
-
+- the logging level is lower then TRACE (trace level catches for example also network requests, which usually contains also secrets)
 ## Development
 
 ### High-level Architecture
@@ -410,14 +541,6 @@ npm test -- tests/ui
 npm test -- tests/component.test.ts
 ```
 
-**Test Filtering Implementation:**
-
-The test filtering is implemented in `src/playwright/testplan.ts` with the following key methods:
-
-- `getTests()`: Returns the tests array from testplan.json
-- `getTestMatchPatterns()`: Converts test identifiers to Playwright patterns
-- `shouldIncludeTest(testFilePath)`: Determines if a test should be included
-- `getTestMatchPattern()`: Combines multiple patterns into a single match string
 
 ### Debugging
 
