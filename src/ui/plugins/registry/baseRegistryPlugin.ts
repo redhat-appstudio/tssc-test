@@ -37,10 +37,10 @@ export abstract class BaseRegistryPlugin implements RegistryPlugin {
         const indexedRowsAfter = await this.getTableRows(page);
         expect(indexedRowsAfter.length).toBeGreaterThan(0);
 
-        indexedRowsAfter.forEach(async (row) => {
+        for (const row of indexedRowsAfter) {
             const rowText = await row.textContent();
             expect(rowText).toContain('.att');
-        });
+        }
 
         // Click the clear search button
         await clearButton.click();
@@ -56,11 +56,17 @@ export abstract class BaseRegistryPlugin implements RegistryPlugin {
         expect(rows.length).toBeGreaterThan(0);
     }
 
+    protected async checkTableColumnHeaders(page: Page, columnHeaders: string[]): Promise<void> {
+        for (const header of columnHeaders) {
+            await expect(page.getByRole('columnheader', { name: header })).toBeVisible();
+        }
+    }
+
     // Abstract methods that must be implemented by specific registry plugins
     // eslint-disable-next-line no-unused-vars
     abstract checkRepositoryHeading(page: Page): Promise<void>;
     // eslint-disable-next-line no-unused-vars
     abstract checkRepositoryLink(page: Page): Promise<void>;
     // eslint-disable-next-line no-unused-vars
-    abstract checkTableColumnHeaders(page: Page): Promise<void>;
+    abstract checkTableColumns(page: Page): Promise<void>;
 }

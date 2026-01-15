@@ -171,7 +171,7 @@ test.describe('Component UI Test Suite', () => {
       }, { timeout: 20000 });
 
       await test.step('Check table column headers', async () => {
-        await registryPlugin.checkTableColumnHeaders(page);
+        await registryPlugin.checkTableColumns(page);
       }, { timeout: 20000 });
 
       await test.step('Check image table content', async () => {

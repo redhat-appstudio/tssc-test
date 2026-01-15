@@ -21,6 +21,8 @@ export const RegistryPO = {
     checksumColumnHeader: 'Checksum',
     modifiedColumnHeader: 'Modified',
 
+    repositoriesColumnHeader: 'Repositories',
+
     // Vulnerabilities table headers
     advisoryColumnHeader: 'Advisory',
     severityColumnHeader: 'Severity',
@@ -35,5 +37,6 @@ export const RegistryPO = {
     // Repository elements
     quayRepositoryPrefix: 'Quay repository:',
     nexusRepositoryPrefix: 'Nexus Repository Manager:',
+    artifactoryRepositoryPrefix: 'Jfrog Artifactory repository:',
     backToRepositoryLinkLabel: 'Back to repository'
 }; 
