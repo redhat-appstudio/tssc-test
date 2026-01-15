@@ -11,6 +11,7 @@
         "validate": "npm run type-check && npm run lint && npm run format:check",
         "generate-config": "npx ts-node scripts/generateProjectConfig.ts",
         "test": "npm run generate-config && playwright test",
+        "test:plan": "npm run generate-config && JUNIT_OUTPUT_FILE=test-results/${TESTPLAN_NAME:-testplan}-e2e.junit playwright test",
         "test:e2e": "TESTPLAN_NAME=backend-tests npm run generate-config && JUNIT_OUTPUT_FILE=test-results/devlake-backend-e2e.junit playwright test",
         "test:ui": "TESTPLAN_NAME=ui-tests JUNIT_OUTPUT_FILE=test-results/devlake-frontend-e2e.junit  playwright test",
         "test:ui-interactive": "TESTPLAN_NAME=ui-tests playwright test --ui",
