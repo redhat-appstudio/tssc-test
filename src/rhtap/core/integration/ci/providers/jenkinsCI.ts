@@ -9,7 +9,17 @@ import {
 import { KubeClient } from '../../../../../../src/api/ocp/kubeClient';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
-import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
+import {
+  CIType,
+  EventType,
+  Pipeline,
+  PipelineStatus,
+  CancelPipelineOptions,
+  CancelResult,
+  MutableCancelResult,
+  MutablePipelineCancelDetail,
+  MutableCancelError,
+} from '../ciInterface';
 import retry from 'async-retry';
 import { JobActivityStatus } from '../../../../../api/jenkins';
 
@@ -431,11 +441,7 @@ export class JenkinsCI extends BaseCI {
     }
   }
 
-  public override async cancelAllInitialPipelines(): Promise<void> {
-    throw new Error(
-      'Jenkins does not support cancelling initial pipeline runs.'
-    );
-  }
+
 
   /**
    * Enhanced method to wait for all Jenkins jobs to finish (both running and queued)
@@ -573,4 +579,339 @@ export class JenkinsCI extends BaseCI {
       throw error;
     }
   }
+
+  /**
+   * Cancel all pipelines for this component with optional filtering
+   */
+  public override async cancelAllPipelines(
+    options?: CancelPipelineOptions
+  ): Promise<CancelResult> {
+    // 1. Normalize options with defaults
+    const opts = this.normalizeOptions(options);
+
+    // 2. Initialize result object
+    const result: MutableCancelResult = {
+      total: 0,
+      cancelled: 0,
+      failed: 0,
+      skipped: 0,
+      details: [],
+      errors: [],
+    };
+
+    console.log(`[Jenkins] Starting build cancellation for ${this.componentName}`);
+
+    try {
+      // 3. Fetch all builds from Jenkins API
+      const allBuilds = await this.fetchAllBuilds();
+      result.total = allBuilds.length;
+
+      if (allBuilds.length === 0) {
+        console.log(`[Jenkins] No builds found for ${this.componentName}`);
+        return result;
+      }
+
+      console.log(`[Jenkins] Found ${allBuilds.length} total builds`);
+
+      // 4. Apply filters
+      const buildsToCancel = this.filterBuilds(allBuilds, opts);
+
+      console.log(`[Jenkins] ${buildsToCancel.length} builds match filters`);
+      console.log(`[Jenkins] ${allBuilds.length - buildsToCancel.length} builds filtered out`);
+
+      // 5. Cancel builds in batches
+      await this.cancelBuildsInBatches(buildsToCancel, opts, result);
+
+      // 6. Validate result counts (accounting invariant)
+      const accounted = result.cancelled + result.failed + result.skipped;
+      if (accounted !== result.total) {
+        const missing = result.total - accounted;
+        console.error(
+          `❌ [Jenkins] ACCOUNTING ERROR: ${missing} builds unaccounted for ` +
+          `(total: ${result.total}, accounted: ${accounted})`
+        );
+
+        // Add accounting error to errors array
+        result.errors.push({
+          pipelineId: 'ACCOUNTING_ERROR',
+          message: `${missing} builds lost in processing`,
+          error: new Error('Result count mismatch - this indicates a bug in the cancellation logic'),
+        });
+      }
+
+      // 7. Log summary
+      console.log(`[Jenkins] Cancellation complete:`, {
+        total: result.total,
+        cancelled: result.cancelled,
+        failed: result.failed,
+        skipped: result.skipped,
+      });
+
+    } catch (error: any) {
+      console.error(`[Jenkins] Error in cancelAllPipelines: ${error.message}`);
+      throw new Error(`Failed to cancel pipelines: ${error.message}`);
+    }
+
+    return result;
+  }
+
+
+
+  /**
+   * Fetch all builds from Jenkins API (both source and gitops jobs)
+   */
+  private async fetchAllBuilds(): Promise<any[]> {
+    try {
+      const allBuilds: any[] = [];
+      const folderName = this.componentName;
+
+      // Fetch builds from source job (errors should propagate for main job)
+      const sourceJobName = this.componentName;
+      const sourceBuilds = await this.jenkinsClient.builds.getRunningBuilds(sourceJobName, folderName);
+
+      // Tag builds with their job name for later cancellation
+      const taggedSourceBuilds = (sourceBuilds || []).map(build => ({
+        ...build,
+        _jobName: sourceJobName
+      }));
+      allBuilds.push(...taggedSourceBuilds);
+
+      // Fetch builds from gitops job
+      const gitopsJobName = `${this.componentName}-gitops`;
+      try {
+        const gitopsBuilds = await this.jenkinsClient.builds.getRunningBuilds(gitopsJobName, folderName);
+
+        // Tag builds with their job name for later cancellation
+        const taggedGitopsBuilds = (gitopsBuilds || []).map(build => ({
+          ...build,
+          _jobName: gitopsJobName
+        }));
+        allBuilds.push(...taggedGitopsBuilds);
+      } catch (gitopsError: any) {
+        // Gitops job might not exist, log but don't fail
+        console.log(`[Jenkins] Gitops job ${gitopsJobName} not found or no builds: ${gitopsError.message}`);
+      }
+
+      return allBuilds;
+
+    } catch (error: any) {
+      console.error(`[Jenkins] Failed to fetch builds: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Filter builds based on cancellation options
+   */
+  private filterBuilds(
+    builds: any[],
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>
+  ): any[] {
+    return builds.filter(build => {
+      // Filter 1: Skip completed builds unless includeCompleted is true
+      if (!options.includeCompleted && this.isCompletedStatus(build)) {
+        console.log(`[Filter] Skipping completed build ${build.number} (${build.result})`);
+        return false;
+      }
+
+      // Filter 2: Check exclusion patterns
+      if (this.matchesExclusionPattern(build, options.excludePatterns)) {
+        console.log(`[Filter] Excluding build ${build.number} by pattern`);
+        return false;
+      }
+
+      // Filter 3: Filter by event type if specified
+      if (options.eventType && !this.matchesEventType(build, options.eventType)) {
+        console.log(`[Filter] Skipping build ${build.number} (event type mismatch)`);
+        return false;
+      }
+
+      // Note: Jenkins builds don't have direct branch information in getRunningBuilds
+      // Branch filtering would require fetching full build details, skipping for performance
+      if (options.branch) {
+        console.log(`[Filter] Branch filtering not supported for Jenkins running builds, ignoring branch filter`);
+      }
+
+      return true; // Include this build for cancellation
+    });
+  }
+
+  /**
+   * Check if build status is completed
+   */
+  private isCompletedStatus(build: any): boolean {
+    // If building is true, it's not completed
+    if (build.building) {
+      return false;
+    }
+
+    // If we have a result, the build is completed
+    return build.result !== null && build.result !== undefined;
+  }
+
+  /**
+   * Check if build matches any exclusion pattern
+   */
+  private matchesExclusionPattern(build: any, patterns: ReadonlyArray<RegExp>): boolean {
+    if (patterns.length === 0) {
+      return false;
+    }
+
+    const buildName = build.displayName || `Build-${build.number}`;
+
+    return patterns.some(pattern => pattern.test(buildName));
+  }
+
+  /**
+   * Check if build matches the event type
+   * Jenkins uses trigger type to indicate event type
+   */
+  private matchesEventType(build: any, eventType: EventType): boolean {
+    // If we have trigger type information from the build
+    if (build.triggerType) {
+      switch (eventType) {
+        case EventType.PUSH:
+          return build.triggerType === JenkinsBuildTrigger.PUSH;
+        case EventType.PULL_REQUEST:
+          return build.triggerType === JenkinsBuildTrigger.PULL_REQUEST;
+        default:
+          return false;
+      }
+    }
+
+    // If no trigger type info, allow all (can't filter)
+    return true;
+  }
+
+  /**
+   * Cancel builds in batches with concurrency control
+   */
+  private async cancelBuildsInBatches(
+    builds: any[],
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>,
+    result: MutableCancelResult
+  ): Promise<void> {
+    // Split into batches
+    const batches = this.chunkArray(builds, options.concurrency);
+
+    console.log(`[Jenkins] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      console.log(`[Jenkins] Processing batch ${i + 1}/${batches.length} (${batch.length} builds)`);
+
+      // Create promises for all builds in this batch
+      const promises = batch.map(build =>
+        this.cancelSingleBuild(build, options, result)
+      );
+
+      // Wait for all in batch to complete (don't stop on errors)
+      const batchResults = await Promise.allSettled(promises);
+
+      // Inspect batch results for systemic failures
+      const batchSuccesses = batchResults.filter(r => r.status === 'fulfilled').length;
+      const batchFailures = batchResults.filter(r => r.status === 'rejected').length;
+
+      console.log(`[Jenkins] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
+
+      // Alert on complete batch failure - indicates systemic issue
+      if (batchFailures === batch.length && batch.length > 0) {
+        console.error(`❌ [Jenkins] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
+
+        // Log first rejection reason for debugging
+        const firstRejected = batchResults.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
+        if (firstRejected) {
+          console.error(`[Jenkins] First failure reason: ${firstRejected.reason}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Cancel a single build and update results
+   */
+  private async cancelSingleBuild(
+    build: any,
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>,
+    result: MutableCancelResult
+  ): Promise<void> {
+    // Initialize detail object
+    const detail: MutablePipelineCancelDetail = {
+      pipelineId: build.number,
+      name: build.displayName || `Build-${build.number}`,
+      status: build.building ? PipelineStatus.RUNNING : PipelineStatus.UNKNOWN,
+      result: 'skipped',
+      eventType: this.mapJenkinsEventType(build),
+    };
+
+    try {
+      if (options.dryRun) {
+        // Dry run mode - don't actually cancel
+        detail.result = 'skipped';
+        detail.reason = 'Dry run mode';
+        result.skipped++;
+        console.log(`[DryRun] Would cancel build ${build.number}`);
+
+      } else {
+        // Extract job name from tagged build (added in fetchAllBuilds)
+        const jobName = (build as any)._jobName || this.componentName;
+
+        // Actually cancel the build via Jenkins API
+        await this.cancelBuildViaAPI(jobName, build.number);
+
+        detail.result = 'cancelled';
+        result.cancelled++;
+        console.log(`✅ [Jenkins] Cancelled build ${jobName} #${build.number} (status: ${build.building ? 'building' : build.result})`);
+      }
+
+    } catch (error: any) {
+      // Cancellation failed
+      detail.result = 'failed';
+      detail.reason = error.message;
+      result.failed++;
+
+      // Add to errors array
+      const cancelError: MutableCancelError = {
+        pipelineId: build.number,
+        message: error.message,
+        error: error,
+      };
+
+      result.errors.push(cancelError);
+
+      console.error(`❌ [Jenkins] Failed to cancel build ${build.number}: ${error.message}`);
+    }
+
+    // Add detail to results
+    result.details.push(detail);
+  }
+
+  /**
+   * Actually cancel the build via Jenkins API
+   */
+  private async cancelBuildViaAPI(jobName: string, buildNumber: number): Promise<void> {
+    try {
+      const folderName = this.componentName;
+      await this.jenkinsClient.builds.stopBuild(jobName, buildNumber, folderName);
+
+    } catch (error: any) {
+      // Re-throw - the jenkinsClient.builds.stopBuild already has error handling
+      throw error;
+    }
+  }
+
+  /**
+   * Map Jenkins build to EventType
+   */
+  private mapJenkinsEventType(build: any): EventType | undefined {
+    if (build.triggerType === JenkinsBuildTrigger.PUSH) {
+      return EventType.PUSH;
+    }
+    if (build.triggerType === JenkinsBuildTrigger.PULL_REQUEST) {
+      return EventType.PULL_REQUEST;
+    }
+    return undefined;
+  }
+
+
 }

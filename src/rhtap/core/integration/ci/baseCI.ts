@@ -1,6 +1,14 @@
 import { PullRequest } from '../git/models';
 import { KubeClient } from './../../../../../src/api/ocp/kubeClient';
-import { CI, CIType, EventType, Pipeline, PipelineStatus } from './ciInterface';
+import {
+  CI,
+  CIType,
+  EventType,
+  Pipeline,
+  PipelineStatus,
+  CancelPipelineOptions,
+  CancelResult,
+} from './ciInterface';
 import retry from 'async-retry';
 
 /**
@@ -36,6 +44,35 @@ export abstract class BaseCI implements CI {
 
   public getCIType(): CIType {
     return this.ciType;
+  }
+
+  /**
+   * Normalize CancelPipelineOptions with default values
+   * Protected method available to all CI provider subclasses
+   */
+  protected normalizeOptions(
+    options?: CancelPipelineOptions
+  ): Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'> {
+    return {
+      excludePatterns: options?.excludePatterns || [],
+      includeCompleted: options?.includeCompleted || false,
+      eventType: options?.eventType,
+      branch: options?.branch,
+      concurrency: options?.concurrency || 10,
+      dryRun: options?.dryRun || false,
+    };
+  }
+
+  /**
+   * Utility: Split array into chunks for batch processing
+   * Protected method available to all CI provider subclasses
+   */
+  protected chunkArray<T>(array: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
   }
 
   public getKubeClient(): KubeClient {
@@ -118,7 +155,16 @@ export abstract class BaseCI implements CI {
 
   public abstract waitForAllPipelineRunsToFinish(): Promise<void>;
 
-  public abstract cancelAllInitialPipelines(): Promise<void>;
+  /**
+   * Abstract method for cancelling all pipelines
+   * Must be implemented by each provider
+   *
+   * @param options Optional configuration for filtering and behavior
+   * @returns Promise resolving to detailed cancellation results
+   */
+  public abstract cancelAllPipelines(
+    options?: CancelPipelineOptions
+  ): Promise<CancelResult>;
 
   public abstract getWebhookUrl(): Promise<string>;
 
