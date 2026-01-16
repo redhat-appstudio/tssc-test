@@ -1,6 +1,8 @@
 import { TaskRunKind } from '@janus-idp/shared-react/dist/index';
 import { CoreV1Api, CustomObjectsApi, CoreV1Event, KubeConfig } from '@kubernetes/client-node';
 import * as k8s from '@kubernetes/client-node';
+import { LoggerFactory } from '../../logger/factory/loggerFactory';
+import { Logger } from '../../logger/logger';
 
 /**
  * Interface for standardized Kubernetes API options
@@ -19,6 +21,7 @@ export class KubeClient {
   private kubeConfig: KubeConfig;
   private k8sApi: k8s.CoreV1Api;
   private customApi: k8s.CustomObjectsApi;
+  private readonly logger: Logger;
   // private networkingApi: k8s.NetworkingV1Api;
 
   //TODO: need to move the parameter skipTLSVerify to the constructor
@@ -28,6 +31,7 @@ export class KubeClient {
 
     this.k8sApi = this.kubeConfig.makeApiClient(CoreV1Api);
     this.customApi = this.kubeConfig.makeApiClient(CustomObjectsApi);
+    this.logger = LoggerFactory.getLogger('ocp.client');
     // this.networkingApi = this.kubeConfig.makeApiClient(NetworkingV1Api);
   }
 
@@ -87,7 +91,7 @@ export class KubeClient {
       });
       return route.spec.host;
     } catch (error) {
-      console.error(error);
+      this.logger.error('Failed to obtain openshift route: {}', error);
       throw new Error(`Failed to obtain openshift route ${name}: ${error}`);
     }
   }
@@ -206,9 +210,7 @@ export class KubeClient {
       if (response && Array.isArray(response.items)) {
         return response.items as T[];
       } else {
-        console.warn(
-          `Unexpected response format when fetching resources: ${JSON.stringify(response)}`
-        );
+        this.logger.warn('Unexpected response format when fetching resources: {}', JSON.stringify(response));
         return [];
       }
     } catch (error: any) {
@@ -220,18 +222,14 @@ export class KubeClient {
       if (error.message && (
             error.message.includes('429') || error.message.includes('TooManyRequests')
       )) {
-        console.error(
-          `Rate limiting error fetching resources in namespace '${options.namespace}'${labelInfo}: ${error}`
-        );
+        this.logger.error('Rate limiting error fetching resources in namespace \'{}\'{}: {}', options.namespace, labelInfo, error);
 
         // Throw rate limiting errors so they can be handled by retry logic
         throw new Error(`HTTP-Code: 429 - Rate limiting error: ${error.message || error}`);
       }
 
       // For other errors, log and return empty array (existing behavior)
-      console.error(
-        `Error fetching resources in namespace '${options.namespace}'${labelInfo}: ${error}`
-      );
+      this.logger.error('Error fetching resources in namespace \'{}\'{}: {}', options.namespace, labelInfo, error);
       return [];
     }
   }
@@ -258,9 +256,7 @@ export class KubeClient {
       });
       return response as T;
     } catch (error) {
-      console.error(
-        `Error getting resource '${options.name}' in namespace '${options.namespace}': ${error}`
-      );
+      this.logger.error('Error getting resource \'{}\' in namespace \'{}\': {}', options.name, options.namespace, error);
       return null;
     }
   }
@@ -289,9 +285,7 @@ export class KubeClient {
       });
       return response as T;
     } catch (error) {
-      console.error(
-        `Error patching resource '${options.name}' in namespace '${options.namespace}': ${error}`
-      );
+      this.logger.error('Error patching resource \'{}\' in namespace \'{}\': {}', options.name, options.namespace, error);
       throw new Error(`Failed to patch resource '${options.name}': ${error}`);
     }
   }
@@ -378,7 +372,7 @@ export class KubeClient {
       });
       return res.items;
     } catch (error) {
-      console.error('Failed to get events:', error);
+      this.logger.error('Failed to get events: {}', error);
       throw error;
     }
   }
@@ -394,7 +388,7 @@ export class KubeClient {
       }
       return kubeCurrentContext;
     } catch (error) {
-      console.error(`Error getting current context from kubeconfig: ${error}`);
+      this.logger.error('Error getting current context from kubeconfig: {}', error);
       throw error;
     }
   }
@@ -402,12 +396,12 @@ export class KubeClient {
   public async getCosignPrivateKey(): Promise<string> {
     const secret = await this.getSecret('signing-secrets', 'openshift-pipelines');
     if (!secret) {
-      console.error('Failed to retrieve the secret');
+      this.logger.error('Failed to retrieve the secret');
       throw new Error('Secret signing-secrets under namespace openshift-pipelines not found');
     }
     const key = secret['cosign.key'];
     if (!key) {
-      console.error('Failed to retrieve the cosign private key from the secret');
+      this.logger.error('Failed to retrieve the cosign private key from the secret');
       throw new Error('Cosign private key not found in the secret');
     }
     return key;
@@ -416,12 +410,12 @@ export class KubeClient {
   public async getCosignPrivateKeyPassword(): Promise<string> {
     const secret = await this.getSecret('signing-secrets', 'openshift-pipelines');
     if (!secret) {
-      console.error('Failed to retrieve the secret');
+      this.logger.error('Failed to retrieve the secret');
       throw new Error('Secret signing-secrets under namespace openshift-pipelines not found');
     }
     const key = secret['cosign.password'];
     if (!key) {
-      console.error('Failed to retrieve the cosign private key password from the secret');
+      this.logger.error('Failed to retrieve the cosign private key password from the secret');
       throw new Error('Cosign private key password not found in the secret');
     }
     return key;
@@ -434,28 +428,18 @@ export class KubeClient {
   public async getCosignPublicKey(): Promise<string> {
     const secret = await this.getSecret('signing-secrets', 'openshift-pipelines');
     if (!secret) {
-      console.error('Failed to retrieve the secret');
+      this.logger.error('Failed to retrieve the secret');
       throw new Error('Secret signing-secrets under namespace openshift-pipelines not found');
     }
     const key = secret['cosign.pub'];
     if (!key) {
-      console.error('Failed to retrieve the cosign public key from the secret');
+      this.logger.error('Failed to retrieve the cosign public key from the secret');
       throw new Error('Cosign public key not found in the secret');
     }
     return key;
   }
 
-  /**
-   * Retrieves a ConfigMap from Kubernetes
-   * @param configMapName The name of the ConfigMap
-   * @param namespace The namespace where the ConfigMap is located
-   * @returns A Promise that resolves to an object containing the ConfigMap data
-   * @throws Error if the ConfigMap cannot be retrieved
-   */
-  public async getConfigMap(
-    configMapName: string,
-    namespace: string
-  ): Promise<Record<string, string>> {
+  public async getConfigMap(configMapName: string, namespace: string = 'default'): Promise<Record<string, string>> {
     try {
       const response = await this.k8sApi.readNamespacedConfigMap({
         name: configMapName,
@@ -463,34 +447,8 @@ export class KubeClient {
       });
       return response.data || {};
     } catch (error) {
-      throw new Error(`Failed to retrieve ConfigMap '${configMapName}' in namespace '${namespace}': ${error}`);
+      this.logger.error('Failed to retrieve config map \'{}\': {}', configMapName, error);
+      throw error;
     }
-  }
-
-  /**
-   * Retrieves the cluster's root CA certificate from the kube-root-ca.crt ConfigMap
-   * @returns A Promise that resolves to the root CA certificate as a string, or null if not found
-   */
-  public async getClusterRootCA(): Promise<string | null> {
-    // Try different namespaces where the kube-root-ca.crt ConfigMap might exist
-    const namespaces = ['tssc', 'tssc-dh', 'default', 'kube-system'];
-
-    for (const namespace of namespaces) {
-      try {
-        const configMap = await this.getConfigMap('kube-root-ca.crt', namespace);
-        const caCert = configMap['ca.crt'];
-
-        if (caCert) {
-          console.log(`Found cluster root CA in namespace '${namespace}'`);
-          return caCert;
-        }
-      } catch (error) {
-        // Continue to next namespace if this one fails
-        console.debug(`ConfigMap 'kube-root-ca.crt' not found in namespace '${namespace}': ${error}`);
-      }
-    }
-
-    console.warn('Cluster root CA not found in any of the expected namespaces');
-    return null;
   }
 }

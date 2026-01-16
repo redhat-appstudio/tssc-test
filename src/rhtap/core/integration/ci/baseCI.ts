@@ -10,15 +10,21 @@ import {
   CancelResult,
 } from './ciInterface';
 import retry from 'async-retry';
+import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
+import { Logger } from '../../../../logger/logger';
 
 /**
  * Base class for all CI implementations with common functionality
  */
 export abstract class BaseCI implements CI {
+  protected readonly logger: Logger;
+  
   constructor(
     public readonly ciType: CIType,
     public readonly kubeClient: KubeClient
-  ) {}
+  ) {
+    this.logger = LoggerFactory.getLogger('rhtap.core.integration.ci.base');
+  }
 
   /**
    * Get a pipeline for the given pull request
@@ -90,7 +96,7 @@ export abstract class BaseCI implements CI {
     pipeline: Pipeline,
     timeoutMs: number = 900000
   ): Promise<PipelineStatus> {
-    console.log(`Waiting for pipeline ${pipeline.getDisplayName()} to finish...`);
+    this.logger.info('Waiting for pipeline {} to finish...', pipeline.getDisplayName());
 
     let status: PipelineStatus = PipelineStatus.UNKNOWN;
     const startTime = Date.now();
@@ -99,7 +105,7 @@ export abstract class BaseCI implements CI {
       const checkPipelineStatus = async (bail: (e: Error) => void): Promise<PipelineStatus> => {
         // Check if timeout has been reached
         if (Date.now() - startTime >= timeoutMs) {
-          console.warn(`Timed out waiting for pipeline ${pipeline.getDisplayName()} to finish`);
+          this.logger.warn('Timed out waiting for pipeline {} to finish', pipeline.getDisplayName());
           bail(new Error('Timeout reached'));
           return PipelineStatus.UNKNOWN;
         }
@@ -108,7 +114,7 @@ export abstract class BaseCI implements CI {
         status = await this.checkPipelinerunStatus(pipeline);
         pipeline.updateStatus(status);
 
-        console.log(`Pipeline ${pipeline.getDisplayName()} status: ${status}`);
+        this.logger.info('Pipeline {} status: {}', pipeline.getDisplayName(), status);
 
         // If pipeline is not yet complete, throw error to trigger retry
         if (!pipeline.isCompleted()) {
@@ -126,8 +132,12 @@ export abstract class BaseCI implements CI {
         maxTimeout: 30000, // Keep consistent timing
         factor: 1, // No backoff
         onRetry: (error: Error, attempt: number) => {
-          console.log(
-            `[RETRY ${attempt}] 🔄 Pipeline: ${pipeline.getDisplayName()} | Status: ${status} | Reason: ${error.message}`
+          this.logger.info(
+            '[RETRY {}] 🔄 Pipeline: {} | Status: {} | Reason: {}',
+            attempt,
+            pipeline.getDisplayName(),
+            status,
+            error.message
           );
         },
       });
@@ -138,8 +148,10 @@ export abstract class BaseCI implements CI {
       if (errorMessage === 'Timeout reached') {
         return PipelineStatus.UNKNOWN;
       }
-      console.error(
-        `Error while waiting for pipeline ${pipeline.getDisplayName()}: ${errorMessage}`
+      this.logger.error(
+        'Error while waiting for pipeline {}: {}',
+        pipeline.getDisplayName(),
+        errorMessage
       );
       //TODO: Print out pipeline logs if available
       // This is a placeholder for actual log retrieval logic

@@ -1,6 +1,5 @@
 import { expect, Page } from '@playwright/test';
 import { DependenciesPO } from '../../page-objects/dependenciesPo';
-import { waitForPageLoad } from '../../commonUi';
 
 export class DependenciesUiPlugin {
     private readonly componentName: string;

@@ -18,6 +18,8 @@ import {
   ArgoCDConnectionError,
   ArgoCDCliError,
 } from '../errors/argocd.errors';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 // Promisified exec function
 const exec = promisify(execCallback);
@@ -26,11 +28,15 @@ const exec = promisify(execCallback);
  * Service for managing ArgoCD application synchronization
  */
 export class ArgoCDSyncService {
+  private readonly logger: Logger;
+
   constructor(
     private readonly connectionService: ArgoCDConnectionService,
     private readonly applicationService: ArgoCDApplicationService,
     private readonly kubeClient: KubeClient
-  ) {}
+  ) {
+    this.logger = LoggerFactory.getLogger('argocd.sync');
+  }
 
   /**
    * Triggers and monitors a synchronization operation for an ArgoCD application using the ArgoCD CLI.
@@ -48,9 +54,7 @@ export class ArgoCDSyncService {
       );
     }
 
-    console.log(
-      `Starting sync process for application ${applicationName} in namespace ${config.namespace}...`
-    );
+    this.logger.info('Starting sync process for application {} in namespace {}...', applicationName, config.namespace);
     const startTime = Date.now();
 
     try {
@@ -62,7 +66,7 @@ export class ArgoCDSyncService {
       const loginCmd = this.buildLoginCommand(cliConfig);
       const syncCmd = this.buildSyncCommand(applicationName, options);
 
-      console.log(`Attempting to sync application ${applicationName} using ArgoCD CLI...`);
+      this.logger.info('Attempting to sync application {} using ArgoCD CLI...', applicationName);
 
       // Execute login command with retries
       await this.executeLogin(loginCmd, applicationName);
@@ -88,13 +92,11 @@ export class ArgoCDSyncService {
       if (error instanceof ArgoCDSyncError || error instanceof ArgoCDTimeoutError) {
         throw error;
       }
-      console.error(
-        `Failed to sync application ${applicationName} after ${elapsed}s: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.logger.error('Failed to sync application {} after {}s: {}', applicationName, elapsed, error);
       
       return {
         success: false,
-        message: `Sync failed after ${elapsed}s: ${error instanceof Error ? error.message : String(error)}`,
+        message: `Sync failed after ${elapsed}s: ${error}`,
         health: 'Unknown',
         sync: 'Unknown',
         operationPhase: 'Unknown',
@@ -163,11 +165,11 @@ export class ArgoCDSyncService {
         try {
           const { stdout: _, stderr: loginErr } = await exec(loginCmd);
           if (loginErr && loginErr.trim()) {
-            console.warn(`ArgoCD login warnings: ${loginErr}`);
+            this.logger.warn('ArgoCD login warnings: {}', loginErr);
           }
-          console.log('Successfully logged into ArgoCD server');
+          this.logger.info('Successfully logged into ArgoCD server');
         } catch (loginError: any) {
-          console.error(`Error logging into ArgoCD: ${loginError.message}`);
+          this.logger.error('Error logging into ArgoCD: {}', loginError.message);
           throw new ArgoCDConnectionError(
             `Failed to login to ArgoCD: ${loginError.message}`,
             loginError
@@ -179,9 +181,7 @@ export class ArgoCDSyncService {
         minTimeout: 2000,
         factor: 2,
         onRetry: (error: Error, attempt: number) => {
-          console.log(
-            `[LOGIN-RETRY ${attempt}/${maxRetries}] 🔄 Application: ${applicationName} | Status: Retrying login | Reason: ${error.message}`
-          );
+          this.logger.warn('[LOGIN-RETRY {}/{}] Application: {} | Status: Retrying login | Reason: {}', attempt, maxRetries, applicationName, error);
         },
       }
     );
@@ -193,25 +193,25 @@ export class ArgoCDSyncService {
     await retry(
       async (bail) => {
         try {
-          console.log(`Executing sync command: ${syncCmd}`);
+          this.logger.info('Executing sync command: {}', syncCmd);
           const { stdout, stderr } = await exec(syncCmd);
 
           if (stderr && stderr.trim()) {
-            console.warn(`ArgoCD sync warnings: ${stderr}`);
+            this.logger.warn('ArgoCD sync warnings: {}', stderr);
           }
           if (stdout) {
-            console.log(`ArgoCD sync output: ${stdout}`);
+            this.logger.info('ArgoCD sync output:\n{}', stdout);
           }
         } catch (syncError: any) {
-          console.error(`Error executing sync command: ${syncError.message}`);
+          this.logger.error('Error executing sync command: {}', syncError.message);
           
           // Get detailed application details for debugging
           try {
             await this.executeGetAppDetails(applicationName);
             const latestAppEvents = await this.applicationService.getApplicationEvents(applicationName, namespace);
-            console.error(`Getting latest application events: \n${latestAppEvents}`);
+            this.logger.error('Getting latest application events:\n{}', latestAppEvents);
           } catch (statusError) {
-            console.error(`Unable to fetch application details for debug: ${statusError}`);
+            this.logger.error('Unable to fetch application details for debug: {}', statusError);
           }
 
           // Check if this is the "another operation is already in progress" error
@@ -237,9 +237,7 @@ export class ArgoCDSyncService {
         factor: 2,
         maxTimeout: 30000,
         onRetry: (error: Error, attempt: number) => {
-          console.log(
-            `[SYNC-RETRY ${attempt}/${maxRetries}] 🔄 Application: ${applicationName} | Status: Retrying sync | Reason: ${error.message}`
-          );
+          this.logger.warn('[SYNC-RETRY {}/{}] Application: {} | Status: Retrying sync | Reason: {}', attempt, maxRetries, applicationName, error);
         },
       }
     );
@@ -248,17 +246,17 @@ export class ArgoCDSyncService {
   private async executeGetAppDetails(applicationName: string): Promise<void> {
     const getAppDetailsCmd = this.buildGetAppDetailsCommand(applicationName);
     try {
-      console.log(`Executing command: ${getAppDetailsCmd}`);
+      this.logger.info('Executing command: {}', getAppDetailsCmd);
       const { stdout, stderr } = await exec(getAppDetailsCmd);
 
       if (stderr && stderr.trim()) {
-        console.warn(`ArgoCD get app warnings: ${stderr}`);
+        this.logger.warn('ArgoCD get app warnings:\n{}', stderr);
       }
       if (stdout) {
-        console.log(`ArgoCD get app: ${stdout}`);
+        this.logger.info('ArgoCD get app:\n{}', stdout);
       }
     } catch (syncError: any) {
-      console.error(`Error executing app details command: ${syncError.message}`);
+      this.logger.error('Error executing app details command: {}', syncError.message);
       throw new ArgoCDCliError(
         getAppDetailsCmd,
         syncError.code,
@@ -297,9 +295,7 @@ export class ArgoCDSyncService {
 
       // Check for success condition
       if (healthStatus === 'Healthy' && syncStatus === 'Synced') {
-        console.log(
-          `✅ Sync completed successfully for application ${applicationName} - Health: ${healthStatus}, Sync: ${syncStatus}`
-        );
+        this.logger.info('Sync completed successfully for application {} - Health: {}, Sync: {}', applicationName, healthStatus, syncStatus);
         return {
           success: true,
           message: `Sync completed successfully`,
@@ -329,7 +325,7 @@ export class ArgoCDSyncService {
 
       // Still in progress
       const statusMsg = `Application ${applicationName} - Health: ${healthStatus}, Sync: ${syncStatus}, Operation: ${operationPhase}`;
-      console.log(`⏳ ${statusMsg} - continuing to monitor`);
+      this.logger.info('{} - continuing to monitor', statusMsg);
       throw new Error(`Waiting for sync to complete: ${statusMsg}`);
     };
 
@@ -341,9 +337,7 @@ export class ArgoCDSyncService {
         maxTimeout: 30000,
         onRetry: (error: Error, attempt: number) => {
           const elapsed = Math.round((Date.now() - startTime) / 1000);
-          console.log(
-            `[SYNC-MONITOR ${attempt}/${maxRetries}] 🔄 Application: ${applicationName} | Elapsed: ${elapsed}s | Reason: ${error.message}`
-          );
+          this.logger.warn('[SYNC-MONITOR {}/{}] Application: {} | Elapsed: {}s | Reason: {}', attempt, maxRetries, applicationName, elapsed, error);
         },
       });
 
@@ -352,17 +346,17 @@ export class ArgoCDSyncService {
       // Get detailed application status for debugging
       try {
         const status = await this.applicationService.getApplicationStatus(applicationName, namespace);
-        console.error(`Application latest Status: ${status}`);
+        this.logger.error('Application latest Status: {}', status);
         const latestAppEvents = await this.applicationService.getApplicationEvents(applicationName, namespace);
-        console.error(`Getting latest application events: \n${latestAppEvents}`);
+        this.logger.error('Getting latest application events: {}', latestAppEvents);
 
       } catch (statusError) {
-        console.error(`Unable to fetch application status for debug: ${statusError}`);
+        this.logger.error('Unable to fetch application status for debug: {}', statusError);
       }
 
       return {
         success: false,
-        message: error.message || 'Sync monitoring failed',
+        message: error || 'Sync monitoring failed',
         health: 'Unknown',
         sync: 'Unknown',
         operationPhase: 'Unknown',

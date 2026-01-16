@@ -3,7 +3,10 @@ import { TestItem } from './src/playwright/testItem';
 import { loadProjectConfigurations, ProjectConfig } from './src/utils/projectConfigLoader';
 import { getTestMatchPattern } from './src/utils/testFilterLoader';
 import { TestPlan } from './src/playwright/testplan';
+import { LoggerFactory } from './src/logger/factory/loggerFactory';
 import path from 'path';
+
+const logger = LoggerFactory.getLogger('playwright.config');
 
 export const AUTH_STORAGE_FILE = path.join('playwright', '.auth', 'user.json');
 
@@ -35,14 +38,14 @@ try {
   // Special handling for ui-tests plan
   if (requestedPlan === 'ui-tests') {
     hasUITests = true;
-    console.log('Running UI tests with existing project configuration');
+    logger.info('Running UI tests with existing project configuration');
   } else {
     const testPlanPath = process.env.TESTPLAN_PATH || path.resolve(process.cwd(), 'testplan.json');
-    console.log(`Checking for UI tests in test plan: ${testPlanPath}`);
+    logger.info('Checking for UI tests in test plan: {}', testPlanPath);
     
     // Check if test plan file exists first
     if (!require('fs').existsSync(testPlanPath)) {
-      console.warn(`Test plan file not found at ${testPlanPath}, defaulting to E2E tests`);
+      logger.warn('Test plan file not found at {}, defaulting to E2E tests', testPlanPath);
     } else {
       try {
         const testPlanData = JSON.parse(require('fs').readFileSync(testPlanPath, 'utf-8'));
@@ -56,23 +59,23 @@ try {
           test.toLowerCase().includes('component') ||
           test.toLowerCase().includes('page')
         );
-        console.log(`UI test detection completed for ${testPlanPath}: ${hasUITests ? 'UI tests found' : 'No UI tests detected'}`);
+        logger.info('UI test detection completed for {}: {}', testPlanPath, hasUITests ? 'UI tests found' : 'No UI tests detected');
       } catch (error) {
         if (error instanceof SyntaxError) {
-          console.error(`Failed to parse JSON from test plan file ${testPlanPath}:`, error.message);
+          logger.error('Failed to parse JSON from test plan file {}: {}', testPlanPath, error);
           if (error instanceof Error) {
-            console.error('JSON parse error stack:', error.stack);
+            logger.error('JSON parse error stack: {}', error);
           } else {
-            console.error('JSON parse error stack: <unknown error type>');
+            logger.error('JSON parse error stack: <unknown error type>');
           }
         } else if (error instanceof Error) {
-          console.error(`IO error reading test plan file ${testPlanPath}:`, error.message);
-          console.error('IO error stack:', error.stack);
+          logger.error('IO error reading test plan file {}: {}', testPlanPath, error);
+          logger.error('IO error stack: {}', error);
         } else {
-          console.error(`IO error reading test plan file ${testPlanPath}: <unknown error>`);
-          console.error('IO error stack: <unknown error type>');
+          logger.error('IO error reading test plan file {}: <unknown error>', testPlanPath);
+          logger.error('IO error stack: <unknown error type>');
         }
-        console.warn('Defaulting to E2E tests due to test plan parsing error');
+        logger.warn('Defaulting to E2E tests due to test plan parsing error');
       }
     }
   }
@@ -91,7 +94,7 @@ try {
   // Special handling for ui-tests plan - use UI-specific patterns
   if (requestedPlan === 'ui-tests') {
     patterns = ['**/*.ui.test.ts', '**/*.ui.test.tsx', '**/ui/**/*.test.ts', '**/ui/**/*.test.tsx'];
-    console.log('Using UI-specific test patterns for ui-tests plan');
+    logger.info('Using UI-specific test patterns for ui-tests plan');
   } else {
     testMatchPattern = getTestMatchPattern();
     

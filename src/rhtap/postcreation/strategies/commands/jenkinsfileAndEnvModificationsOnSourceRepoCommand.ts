@@ -5,6 +5,8 @@ import {
 } from '../../../modification/contentModification';
 import { JenkinsfileModifier } from '../../../modification/jenkinsfile';
 import { BaseCommand } from './baseCommand';
+import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
+import { Logger } from '../../../../logger/logger';
 
 /**
  * Command to apply modifications to source repository
@@ -16,6 +18,8 @@ import { BaseCommand } from './baseCommand';
  * Part of the post-creation workflow for setting up Jenkins pipeline requirements.
  */
 export class JenkinsfileAndEnvModificationsOnSourceRepoCommand extends BaseCommand {
+  protected readonly logger: Logger = LoggerFactory.getLogger('postcreation.command.jenkins.source-repo');
+  
   constructor(component: Component) {
     super(component);
   }
@@ -53,8 +57,8 @@ export class JenkinsfileAndEnvModificationsOnSourceRepoCommand extends BaseComma
     modifications: ContentModifications,
     message: string
   ): Promise<void> {
-    console.log(`Committing changes to ${repoName}...`);
+    this.logger.info('Committing changes to {}...', repoName);
     await this.git.commitChangesToRepo(this.git.getRepoOwner(), repoName, modifications, message);
-    console.log(`Changes committed to ${repoName} successfully.`);
+    this.logger.info('Changes committed to {} successfully.', repoName);
   }
 }

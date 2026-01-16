@@ -1,6 +1,8 @@
 import { BaseHttpClient } from '../../common/http/base-http.client';
 import { AxiosError } from 'axios';
 import { AzureApiError } from '../errors/azure.errors';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 export interface AzureHttpClientConfig {
   organization: string;
@@ -11,6 +13,7 @@ export interface AzureHttpClientConfig {
 
 export class AzureHttpClient extends BaseHttpClient {
   private readonly authHeader: string;
+  private readonly logger: Logger;
 
   constructor(config: AzureHttpClientConfig) {
     const base64Pat = Buffer.from(`:${config.pat}`).toString('base64');
@@ -24,18 +27,17 @@ export class AzureHttpClient extends BaseHttpClient {
       timeout: config.timeout,
     });
 
+    this.logger = LoggerFactory.getLogger('azure.http');
     this.authHeader = authHeader;
 
     // Interceptors for debugging purposes
     this.client.interceptors.request.use(
       request => {
-        console.log(
-          `[Request] > Sending ${request.method?.toUpperCase()} to ${request.baseURL}${request.url}`
-        );
+        this.logger.info('[Request] > Sending {} to {}{}', request.method?.toUpperCase(), request.baseURL, request.url);
         return request;
       },
       error => {
-        console.error('[Request Error]', error);
+        this.logger.error('[Request Error]: {}', error);
         return Promise.reject(error);
       }
     );
@@ -44,14 +46,11 @@ export class AzureHttpClient extends BaseHttpClient {
       response => response,
       (error: AxiosError) => {
         if (error.response) {
-          console.error(
-            `Azure DevOps API Error: ${error.response.status} ${error.response.statusText}`,
-            error.response.data
-          );
+          this.logger.error('Azure DevOps API Error: {} {} - {}', error.response.status, error.response.statusText, error.response.data);
         } else if (error.request) {
-          console.error('Azure DevOps API Error: No response received', error.request);
+          this.logger.error('Azure DevOps API Error: No response received - {}', error.request);
         } else {
-          console.error('Azure DevOps API Error: Request setup failed', error.message);
+          this.logger.error('Azure DevOps API Error: Request setup failed - {}', error);
         }
         // Wrap AxiosError in a custom AzureApiError
         const azureError = new AzureApiError(

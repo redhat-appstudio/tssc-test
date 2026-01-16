@@ -93,9 +93,9 @@ export class AzureCI extends BaseCI {
         pat: this.getToken(),
       });
 
-      console.log('Azure client initialized successfully');
+      this.logger.info('Azure client initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Azure client:', error);
+      this.logger.error('Failed to initialize Azure client:', error);
       throw error;
     }
   }
@@ -107,9 +107,9 @@ export class AzureCI extends BaseCI {
     try {
       await this.loadSecret();
       await this.initAzureClient();
-      console.log('Azure client initialized successfully');
+      this.logger.info('Azure client initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Azure client:', error);
+      this.logger.error('Failed to initialize Azure client:', error);
       throw error;
     }
   }
@@ -215,7 +215,7 @@ export class AzureCI extends BaseCI {
         return null;
       }
 
-      console.log(
+      this.logger.info(
         `Retrieving pipelineruns for pipelines with id: ${pipelineDefSource.id} and ${pipelineDefGitops.id}`
       );
 
@@ -229,7 +229,7 @@ export class AzureCI extends BaseCI {
 
       // 0 is for dummy pull request
       if (pullRequest.pullNumber != 0) {
-        console.log(
+        this.logger.info(
           `Filtering runs for pull request ${pullRequest.pullNumber} with sha ${pullRequest.sha}`
         );
         runs = runs.filter(
@@ -246,12 +246,12 @@ export class AzureCI extends BaseCI {
         builds = builds.filter(run => run.reason === AzurePipelineTriggerReason.PULL_REQUEST);
       } else if (eventType == EventType.PUSH) {
         //TODO: remove this later, for debugging purpose
-        console.log(`Azure builds: ${JSON.stringify(builds, null, 2)}`);
+        this.logger.info(`Azure builds: ${JSON.stringify(builds, null, 2)}`);
         builds = builds.filter(run => run.reason === AzurePipelineTriggerReason.INDIVIDUAL_CI);
       }
 
       const targetBuild = builds[builds.length - 1];
-      console.log(`Retrieved build ${JSON.stringify(targetBuild)}`);
+      this.logger.info(`Retrieved build ${JSON.stringify(targetBuild)}`);
 
       if (!targetBuild) {
         return null;
@@ -268,7 +268,7 @@ export class AzureCI extends BaseCI {
 
       return pipeline;
     } catch (error) {
-      console.error(`Error in getPipeline for ${this.componentName}:`, error);
+      this.logger.error('Error in getPipeline for {}: {}', this.componentName, error);
       return null;
     }
   }
@@ -297,7 +297,7 @@ export class AzureCI extends BaseCI {
   public async waitForAllPipelineRunsToFinish(): Promise<void> {
     await retry(
       async () => {
-        console.log(`Waiting for all pipelines to finish for component: ${this.componentName}`);
+        this.logger.info(`Waiting for all pipelines to finish for component: ${this.componentName}`);
         const pipelineId = await this.azureClient.pipelines.getPipelineIdByName(this.componentName);
         if (!pipelineId) {
           return;
@@ -341,7 +341,7 @@ export class AzureCI extends BaseCI {
 
       return serviceEndpoint;
     } catch (error) {
-      console.error(`Failed to create service endpoint '${serviceEndpointName}':`, error);
+      this.logger.error('Failed to create service endpoint \'{}\': {}', serviceEndpointName, error);
       throw error;
     }
   }
@@ -364,7 +364,7 @@ export class AzureCI extends BaseCI {
 
       return pipelineDefinition;
     } catch (error) {
-      console.error(`Failed to create Azure pipeline '${pipelineName}':`, error);
+      this.logger.error('Failed to create Azure pipeline \'{}\': {}', pipelineName, error);
       throw error;
     }
   }
@@ -373,14 +373,14 @@ export class AzureCI extends BaseCI {
     try {
       const pipelineId = await this.azureClient.pipelines.getPipelineIdByName(pipelineName);
       if (!pipelineId) {
-        console.warn(`Pipeline with name '${pipelineName}' not found. Skipping deletion.`);
+        this.logger.warn(`Pipeline with name '${pipelineName}' not found. Skipping deletion.`);
         return;
       }
 
       await this.azureClient.pipelines.deletePipeline(pipelineId);
-      console.log(`Successfully deleted pipeline '${pipelineName}' with ID: ${pipelineId}`);
+      this.logger.info(`Successfully deleted pipeline '${pipelineName}' with ID: ${pipelineId}`);
     } catch (error) {
-      console.error(`Failed to delete Azure pipeline '${pipelineName}':`, error);
+      this.logger.error('Failed to delete Azure pipeline \'{}\': {}', pipelineName, error);
       throw error;
     }
   }
@@ -405,7 +405,7 @@ export class AzureCI extends BaseCI {
         azureVariables
       );
     } catch (error) {
-      console.error(`Failed to create or update variable group '${groupName}':`, error);
+      this.logger.error('Failed to create or update variable group \'{}\': {}', groupName, error);
       throw error;
     }
   }
@@ -418,17 +418,17 @@ export class AzureCI extends BaseCI {
 
       const variableGroup = await this.azureClient.variableGroups.getVariableGroupByName(groupName);
       if (!variableGroup) {
-        console.warn(`Variable group with name '${groupName}' not found. Skipping deletion.`);
+        this.logger.warn(`Variable group with name '${groupName}' not found. Skipping deletion.`);
         return;
       }
 
       const projectId = await this.azureClient.projects.getProjectIdByName(this.projectName);
       await this.azureClient.variableGroups.deleteVariableGroup(variableGroup.id, projectId);
-      console.log(
+      this.logger.info(
         `Successfully deleted variable group '${groupName}' with ID: ${variableGroup.id}`
       );
     } catch (error) {
-      console.error(`Failed to delete variable group '${groupName}':`, error);
+      this.logger.error('Failed to delete variable group \'{}\': {}', groupName, error);
       throw error;
     }
   }
@@ -455,7 +455,7 @@ export class AzureCI extends BaseCI {
     const endpoint = await this.azureClient.serviceEndpoints.getServiceEndpointByName(endpointName);
     const projectId = await this.azureClient.projects.getProjectIdByName(this.projectName);
     if (!endpoint) {
-      console.warn(`Service endpoint with name '${endpointName}' not found. Skipping deletion.`);
+      this.logger.warn(`Service endpoint with name '${endpointName}' not found. Skipping deletion.`);
       return;
     }
     await this.azureClient.serviceEndpoints.deleteServiceEndpoint(endpoint.id, projectId);
@@ -482,7 +482,7 @@ export class AzureCI extends BaseCI {
       errors: [],
     };
 
-    console.log(`[Azure] Starting build cancellation for ${this.componentName}`);
+    this.logger.info(`[Azure] Starting build cancellation for ${this.componentName}`);
 
     try {
       // 3. Fetch all builds from Azure API
@@ -490,17 +490,17 @@ export class AzureCI extends BaseCI {
       result.total = allBuilds.length;
 
       if (allBuilds.length === 0) {
-        console.log(`[Azure] No builds found for ${this.componentName}`);
+        this.logger.info(`[Azure] No builds found for ${this.componentName}`);
         return result;
       }
 
-      console.log(`[Azure] Found ${allBuilds.length} total builds`);
+      this.logger.info(`[Azure] Found ${allBuilds.length} total builds`);
 
       // 4. Apply filters
       const buildsToCancel = this.filterBuilds(allBuilds, opts);
 
-      console.log(`[Azure] ${buildsToCancel.length} builds match filters`);
-      console.log(`[Azure] ${allBuilds.length - buildsToCancel.length} builds filtered out`);
+      this.logger.info(`[Azure] ${buildsToCancel.length} builds match filters`);
+      this.logger.info(`[Azure] ${allBuilds.length - buildsToCancel.length} builds filtered out`);
 
       // 5. Cancel builds in batches
       await this.cancelBuildsInBatches(buildsToCancel, opts, result);
@@ -509,7 +509,7 @@ export class AzureCI extends BaseCI {
       const accounted = result.cancelled + result.failed + result.skipped;
       if (accounted !== result.total) {
         const missing = result.total - accounted;
-        console.error(
+        this.logger.error(
           `❌ [Azure] ACCOUNTING ERROR: ${missing} builds unaccounted for ` +
           `(total: ${result.total}, accounted: ${accounted})`
         );
@@ -523,7 +523,7 @@ export class AzureCI extends BaseCI {
       }
 
       // 7. Log summary
-      console.log(`[Azure] Cancellation complete:`, {
+      this.logger.info(`[Azure] Cancellation complete:`, {
         total: result.total,
         cancelled: result.cancelled,
         failed: result.failed,
@@ -531,8 +531,8 @@ export class AzureCI extends BaseCI {
       });
 
     } catch (error: any) {
-      console.error(`[Azure] Error in cancelAllPipelines: ${error.message}`);
-      throw new Error(`Failed to cancel pipelines: ${error.message}`);
+      this.logger.error('[Azure] Error in cancelAllPipelines: {}', error);
+      throw new Error(`Failed to cancel pipelines: {}`);
     }
 
     return result;
@@ -586,7 +586,7 @@ export class AzureCI extends BaseCI {
       return builds;
 
     } catch (error: any) {
-      console.error(`[Azure] Failed to fetch builds: ${error.message}`);
+      this.logger.error('[Azure] Failed to fetch builds: {}', error);
       throw error;
     }
   }
@@ -601,26 +601,26 @@ export class AzureCI extends BaseCI {
     return builds.filter(build => {
       // Filter 1: Skip completed builds unless includeCompleted is true
       if (!options.includeCompleted && this.isCompletedStatus(build)) {
-        console.log(`[Filter] Skipping completed build ${build.id} (${build.status})`);
+        this.logger.info(`[Filter] Skipping completed build ${build.id} (${build.status})`);
         return false;
       }
 
       // Filter 2: Check exclusion patterns
       if (this.matchesExclusionPattern(build, options.excludePatterns)) {
-        console.log(`[Filter] Excluding build ${build.id} by pattern`);
+        this.logger.info(`[Filter] Excluding build ${build.id} by pattern`);
         return false;
       }
 
       // Filter 3: Filter by event type if specified
       if (options.eventType && !this.matchesEventType(build, options.eventType)) {
-        console.log(`[Filter] Skipping build ${build.id} (event type mismatch)`);
+        this.logger.info(`[Filter] Skipping build ${build.id} (event type mismatch)`);
         return false;
       }
 
       // Note: Azure builds don't have branch information directly,
       // so we skip branch filtering for Azure
       if (options.branch) {
-        console.log(`[Filter] Branch filtering not supported for Azure DevOps, ignoring branch filter`);
+        this.logger.info(`[Filter] Branch filtering not supported for Azure DevOps, ignoring branch filter`);
       }
 
       return true; // Include this build for cancellation
@@ -677,11 +677,11 @@ export class AzureCI extends BaseCI {
     // Split into batches
     const batches = this.chunkArray(builds, options.concurrency);
 
-    console.log(`[Azure] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
+    this.logger.info(`[Azure] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
 
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
-      console.log(`[Azure] Processing batch ${i + 1}/${batches.length} (${batch.length} builds)`);
+      this.logger.info(`[Azure] Processing batch ${i + 1}/${batches.length} (${batch.length} builds)`);
 
       // Create promises for all builds in this batch
       const promises = batch.map(build =>
@@ -695,16 +695,16 @@ export class AzureCI extends BaseCI {
       const batchSuccesses = batchResults.filter(r => r.status === 'fulfilled').length;
       const batchFailures = batchResults.filter(r => r.status === 'rejected').length;
 
-      console.log(`[Azure] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
+      this.logger.info(`[Azure] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
 
       // Alert on complete batch failure - indicates systemic issue
       if (batchFailures === batch.length && batch.length > 0) {
-        console.error(`❌ [Azure] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
+        this.logger.error(`❌ [Azure] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
 
         // Log first rejection reason for debugging
         const firstRejected = batchResults.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
         if (firstRejected) {
-          console.error(`[Azure] First failure reason: ${firstRejected.reason}`);
+          this.logger.error(`[Azure] First failure reason: ${firstRejected.reason}`);
         }
       }
     }
@@ -733,7 +733,7 @@ export class AzureCI extends BaseCI {
         detail.result = 'skipped';
         detail.reason = 'Dry run mode';
         result.skipped++;
-        console.log(`[DryRun] Would cancel build ${build.id}`);
+        this.logger.info(`[DryRun] Would cancel build ${build.id}`);
 
       } else {
         // Extract pipeline name from tagged build (added in fetchAllBuilds)
@@ -744,7 +744,7 @@ export class AzureCI extends BaseCI {
 
         detail.result = 'cancelled';
         result.cancelled++;
-        console.log(`✅ [Azure] Cancelled build ${build.id} in ${pipelineName} (status: ${build.status})`);
+        this.logger.info(`✅ [Azure] Cancelled build ${build.id} in ${pipelineName} (status: ${build.status})`);
       }
 
     } catch (error: any) {
@@ -772,7 +772,7 @@ export class AzureCI extends BaseCI {
 
       result.errors.push(cancelError);
 
-      console.error(`❌ [Azure] Failed to cancel build ${build.id}: ${error.message}`);
+      this.logger.error('❌ [Azure] Failed to cancel build {}: {}', build.id, error);
     }
 
     // Add detail to results

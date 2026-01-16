@@ -10,8 +10,12 @@ import { RegistryPlugin } from './registryPlugin';
 import { QuayUiPlugin } from './quayUiPlugin';
 import { NexusUiPlugin } from './nexusUiPlugin';
 import { ArtifactoryUiPlugin } from './artifactoryUiPlugin';
+import { LoggerFactory } from '../../../logger/logger';
+import type { Logger } from '../../../logger/logger';
 
 export class RegistryUiFactory {
+    private static readonly logger: Logger = LoggerFactory.getLogger(RegistryUiFactory);
+
     /**
      * Creates a Registry UI plugin instance based on the Registry type.
      * 
@@ -32,7 +36,7 @@ export class RegistryUiFactory {
             case ImageRegistryType.ARTIFACTORY:
                 return new ArtifactoryUiPlugin(registry);
             default:
-                console.warn(`Unsupported Registry type: ${registryType}`);
+                this.logger.warn('Unsupported Registry type: {}', registryType);
                 return undefined;
         }
     }

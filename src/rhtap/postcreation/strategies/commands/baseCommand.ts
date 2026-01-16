@@ -9,12 +9,15 @@ import { TPA } from '../../../core/integration/tpa';
 import { CredentialService } from '../../services/credentialService';
 import { isSelfSignedCluster } from '../../../../utils/certificateHelper';
 import { Command } from './command';
+import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
+import { Logger } from '../../../../logger/logger';
 
 /**
  * Base class for all Jenkins commands
  * Provides common functionality and properties needed by all commands
  */
 export abstract class BaseCommand implements Command {
+  protected readonly logger: Logger;
   protected component: Component;
   protected ci: CI;
   protected git: Git;
@@ -27,6 +30,7 @@ export abstract class BaseCommand implements Command {
   protected imageRegistry: ImageRegistry;
 
   constructor(component: Component) {
+    this.logger = LoggerFactory.getLogger('postcreation.command.base');
     this.component = component;
     this.ci = component.getCI();
     this.git = component.getGit();
@@ -56,7 +60,7 @@ export abstract class BaseCommand implements Command {
    * @param action Description of the action being performed
    */
   protected logStart(action: string): void {
-    console.log(`Starting ${action} for component ${this.folderName}...`);
+    this.logger.info('Starting {} for component {}...', action, this.folderName);
   }
 
   /**
@@ -64,7 +68,7 @@ export abstract class BaseCommand implements Command {
    * @param action Description of the action that was performed
    */
   protected logComplete(action: string): void {
-    console.log(`Completed ${action} for component ${this.folderName}`);
+    this.logger.info('Completed {} for component {}', action, this.folderName);
   }
 
   /**
@@ -79,11 +83,11 @@ export abstract class BaseCommand implements Command {
       const hasSelfSigned = await isSelfSignedCluster(fullUrl);
       
       if (hasSelfSigned) {
-        console.log('Detected self-signed certificates - retrieving cluster root CA');
+        this.logger.info('Detected self-signed certificates - retrieving cluster root CA');
         return await this.kubeClient.getClusterRootCA();
       }
     } catch (error) {
-      console.warn('Failed to detect certificate trust, skipping CUSTOM_ROOT_CA:', error);
+      this.logger.warn('Failed to detect certificate trust, skipping CUSTOM_ROOT_CA: {}', error);
     }
     
     return null;

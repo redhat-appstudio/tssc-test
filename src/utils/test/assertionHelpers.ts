@@ -1,6 +1,10 @@
 import { CI } from '../../rhtap/core/integration/ci';
 import { Pipeline } from '../../rhtap/core/integration/ci/pipeline';
 import { expect } from '@playwright/test';
+import { LoggerFactory } from '../../logger/factory/loggerFactory';
+import { Logger } from '../../logger/logger';
+
+const logger: Logger = LoggerFactory.getLogger('utils.test.assertion-helpers');
 
 /**
  * Wraps an expect assertion for pipeline success and prints logs if the assertion fails
@@ -14,15 +18,15 @@ export async function expectPipelineSuccess(pipeline: Pipeline, ci: CI): Promise
     expect(pipeline.isSuccessful()).toBe(true);
   } catch (error) {
     // If the assertion failed, get and print the logs
-    console.log('🚨 Pipeline failed! Fetching pipeline logs...');
+    logger.info('🚨 Pipeline failed! Fetching pipeline logs...');
 
     try {
       const logs = await ci.getPipelineLogs(pipeline);
-      console.log(`\n----- PIPELINE LOGS (${pipeline.getDisplayName()}) -----`);
-      console.log(logs);
-      console.log('----- END PIPELINE LOGS -----\n');
+      logger.info(`\n----- PIPELINE LOGS (${pipeline.getDisplayName()}) -----`);
+      logger.info(logs);
+      logger.info('----- END PIPELINE LOGS -----\n');
     } catch (logError) {
-      console.error('Error retrieving pipeline logs:', logError);
+      logger.error('Error retrieving pipeline logs:', logError);
     }
 
     // Re-throw the original error so the test still fails
@@ -68,21 +72,21 @@ export async function checkTektonPipelineWithLogs(
   const isSuccessful = pipeline.isSuccessful();
 
   if (!isSuccessful) {
-    console.log(`🚨 Tekton pipeline ${pipeline.getDisplayName()} failed!`);
-    console.log(`Status: ${pipeline.status}`);
+    logger.info(`🚨 Tekton pipeline ${pipeline.getDisplayName()} failed!`);
+    logger.info(`Status: ${pipeline.status}`);
 
     try {
       const logsUrl = await tektonCI.getPipelineLogs(pipeline);
-      console.log('\n----- TEKTON PIPELINE DETAILS -----');
-      console.log(`Pipeline name: ${pipeline.name}`);
-      console.log(`Repository: ${pipeline.repositoryName}`);
-      console.log(`Logs URL: ${logsUrl}`);
+      logger.info('\n----- TEKTON PIPELINE DETAILS -----');
+      logger.info(`Pipeline name: ${pipeline.name}`);
+      logger.info(`Repository: ${pipeline.repositoryName}`);
+      logger.info(`Logs URL: ${logsUrl}`);
       if (pipeline.results) {
-        console.log(`Results: ${pipeline.results}`);
+        logger.info(`Results: ${pipeline.results}`);
       }
-      console.log('----- END PIPELINE DETAILS -----\n');
+      logger.info('----- END PIPELINE DETAILS -----\n');
     } catch (logError) {
-      console.error('Error retrieving Tekton pipeline logs:', logError);
+      logger.error('Error retrieving Tekton pipeline logs:', logError);
     }
   }
 
