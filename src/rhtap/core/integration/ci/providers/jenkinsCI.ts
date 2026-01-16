@@ -131,9 +131,9 @@ export class JenkinsCI extends BaseCI {
   public async initialize(): Promise<void> {
     try {
       await this.initJenkinsClient();
-      console.log('Jenkins client initialized successfully');
+      this.logger.info('Jenkins client initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Jenkins client:', error);
+      this.logger.error('Failed to initialize Jenkins client:', error);
       throw error;
     }
   }
@@ -150,9 +150,9 @@ export class JenkinsCI extends BaseCI {
         description: `Folder for ${folderName}`,
       };
       await this.jenkinsClient.jobs.createFolder(folderConfig);
-      console.log(`Folder ${folderName} created successfully`);
+      this.logger.info(`Folder ${folderName} created successfully`);
     } catch (error) {
-      console.error(`Failed to create folder ${folderName}:`, error);
+      this.logger.error('Failed to create folder: {}', error);
       throw error;
     }
   }
@@ -167,9 +167,9 @@ export class JenkinsCI extends BaseCI {
     try {
       // Create a job in Jenkins
       await this.jenkinsClient.jobs.createJob({ jobName, repoUrl, folderName });
-      console.log(`Job ${jobName} created successfully in folder ${folderName}`);
+      this.logger.info(`Job ${jobName} created successfully in folder ${folderName}`);
     } catch (error) {
-      console.error(`Failed to create job ${jobName} in folder ${folderName}:`, error);
+      this.logger.error('Failed to create job: {}', error);
       throw error;
     }
   }
@@ -185,10 +185,10 @@ export class JenkinsCI extends BaseCI {
       const credentialExists = await this.jenkinsClient.credentials.credentialExists(folderName, key);
       
       if (credentialExists) {
-        console.log(`Credential ${key} already exists in folder ${folderName}. Updating...`);
+        this.logger.info(`Credential ${key} already exists in folder ${folderName}. Updating...`);
         await this.jenkinsClient.credentials.updateCredential(folderName, key, value, credentialType);
       } else {
-        console.log(`Creating new credential ${key} in folder ${folderName}...`);
+        this.logger.info(`Creating new credential ${key} in folder ${folderName}...`);
         await this.jenkinsClient.credentials.createCredential(folderName, key, value, credentialType);
       }
 
@@ -198,9 +198,9 @@ export class JenkinsCI extends BaseCI {
         throw new Error(`Failed to verify credential ${key} after creation/update`);
       }
 
-      console.log(`Credential ${key} successfully added/updated in folder ${folderName}`);
+      this.logger.info(`Credential ${key} successfully added/updated in folder ${folderName}`);
     } catch (error) {
-      console.error(`Failed to apply credentials in folder ${folderName}:`, error);
+      this.logger.error('Failed to apply credentials: {}', error);
       throw error;
     }
   }
@@ -221,9 +221,9 @@ export class JenkinsCI extends BaseCI {
         token: this.getToken(),
       });
 
-      console.log('Jenkins client initialized successfully');
+      this.logger.info('Jenkins client initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Jenkins client:', error);
+      this.logger.error('Failed to initialize Jenkins client:', error);
       throw error;
     }
   }
@@ -245,7 +245,7 @@ export class JenkinsCI extends BaseCI {
     const folderName = this.componentName;
     const commitSha = pullRequest.sha;
 
-    console.log(
+    this.logger.info(
       `Searching for Jenkins pipeline in job ${jobName} with commit SHA ${commitSha} in folder ${folderName}`
     );
 
@@ -260,7 +260,7 @@ export class JenkinsCI extends BaseCI {
         });
 
         if (!buildInfo) {
-          console.log(`No build found for job ${jobName} with commit SHA ${commitSha}`);
+          this.logger.info(`No build found for job ${jobName} with commit SHA ${commitSha}`);
           return null;
         }
 
@@ -317,7 +317,7 @@ export class JenkinsCI extends BaseCI {
               (eventType === EventType.PULL_REQUEST && !isPR) ||
               (eventType === EventType.PUSH && !isPush)
             ) {
-              console.log(
+              this.logger.info(
                 `Build trigger type ${buildWithTriggerInfo.triggerType} doesn't match requested event type ${eventType}`
               );
               return null;
@@ -333,7 +333,7 @@ export class JenkinsCI extends BaseCI {
           commitSha
         );
       } catch (error) {
-        console.error(`Error fetching Jenkins pipeline for commit SHA ${commitSha}:`, error);
+        this.logger.error('Error fetching Jenkins pipeline for commit SHA {}: {}', commitSha, error);
         return null;
       }
     };
@@ -361,14 +361,14 @@ export class JenkinsCI extends BaseCI {
             maxTimeout: JenkinsCI.MAX_TIMEOUT,
             factor: JenkinsCI.BACKOFF_FACTOR,
             onRetry: (error: Error, attemptNumber) => {
-              console.log(
-                `[JENKINS-RETRY ${attemptNumber}/${maxRetries}] 🔄 Job: ${jobName} | SHA: ${commitSha} | Status: ${pipelineStatus} | Reason: ${error.message}`
+              this.logger.info(
+                `[JENKINS-RETRY ${attemptNumber}/${maxRetries}] 🔄 Job: ${jobName} | SHA: ${commitSha} | Status: ${pipelineStatus} | Reason: {}`
               );
             },
           }
         );
       } catch (error: any) {
-        console.log(
+        this.logger.info(
           `No matching pipeline found after retries for job ${jobName} with commit SHA ${commitSha} and status ${pipelineStatus}`
         );
         return null;
@@ -403,7 +403,7 @@ export class JenkinsCI extends BaseCI {
             const buildInfo = await this.jenkinsClient.builds.getBuild(jobName, buildNumber, folderName);
   
             if (!buildInfo) {
-              console.log(`Build info for ${jobName} #${buildNumber} not found`);
+              this.logger.info(`Build info for ${jobName} #${buildNumber} not found`);
               return PipelineStatus.UNKNOWN;
             }
   
@@ -426,14 +426,14 @@ export class JenkinsCI extends BaseCI {
           maxTimeout: JenkinsCI.MAX_TIMEOUT,
           factor: JenkinsCI.BACKOFF_FACTOR,
           onRetry: (error: Error, attemptNumber) => {
-            console.log(
-              `[JENKINS-RETRY ${attemptNumber}/${maxRetries}] 🔄 Checking status of ${jobName} #${buildNumber} | Reason: ${error.message}`
+            this.logger.info(
+              `[JENKINS-RETRY ${attemptNumber}/${maxRetries}] 🔄 Checking status of ${jobName} #${buildNumber} | Reason: {}`
             );
           },
         }
       );
     } catch (error) {
-      console.error(
+      this.logger.error(
         `Failed to check Jenkins build status for ${jobName} #${buildNumber} after multiple retries:`,
         error
       );
@@ -451,7 +451,7 @@ export class JenkinsCI extends BaseCI {
     const sourceRepoJobName = this.componentName;
     const gitopsRepoJobName = `${this.componentName}-gitops`;
     
-    console.log(`Waiting for all Jenkins jobs to finish in folder ${folderName} for both source (${sourceRepoJobName}) and gitops (${gitopsRepoJobName}) repositories`);
+    this.logger.info(`Waiting for all Jenkins jobs to finish in folder ${folderName} for both source (${sourceRepoJobName}) and gitops (${gitopsRepoJobName}) repositories`);
 
     try {
       // Use the enhanced Jenkins client method to wait for multiple jobs
@@ -462,7 +462,7 @@ export class JenkinsCI extends BaseCI {
         pollIntervalMs: pollIntervalMs
       });
       
-      console.log(`All Jenkins jobs have completed successfully in folder ${folderName}`);
+      this.logger.info(`All Jenkins jobs have completed successfully in folder ${folderName}`);
     } catch (error) {
       if (error instanceof Error && error.message.includes('Timeout')) {
         throw new Error(`Timeout waiting for Jenkins pipelines to finish in folder ${folderName} for both source and gitops repositories after ${timeoutMs}ms`);
@@ -485,7 +485,7 @@ export class JenkinsCI extends BaseCI {
         folderName
       );
     } catch (error) {
-      console.error(`Failed to get jobs activity status:`, error);
+      this.logger.error(`Failed to get jobs activity status:`, error);
       throw error;
     }
   }
@@ -533,7 +533,7 @@ export class JenkinsCI extends BaseCI {
 
       return logs;
     } catch (error) {
-      console.error(
+      this.logger.error(
         `Error getting pipeline logs for ${pipeline.jobName} #${pipeline.buildNumber}:`,
         error
       );
@@ -554,14 +554,14 @@ export class JenkinsCI extends BaseCI {
     }
 
     try {
-      console.log(`Triggering Jenkins pipeline for job ${repoName}...`);
+      this.logger.info(`Triggering Jenkins pipeline for job ${repoName}...`);
       await this.jenkinsClient.builds.triggerBuild({ jobName: repoName, folderName: this.componentName });
       const builds = await this.jenkinsClient.builds.getRunningBuilds(
             repoName,
             this.componentName
       );
       if (builds.length === 0) {
-        console.log(`No builds found for job ${repoName} after triggering.`);
+        this.logger.info(`No builds found for job ${repoName} after triggering.`);
         return null;
       }
       // Get the most recent build
@@ -571,11 +571,11 @@ export class JenkinsCI extends BaseCI {
         repoName,
         this.componentName
       );
-      console.log(`Pipeline triggered successfully for job ${repoName}. Build number: ${pipeline.buildNumber}`);
+      this.logger.info(`Pipeline triggered successfully for job ${repoName}. Build number: ${pipeline.buildNumber}`);
       return pipeline;
 
     } catch (error) {
-      console.error(`Failed to trigger Jenkins pipeline for job ${repoName}:`, error);
+      this.logger.error('Failed to trigger Jenkins pipeline for job: {}', error);
       throw error;
     }
   }
@@ -599,7 +599,7 @@ export class JenkinsCI extends BaseCI {
       errors: [],
     };
 
-    console.log(`[Jenkins] Starting build cancellation for ${this.componentName}`);
+    this.logger.info(`[Jenkins] Starting build cancellation for ${this.componentName}`);
 
     try {
       // 3. Fetch all builds from Jenkins API
@@ -607,17 +607,17 @@ export class JenkinsCI extends BaseCI {
       result.total = allBuilds.length;
 
       if (allBuilds.length === 0) {
-        console.log(`[Jenkins] No builds found for ${this.componentName}`);
+        this.logger.info(`[Jenkins] No builds found for ${this.componentName}`);
         return result;
       }
 
-      console.log(`[Jenkins] Found ${allBuilds.length} total builds`);
+      this.logger.info(`[Jenkins] Found ${allBuilds.length} total builds`);
 
       // 4. Apply filters
       const buildsToCancel = this.filterBuilds(allBuilds, opts);
 
-      console.log(`[Jenkins] ${buildsToCancel.length} builds match filters`);
-      console.log(`[Jenkins] ${allBuilds.length - buildsToCancel.length} builds filtered out`);
+      this.logger.info(`[Jenkins] ${buildsToCancel.length} builds match filters`);
+      this.logger.info(`[Jenkins] ${allBuilds.length - buildsToCancel.length} builds filtered out`);
 
       // 5. Cancel builds in batches
       await this.cancelBuildsInBatches(buildsToCancel, opts, result);
@@ -626,7 +626,7 @@ export class JenkinsCI extends BaseCI {
       const accounted = result.cancelled + result.failed + result.skipped;
       if (accounted !== result.total) {
         const missing = result.total - accounted;
-        console.error(
+        this.logger.error(
           `❌ [Jenkins] ACCOUNTING ERROR: ${missing} builds unaccounted for ` +
           `(total: ${result.total}, accounted: ${accounted})`
         );
@@ -640,7 +640,7 @@ export class JenkinsCI extends BaseCI {
       }
 
       // 7. Log summary
-      console.log(`[Jenkins] Cancellation complete:`, {
+      this.logger.info(`[Jenkins] Cancellation complete:`, {
         total: result.total,
         cancelled: result.cancelled,
         failed: result.failed,
@@ -648,8 +648,8 @@ export class JenkinsCI extends BaseCI {
       });
 
     } catch (error: any) {
-      console.error(`[Jenkins] Error in cancelAllPipelines: ${error.message}`);
-      throw new Error(`Failed to cancel pipelines: ${error.message}`);
+      this.logger.error('[Jenkins] Error in cancelAllPipelines: {}', error);
+      throw new Error(`Failed to cancel pipelines: {}`);
     }
 
     return result;
@@ -689,13 +689,13 @@ export class JenkinsCI extends BaseCI {
         allBuilds.push(...taggedGitopsBuilds);
       } catch (gitopsError: any) {
         // Gitops job might not exist, log but don't fail
-        console.log(`[Jenkins] Gitops job ${gitopsJobName} not found or no builds: ${gitopsError.message}`);
+        this.logger.info(`[Jenkins] Gitops job ${gitopsJobName} not found or no builds: ${gitopsError.message}`);
       }
 
       return allBuilds;
 
     } catch (error: any) {
-      console.error(`[Jenkins] Failed to fetch builds: ${error.message}`);
+      this.logger.error('[Jenkins] Failed to fetch builds: {}', error);
       throw error;
     }
   }
@@ -710,26 +710,26 @@ export class JenkinsCI extends BaseCI {
     return builds.filter(build => {
       // Filter 1: Skip completed builds unless includeCompleted is true
       if (!options.includeCompleted && this.isCompletedStatus(build)) {
-        console.log(`[Filter] Skipping completed build ${build.number} (${build.result})`);
+        this.logger.info(`[Filter] Skipping completed build ${build.number} (${build.result})`);
         return false;
       }
 
       // Filter 2: Check exclusion patterns
       if (this.matchesExclusionPattern(build, options.excludePatterns)) {
-        console.log(`[Filter] Excluding build ${build.number} by pattern`);
+        this.logger.info(`[Filter] Excluding build ${build.number} by pattern`);
         return false;
       }
 
       // Filter 3: Filter by event type if specified
       if (options.eventType && !this.matchesEventType(build, options.eventType)) {
-        console.log(`[Filter] Skipping build ${build.number} (event type mismatch)`);
+        this.logger.info(`[Filter] Skipping build ${build.number} (event type mismatch)`);
         return false;
       }
 
       // Note: Jenkins builds don't have direct branch information in getRunningBuilds
       // Branch filtering would require fetching full build details, skipping for performance
       if (options.branch) {
-        console.log(`[Filter] Branch filtering not supported for Jenkins running builds, ignoring branch filter`);
+        this.logger.info(`[Filter] Branch filtering not supported for Jenkins running builds, ignoring branch filter`);
       }
 
       return true; // Include this build for cancellation
@@ -794,11 +794,11 @@ export class JenkinsCI extends BaseCI {
     // Split into batches
     const batches = this.chunkArray(builds, options.concurrency);
 
-    console.log(`[Jenkins] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
+    this.logger.info(`[Jenkins] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
 
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
-      console.log(`[Jenkins] Processing batch ${i + 1}/${batches.length} (${batch.length} builds)`);
+      this.logger.info(`[Jenkins] Processing batch ${i + 1}/${batches.length} (${batch.length} builds)`);
 
       // Create promises for all builds in this batch
       const promises = batch.map(build =>
@@ -812,16 +812,16 @@ export class JenkinsCI extends BaseCI {
       const batchSuccesses = batchResults.filter(r => r.status === 'fulfilled').length;
       const batchFailures = batchResults.filter(r => r.status === 'rejected').length;
 
-      console.log(`[Jenkins] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
+      this.logger.info(`[Jenkins] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
 
       // Alert on complete batch failure - indicates systemic issue
       if (batchFailures === batch.length && batch.length > 0) {
-        console.error(`❌ [Jenkins] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
+        this.logger.error(`❌ [Jenkins] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
 
         // Log first rejection reason for debugging
         const firstRejected = batchResults.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
         if (firstRejected) {
-          console.error(`[Jenkins] First failure reason: ${firstRejected.reason}`);
+          this.logger.error(`[Jenkins] First failure reason: ${firstRejected.reason}`);
         }
       }
     }
@@ -850,7 +850,7 @@ export class JenkinsCI extends BaseCI {
         detail.result = 'skipped';
         detail.reason = 'Dry run mode';
         result.skipped++;
-        console.log(`[DryRun] Would cancel build ${build.number}`);
+        this.logger.info(`[DryRun] Would cancel build ${build.number}`);
 
       } else {
         // Extract job name from tagged build (added in fetchAllBuilds)
@@ -861,7 +861,7 @@ export class JenkinsCI extends BaseCI {
 
         detail.result = 'cancelled';
         result.cancelled++;
-        console.log(`✅ [Jenkins] Cancelled build ${jobName} #${build.number} (status: ${build.building ? 'building' : build.result})`);
+        this.logger.info(`✅ [Jenkins] Cancelled build ${jobName} #${build.number} (status: ${build.building ? 'building' : build.result})`);
       }
 
     } catch (error: any) {
@@ -879,7 +879,7 @@ export class JenkinsCI extends BaseCI {
 
       result.errors.push(cancelError);
 
-      console.error(`❌ [Jenkins] Failed to cancel build ${build.number}: ${error.message}`);
+      this.logger.error('❌ [Jenkins] Failed to cancel build {}: {}', build.number, error);
     }
 
     // Add detail to results

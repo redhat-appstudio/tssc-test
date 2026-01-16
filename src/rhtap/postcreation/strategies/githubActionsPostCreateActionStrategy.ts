@@ -5,8 +5,12 @@ import { Command } from './commands/command';
 import { UpdateCIRunnerImage } from './commands/updateCIRunnerImage';
 import { UncommentCustomRootCA } from './commands/uncommentCustomRootCA';
 import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 export class GithubActionsPostCreateActionStrategy implements ComponentActionStrategy {
+  private readonly logger: Logger = LoggerFactory.getLogger('postcreation.strategy.github-actions');
+  
   private readonly gitProviderHandlers: Partial<
     Record<GitType, (component: Component) => Promise<void>>
   > = {
@@ -36,8 +40,9 @@ export class GithubActionsPostCreateActionStrategy implements ComponentActionStr
     for (const command of commands) {
       await command.execute();
     }
-    console.log(
-      `No post-creation actions needed for component: ${componentName} (GitHub + GitHub Actions)`
+    this.logger.info(
+      'No post-creation actions needed for component: {} (GitHub + GitHub Actions)',
+      componentName
     );
   }
 }

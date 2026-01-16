@@ -1,5 +1,7 @@
 import retry from 'async-retry';
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
+import { LoggerFactory } from '../../logger/factory/loggerFactory';
+import { Logger } from '../../logger/logger';
 
 /**
  * Custom error class for TPA API errors
@@ -70,6 +72,7 @@ export class TPAClient {
   private token: string = '';
   private readonly axiosInstance: AxiosInstance;
   private readonly retryOptions: Required<TPAClientConfig>['retryOptions'];
+  private readonly logger: Logger;
 
   /**
    * Creates a new TPAClient instance
@@ -77,6 +80,7 @@ export class TPAClient {
    * @param config - Configuration options for the client
    */
   constructor(private readonly config: TPAClientConfig) {
+    this.logger = LoggerFactory.getLogger('tpa.client');
     this.axiosInstance = axios.create({
       headers: {
         Accept: '*/*',
@@ -122,7 +126,7 @@ export class TPAClient {
       this.token = response.data.access_token;
     } catch (error) {
       const message = 'Error getting TPA token';
-      console.error(message, error);
+      this.logger.error('{}: {}', message, error);
       throw new TPAError(message, error instanceof Error ? error : new Error(String(error)));
     }
   }
@@ -165,7 +169,7 @@ export class TPAClient {
 
         // Handle auth errors - refresh token and throw to allow retry
         if (axiosError.response?.status === 401) {
-          console.log('Token expired. Refreshing...');
+          this.logger.info('Token expired. Refreshing...');
           await this.initAccessToken();
           throw axiosError;
         }
@@ -205,7 +209,7 @@ export class TPAClient {
    */
   public async findSBOMsByName(name: string): Promise<SBOMResult[]> {
     const searchUrl = `${this.config.bombasticApiUrl}/api/v2/sbom`;
-    console.log(`Searching for SBOM with name: ${name} at ${searchUrl}`);
+    this.logger.info('Searching for SBOM with name: {} at {}', name, searchUrl);
 
     // Define the operation to retry
     const operation = async (): Promise<SBOMResult[]> => {
@@ -242,11 +246,11 @@ export class TPAClient {
         }
         allItems.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
         if (allItems.length > 0) {
-          console.log(`SBOM search for '${name}' successful. Found ${allItems.length} result(s).`);
+          this.logger.info('SBOM search for \'{}\' successful. Found {} result(s).', name, allItems.length);
           const sbomResponse = allItems.map(item => this.normalizeSBOMResult(item));
           return sbomResponse;
         }
-        console.log(`No SBOMs found for '${name}'.`);
+        this.logger.info('No SBOMs found for \'{}\'.', name);
         return [];
       } catch (error) {
         if (axios.isAxiosError(error)) {
@@ -254,13 +258,13 @@ export class TPAClient {
 
           // Don't retry for 404 (not found) responses - they're expected
           if (axiosError.response?.status === 404) {
-            console.log(`No SBOMs found for '${name}'.`);
+            this.logger.info('No SBOMs found for \'{}\'.', name);
             return [];
           }
 
           // For server errors (5xx), retry by re-throwing
           if (axiosError.response && axiosError.response.status >= 500) {
-            console.error(`Server error (${axiosError.response.status}). Retrying...`);
+            this.logger.error('Server error ({}). Retrying...', axiosError.response.status);
             throw axiosError;
           }
         }
@@ -274,7 +278,7 @@ export class TPAClient {
       return await retry(operation, this.retryOptions);
     } catch (error) {
       const message = `All ${this.retryOptions.retries} attempts to find SBOMs for '${name}' have failed`;
-      console.error(message, error);
+      this.logger.error('{}: {}', message, error);
       throw new TPAError(message, error instanceof Error ? error : new Error(String(error)));
     }
   }
@@ -286,9 +290,9 @@ export class TPAClient {
    * @throws {TPAError} if all retries fail
    */
   public async findAllSBOMs(): Promise<SBOMResult[]> {
-    console.log('Finding all SBOMs...');
+    this.logger.info('Finding all SBOMs...');
     const sboms = await this.findSBOMsByName('');
-    console.log(`Found ${sboms.length} SBOM(s).`);
+    this.logger.info('Found {} SBOM(s).', sboms.length);
     return sboms;
   }
 
@@ -300,7 +304,7 @@ export class TPAClient {
    * @throws {TPAError} if all retries fail
    */
   public async findSBOMBySha256(sha256: string): Promise<SBOMResult | null> {
-    console.log(`Searching for SBOM with SHA256: ${sha256}`);
+    this.logger.info('Searching for SBOM with SHA256: {}', sha256);
     if (!sha256) {
       throw new TPAError('SHA256 cannot be empty');
     }
@@ -309,7 +313,7 @@ export class TPAClient {
       sbom.described_by?.some(component => component.version.includes(sha256))
     );
     if (!sbom) {
-      console.log(`No SBOM found with SHA256: ${sha256}`);
+      this.logger.info('No SBOM found with SHA256: {}', sha256);
     }
 
     return sbom || null;
@@ -327,8 +331,10 @@ export class TPAClient {
     name: string,
     documentId: string,
   ): Promise<SBOMResult | null> {
-    console.log(
-      `Searching for SBOM with name: ${name} and document ID: ${documentId}`,
+    this.logger.info(
+      'Searching for SBOM with name: {} and document ID: {}',
+      name,
+      documentId
     );
 
     const sboms = await this.findSBOMsByName(name);
@@ -338,8 +344,10 @@ export class TPAClient {
     const sbom = sboms.find(s => s.document_id === documentId);
 
     if (!sbom) {
-      console.log(
-        `No SBOM found with name: ${name} and document ID: ${documentId}`,
+      this.logger.info(
+        'No SBOM found with name: {} and document ID: {}',
+        name,
+        documentId
       );
     }
     return sbom || null;

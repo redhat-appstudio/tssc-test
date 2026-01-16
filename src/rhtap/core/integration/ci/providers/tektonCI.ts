@@ -52,7 +52,7 @@ export class TektonCI extends BaseCI {
     const effectiveEventType = eventType;
     const gitRepository = pullRequest.repository;
 
-    console.log(
+    this.logger.info(
       `Finding pipeline runs for repository: ${gitRepository}, event type: ${effectiveEventType}`
     );
 
@@ -66,7 +66,7 @@ export class TektonCI extends BaseCI {
 
       // Check if we have any pipeline runs
       if (!allPipelineRuns || allPipelineRuns.length === 0) {
-        console.log(
+        this.logger.info(
           `No pipeline runs found yet for repository: ${gitRepository}. Pipeline may still be launching.`
         );
         // Return null to continue the retry process
@@ -87,14 +87,14 @@ export class TektonCI extends BaseCI {
 
       // If no matching pipeline runs are found, return null and trigger retry
       if (filteredPipelineRuns.length === 0) {
-        console.log(
+        this.logger.info(
           `No matching pipeline runs found for event: ${effectiveEventType} with status: ${pipelineStatus}`
         );
         // Return null to trigger retry rather than throwing an error
         return null;
       }
 
-      console.log(`Found ${filteredPipelineRuns.length} matching pipeline runs`);
+      this.logger.info(`Found ${filteredPipelineRuns.length} matching pipeline runs`);
 
       // Sort pipeline runs by creation timestamp to get the latest one
       const sortedPipelineRuns = [...filteredPipelineRuns].sort((a, b) => {
@@ -110,11 +110,11 @@ export class TektonCI extends BaseCI {
       // Get the latest pipeline run
       const latestPipelineRun = sortedPipelineRuns[0];
       if (!latestPipelineRun) {
-        console.log('No pipeline runs available after sorting');
+        this.logger.info('No pipeline runs available after sorting');
         return null;
       }
 
-      console.log(`Using latest pipeline run: ${latestPipelineRun.metadata?.name}`);
+      this.logger.info(`Using latest pipeline run: ${latestPipelineRun.metadata?.name}`);
 
       // Extract relevant data from the pipeline run
       const name = latestPipelineRun.metadata?.name || '';
@@ -165,8 +165,8 @@ export class TektonCI extends BaseCI {
           factor: 1.5,
           onRetry: (error: Error, attemptNumber) => {
             // Log retry but don't show the full error stack trace
-            console.log(
-              `[TEKTON-RETRY ${attemptNumber}/${maxRetries}] 🔄 Repository: ${gitRepository} | Status: ${pipelineStatus} | Reason: ${error.message}`
+            this.logger.info(
+              `[TEKTON-RETRY ${attemptNumber}/${maxRetries}] 🔄 Repository: ${gitRepository} | Status: ${pipelineStatus} | Reason: {}`
             );
           },
         }
@@ -175,7 +175,7 @@ export class TektonCI extends BaseCI {
       return result;
     } catch (error: any) {
       // Log a clean message without the full stack trace
-      console.log(
+      this.logger.info(
         `No matching pipeline found after ${maxRetries} retries for repository: ${gitRepository}, event: ${effectiveEventType}, status: ${pipelineStatus}`
       );
       return null;
@@ -235,7 +235,7 @@ export class TektonCI extends BaseCI {
         if (!pipelineRun) {
           attempts++;
           if (attempts < maxAttempts) {
-            console.log(
+            this.logger.info(
               `PipelineRun ${pipeline.name} not found, retrying (${attempts}/${maxAttempts})...`
             );
             await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retrying
@@ -244,7 +244,7 @@ export class TektonCI extends BaseCI {
       }
 
       if (!pipelineRun) {
-        console.warn(`PipelineRun ${pipeline.name} not found after ${maxAttempts} attempts`);
+        this.logger.warn(`PipelineRun ${pipeline.name} not found after ${maxAttempts} attempts`);
         return PipelineStatus.UNKNOWN;
       }
 
@@ -259,7 +259,7 @@ export class TektonCI extends BaseCI {
       const type = condition.type;
       const reason = condition.reason;
 
-      console.log(
+      this.logger.info(
         `PipelineRun ${pipeline.name} status: ${status}, type: ${type}, reason: ${reason}`
       );
 
@@ -278,7 +278,7 @@ export class TektonCI extends BaseCI {
       // Default to unknown if no mapping is found
       return PipelineStatus.UNKNOWN;
     } catch (error) {
-      console.error(`Error checking pipeline status for ${pipeline.name}:`, error);
+      this.logger.error('Error checking pipeline status for {}: {}', pipeline.name, error);
       throw new Error(`Failed to check pipeline status: ${error}`);
     }
   }
@@ -300,7 +300,7 @@ export class TektonCI extends BaseCI {
    * @throws Error if unable to check pipeline status after maximum retries
    */
   public override async waitForAllPipelineRunsToFinish(): Promise<void> {
-    console.log(`Waiting for all PipelineRuns to finish for component: ${this.componentName}`);
+    this.logger.info(`Waiting for all PipelineRuns to finish for component: ${this.componentName}`);
     const sourceRepoName = this.componentName;
 
     try {
@@ -314,7 +314,7 @@ export class TektonCI extends BaseCI {
           );
 
           if (!allPipelineRuns || allPipelineRuns.length === 0) {
-            console.log(`No pipeline runs found for repository: ${sourceRepoName}`);
+            this.logger.info(`No pipeline runs found for repository: ${sourceRepoName}`);
             return; // No pipelines to wait for
           }
 
@@ -324,13 +324,13 @@ export class TektonCI extends BaseCI {
               const state = pr.metadata?.labels?.['pipelinesascode.tekton.dev/state'];
               const name = pr.metadata?.name || 'unknown';
               if (state !== 'completed') {
-                console.log(`PipelineRun ${name} still running, state: ${state || 'undefined'}`);
+                this.logger.info(`PipelineRun ${name} still running, state: ${state || 'undefined'}`);
                 return true;
               }
               return false;
             }) || [];
 
-          console.log(
+          this.logger.info(
             `Found ${runningPipelineRuns.length} running pipeline run(s) for ${sourceRepoName}`
           );
 
@@ -340,12 +340,12 @@ export class TektonCI extends BaseCI {
           }
 
           // All pipelines are complete, return successfully
-          console.log('All pipelines have finished processing.');
+          this.logger.info('All pipelines have finished processing.');
           return;
         } catch (error) {
           if (error instanceof Error && error.message.includes('404')) {
             // If it's a 404 error, bail immediately (don't retry)
-            console.log(`Repository ${sourceRepoName} not found, no pipelines to wait for`);
+            this.logger.info(`Repository ${sourceRepoName} not found, no pipelines to wait for`);
             return; // No pipelines to wait for
           }
           // For other errors, throw to trigger retry
@@ -360,19 +360,19 @@ export class TektonCI extends BaseCI {
         maxTimeout: 30000, // Maximum timeout between retries
         factor: 1.5, // Exponential backoff factor
         onRetry: (error: Error, attempt: number) => {
-          console.log(
-            `[TEKTON-RETRY ${attempt}/${maxRetries}] 🔄 Repository: ${sourceRepoName} | Status: Waiting | Reason: ${error.message}`
+          this.logger.info(
+            `[TEKTON-RETRY ${attempt}/${maxRetries}] 🔄 Repository: ${sourceRepoName} | Status: Waiting | Reason: {}`
           );
         },
       });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(
+      const errorMessage = error;
+      this.logger.error(
         `Failed to wait for all pipelines to complete for repository ${sourceRepoName} after multiple retries: ${errorMessage}`
       );
       // Return without throwing to make error handling easier for callers
       // This is a change from the original implementation which threw an error
-      console.log('Continuing despite pipeline completion check failures');
+      this.logger.info('Continuing despite pipeline completion check failures');
     }
   }
 
@@ -408,7 +408,7 @@ export class TektonCI extends BaseCI {
       }
       return logs;
     } catch (error) {
-      console.error(`Error getting pipeline logs for ${pipeline.name}:`, error);
+      this.logger.error('Error getting pipeline logs for {}: {}', pipeline.name, error);
       throw new Error(`Failed to get pipeline logs: ${error}`);
     }
   }
@@ -432,7 +432,7 @@ export class TektonCI extends BaseCI {
       errors: [],
     };
 
-    console.log(`[Tekton] Starting pipeline cancellation for ${this.componentName}`);
+    this.logger.info(`[Tekton] Starting pipeline cancellation for ${this.componentName}`);
 
     try {
       // 3. Fetch all PipelineRuns from Tekton API
@@ -440,17 +440,17 @@ export class TektonCI extends BaseCI {
       result.total = allPipelineRuns.length;
 
       if (allPipelineRuns.length === 0) {
-        console.log(`[Tekton] No PipelineRuns found for ${this.componentName}`);
+        this.logger.info(`[Tekton] No PipelineRuns found for ${this.componentName}`);
         return result;
       }
 
-      console.log(`[Tekton] Found ${allPipelineRuns.length} total PipelineRuns`);
+      this.logger.info(`[Tekton] Found ${allPipelineRuns.length} total PipelineRuns`);
 
       // 4. Apply filters
       const pipelineRunsToCancel = this.filterPipelineRuns(allPipelineRuns, opts);
 
-      console.log(`[Tekton] ${pipelineRunsToCancel.length} PipelineRuns match filters`);
-      console.log(`[Tekton] ${allPipelineRuns.length - pipelineRunsToCancel.length} PipelineRuns filtered out`);
+      this.logger.info(`[Tekton] ${pipelineRunsToCancel.length} PipelineRuns match filters`);
+      this.logger.info(`[Tekton] ${allPipelineRuns.length - pipelineRunsToCancel.length} PipelineRuns filtered out`);
 
       // 5. Cancel PipelineRuns in batches
       await this.cancelPipelineRunsInBatches(pipelineRunsToCancel, opts, result);
@@ -459,7 +459,7 @@ export class TektonCI extends BaseCI {
       const accounted = result.cancelled + result.failed + result.skipped;
       if (accounted !== result.total) {
         const missing = result.total - accounted;
-        console.error(
+        this.logger.error(
           `❌ [Tekton] ACCOUNTING ERROR: ${missing} PipelineRuns unaccounted for ` +
           `(total: ${result.total}, accounted: ${accounted})`
         );
@@ -472,7 +472,7 @@ export class TektonCI extends BaseCI {
       }
 
       // 7. Log summary
-      console.log(`[Tekton] Cancellation complete:`, {
+      this.logger.info(`[Tekton] Cancellation complete:`, {
         total: result.total,
         cancelled: result.cancelled,
         failed: result.failed,
@@ -480,8 +480,9 @@ export class TektonCI extends BaseCI {
       });
 
     } catch (error: any) {
-      console.error(`[Tekton] Error in cancelAllPipelines: ${error.message}`);
-      throw new Error(`Failed to cancel pipelines: ${error.message}`);
+      this.logger.error('[Tekton] Error in cancelAllPipelines: {}', error);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to cancel pipelines: ${errMsg}`);
     }
 
     return result;
@@ -526,13 +527,13 @@ export class TektonCI extends BaseCI {
         allPipelineRuns.push(...taggedGitopsPipelineRuns);
       } catch (gitopsError: any) {
         // Gitops repository might not exist, log but don't fail
-        console.log(`[Tekton] Gitops repository ${gitopsRepoName} not found or no PipelineRuns: ${gitopsError.message}`);
+        this.logger.info(`[Tekton] Gitops repository ${gitopsRepoName} not found or no PipelineRuns: ${gitopsError.message}`);
       }
 
       return allPipelineRuns;
 
     } catch (error: any) {
-      console.error(`[Tekton] Failed to fetch PipelineRuns: ${error.message}`);
+      this.logger.error('[Tekton] Failed to fetch PipelineRuns: {}', error);
       throw error;
     }
   }
@@ -550,20 +551,20 @@ export class TektonCI extends BaseCI {
       // Filter 1: Skip completed PipelineRuns unless includeCompleted is true
       if (!options.includeCompleted && this.isCompletedStatus(pr)) {
         const state = pr.metadata?.labels?.['pipelinesascode.tekton.dev/state'];
-        console.log(`[Filter] Skipping completed PipelineRun ${prName} (state: ${state})`);
+        this.logger.info(`[Filter] Skipping completed PipelineRun ${prName} (state: ${state})`);
         return false;
       }
 
       // Filter 2: Check exclusion patterns
       if (this.matchesExclusionPattern(pr, options.excludePatterns)) {
-        console.log(`[Filter] Excluding PipelineRun ${prName} by pattern`);
+        this.logger.info(`[Filter] Excluding PipelineRun ${prName} by pattern`);
         return false;
       }
 
       // Filter 3: Filter by event type if specified
       if (options.eventType && !this.matchesEventType(pr, options.eventType)) {
         const eventType = pr.metadata?.labels?.['pipelinesascode.tekton.dev/event-type'];
-        console.log(`[Filter] Skipping PipelineRun ${prName} (event type: ${eventType} doesn't match ${options.eventType})`);
+        this.logger.info(`[Filter] Skipping PipelineRun ${prName} (event type: ${eventType} doesn't match ${options.eventType})`);
         return false;
       }
 
@@ -571,7 +572,7 @@ export class TektonCI extends BaseCI {
       if (options.branch) {
         const branch = pr.metadata?.labels?.['pipelinesascode.tekton.dev/branch'];
         if (branch !== options.branch) {
-          console.log(`[Filter] Skipping PipelineRun ${prName} (branch: ${branch} doesn't match ${options.branch})`);
+          this.logger.info(`[Filter] Skipping PipelineRun ${prName} (branch: ${branch} doesn't match ${options.branch})`);
           return false;
         }
       }
@@ -633,11 +634,11 @@ export class TektonCI extends BaseCI {
     // Split into batches
     const batches = this.chunkArray(pipelineRuns, options.concurrency);
 
-    console.log(`[Tekton] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
+    this.logger.info(`[Tekton] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
 
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
-      console.log(`[Tekton] Processing batch ${i + 1}/${batches.length} (${batch.length} PipelineRuns)`);
+      this.logger.info(`[Tekton] Processing batch ${i + 1}/${batches.length} (${batch.length} PipelineRuns)`);
 
       // Create promises for all PipelineRuns in this batch
       const promises = batch.map(pr =>
@@ -651,16 +652,16 @@ export class TektonCI extends BaseCI {
       const batchSuccesses = batchResults.filter(r => r.status === 'fulfilled').length;
       const batchFailures = batchResults.filter(r => r.status === 'rejected').length;
 
-      console.log(`[Tekton] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
+      this.logger.info(`[Tekton] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
 
       // Alert on complete batch failure - indicates systemic issue
       if (batchFailures === batch.length && batch.length > 0) {
-        console.error(`❌ [Tekton] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
+        this.logger.error(`❌ [Tekton] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
 
         // Log first rejection reason for debugging
         const firstRejected = batchResults.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
         if (firstRejected) {
-          console.error(`[Tekton] First failure reason: ${firstRejected.reason}`);
+          this.logger.error(`[Tekton] First failure reason: ${firstRejected.reason}`);
         }
       }
     }
@@ -691,7 +692,7 @@ export class TektonCI extends BaseCI {
         detail.result = 'skipped';
         detail.reason = 'Dry run mode';
         result.skipped++;
-        console.log(`[DryRun] Would cancel PipelineRun ${prName}`);
+        this.logger.info(`[DryRun] Would cancel PipelineRun ${prName}`);
 
       } else {
         // Extract repository name from tagged PipelineRun (added in fetchAllPipelineRuns)
@@ -703,7 +704,7 @@ export class TektonCI extends BaseCI {
         detail.result = 'cancelled';
         result.cancelled++;
         const state = pipelineRun.metadata?.labels?.['pipelinesascode.tekton.dev/state'];
-        console.log(`✅ [Tekton] Cancelled PipelineRun ${prName} in ${repositoryName} (state: ${state || 'unknown'})`);
+        this.logger.info(`✅ [Tekton] Cancelled PipelineRun ${prName} in ${repositoryName} (state: ${state || 'unknown'})`);
       }
 
     } catch (error: any) {
@@ -721,7 +722,7 @@ export class TektonCI extends BaseCI {
 
       result.errors.push(cancelError);
 
-      console.error(`❌ [Tekton] Failed to cancel PipelineRun ${prName}: ${error.message}`);
+      this.logger.error('❌ [Tekton] Failed to cancel PipelineRun {}: {}', prName, error);
     }
 
     // Add detail to results

@@ -1,15 +1,19 @@
 import { AzureHttpClient } from '../http/azure-http.client';
 import { ServiceEndpoint } from '../types/azure.types';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 export class AzureServiceEndpointService {
   private readonly client: AzureHttpClient;
   private readonly project: string;
   private readonly apiVersion: string;
+  private readonly logger: Logger;
 
   constructor(client: AzureHttpClient, project: string, apiVersion: string) {
     this.client = client;
     this.project = project;
     this.apiVersion = apiVersion;
+    this.logger = LoggerFactory.getLogger('azure.service-endpoint');
   }
 
   private getApiVersionParam(): string {
@@ -53,7 +57,7 @@ export class AzureServiceEndpointService {
 
       return response;
     } catch (error) {
-      console.error(`Failed to create service connection '${name}':`, error);
+      this.logger.error('Failed to create service connection \'{}\': {}', name, error);
       throw error;
     }
   }
@@ -65,7 +69,7 @@ export class AzureServiceEndpointService {
       );
       return response.value || [];
     } catch (error) {
-      console.error(`Failed to retrieve service connections for project '${this.project}':`, error);
+      this.logger.error('Failed to retrieve service connections for project \'{}\': {}', this.project, error);
       throw error;
     }
   }
@@ -76,7 +80,7 @@ export class AzureServiceEndpointService {
       const endpoint = allEndpoints.find(e => e.name === connectionName);
       return endpoint || null;
     } catch (error) {
-      console.error(`Error finding service connection by name '${connectionName}':`, error);
+      this.logger.error('Error finding service connection by name \'{}\': {}', connectionName, error);
       throw error;
     }
   }
@@ -87,9 +91,9 @@ export class AzureServiceEndpointService {
         `_apis/serviceendpoint/endpoints/${endpointId}?projectIds=${projectId}&${this.getApiVersionParam()}`
       );
 
-      console.log(`Successfully deleted service connection with ID: ${endpointId}`);
+      this.logger.info('Successfully deleted service connection with ID: {}', endpointId);
     } catch (error) {
-      console.error(`Failed to delete service connection with ID ${endpointId}:`, error);
+      this.logger.error('Failed to delete service connection with ID {}: {}', endpointId, error);
       throw error;
     }
   }

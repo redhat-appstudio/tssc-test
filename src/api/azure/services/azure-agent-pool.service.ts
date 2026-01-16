@@ -1,16 +1,20 @@
 import { AzureHttpClient } from '../http/azure-http.client';
 import { AgentQueue } from '../types/azure.types';
 import { AZURE_API_VERSIONS } from '../constants/api-versions';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 export class AzureAgentPoolService {
   private readonly client: AzureHttpClient;
   private readonly project: string;
   private readonly apiVersion: string;
+  private readonly logger: Logger;
 
   constructor(client: AzureHttpClient, project: string, apiVersion: string) {
     this.client = client;
     this.project = project;
     this.apiVersion = apiVersion;
+    this.logger = LoggerFactory.getLogger('azure.agent-pool');
   }
 
   private getApiVersionParam(): string {
@@ -18,7 +22,7 @@ export class AzureAgentPoolService {
   }
 
   public async getAgentQueueByName(queueName: string): Promise<AgentQueue | null> {
-    console.log(`Retrieving agent pool with name: ${queueName}`);
+    this.logger.info('Retrieving agent pool with name: {}', queueName);
     try {
       const response = await this.client.get<{ count: number; value: AgentQueue[] }>(
         `${this.project}/_apis/distributedtask/queues?${this.getApiVersionParam()}`,
@@ -29,7 +33,7 @@ export class AzureAgentPoolService {
       }
       return null;
     } catch (error) {
-      console.error(`Failed to get agent queue by name '${queueName}':`, error);
+      this.logger.error('Failed to get agent queue by name \'{}\': {}', queueName, error);
       throw error;
     }
   }
@@ -48,7 +52,7 @@ export class AzureAgentPoolService {
         payload
       );
     } catch (error) {
-      console.error(`Failed to authorize pipeline ${pipelineId} for agent pool ${poolId}:`, error);
+      this.logger.error('Failed to authorize pipeline {} for agent pool {}: {}', pipelineId, poolId, error);
       throw error;
     }
   }

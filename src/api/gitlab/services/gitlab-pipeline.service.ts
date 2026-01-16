@@ -7,53 +7,36 @@ import {
   GitLabJob
 } from '../types/gitlab.types';
 import { createGitLabErrorFromResponse } from '../errors/gitlab.errors';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 export class GitLabPipelineService implements IGitLabPipelineService {
-  constructor(private readonly gitlabClient: InstanceType<typeof Gitlab>) {}
+  private readonly logger: Logger;
+
+  constructor(private readonly gitlabClient: InstanceType<typeof Gitlab>) {
+    this.logger = LoggerFactory.getLogger('gitlab.pipeline');
+  }
 
   public async getPipelines(
     projectPath: string,
     params: GitLabPipelineSearchParams = {}
   ): Promise<GitLabPipeline[]> {
     try {
-      return await retry(
-        async (_, attempt) => {
-          try {
-            const pipelines =
-              (await this.gitlabClient.Pipelines.all(projectPath, params as any)) || [];
+      const pipelines =
+        (await this.gitlabClient.Pipelines.all(projectPath, params as any)) || [];
 
-            // If we got an empty array and we still have retries left, throw an error to trigger retry
-            if (pipelines.length === 0) {
-              console.log(
-                `Got empty pipelines array on attempt ${attempt}, will retry if attempts remain`
-              );
-              throw new Error('Empty pipelines array received');
-            }
-
-            return pipelines as GitLabPipeline[];
-          } catch (error) {
-            // Throw error to trigger retry mechanism
-            throw error;
-          }
-        },
-        {
-          retries: 5,
-          minTimeout: 5000,
-          maxTimeout: 15000,
-          onRetry: (error: Error, attempt: number) => {
-            console.log(
-              `[GITLAB-RETRY ${attempt}/5] 🔄 Project: ${projectPath} | Status: Failed | Reason: ${error.message}`
-            );
-          },
-        }
-      );
+      this.logger.info('Found {} GitLab pipelines for project: {}', pipelines.length, projectPath);
+      
+      return pipelines as GitLabPipeline[];
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(
-        `Failed to get GitLab pipelines for project ${projectPath} after multiple retries: ${errorMessage}`
+      const errorMessage = error;
+      this.logger.error(
+        'Failed to get GitLab pipelines for project {}: {}',
+        projectPath,
+        errorMessage,
+
       );
-      // Return empty array instead of throwing to make error handling easier for callers
-      return [];
+      throw new Error(`Failed to get GitLab pipelines for project ${projectPath}: ${errorMessage}`);
     }
   }
 
@@ -66,9 +49,12 @@ export class GitLabPipelineService implements IGitLabPipelineService {
       const pipeline = await this.gitlabClient.Pipelines.show(projectPath, pipelineId);
       return pipeline as GitLabPipeline;
     } catch (error) {
-      console.error(
-        `Failed to get GitLab pipeline ${pipelineId} for project ${projectPath}:`,
-        error
+      this.logger.error(
+        'Failed to get GitLab pipeline {} for project {}: {}',
+        pipelineId,
+        projectPath,
+        error,
+
       );
       throw createGitLabErrorFromResponse(
         'getPipelineById',
@@ -81,36 +67,14 @@ export class GitLabPipelineService implements IGitLabPipelineService {
 
   public async getPipelineJobsInfo(projectPath: string, pipelineId: number): Promise<GitLabJob[]> {
     try {
-      return await retry(
-        async (_, attempt) => {
-          try {
-            const jobsInfo = await this.gitlabClient.Jobs.all(projectPath, { pipelineId });
-            if (jobsInfo.length === 0) {
-              console.error(
-                `Got empty jobs array on attempt ${attempt} for pipeline ${pipelineId}, will retry if attempts remain`,
-              );
-              throw new Error('Empty jobs array received');
-            }
-            return jobsInfo as GitLabJob[];
-          } catch (error) {
-            // Throw error to trigger retry mechanism
-            throw error;
-          }
-        },
-        {
-          retries: 5,
-          minTimeout: 5000,
-          maxTimeout: 15000,
-          onRetry: (error: Error, attempt: number) => {
-            console.log(
-              `[GITLAB-RETRY ${attempt}/5] 🔄 Project: ${projectPath}, Pipeline: ${pipelineId} | Status: Failed | Reason: ${error.message}`,
-            );
-          },
-        },
-      );
+      const jobsInfo = await this.gitlabClient.Jobs.all(projectPath, { pipelineId });
+      
+      this.logger.info('Found {} jobs for pipeline {} in project: {}', jobsInfo?.length || 0, pipelineId, projectPath);
+      
+      return (jobsInfo as GitLabJob[]) || [];
     } catch (error) {
-      console.error(`Failed to get jobs for pipeline ${pipelineId} in project ${projectPath} after multiple retries:`, error);
-      return [];
+      this.logger.error('Failed to get jobs for pipeline {} in project {}: {}', pipelineId, projectPath, error);
+      throw error;
     }
   }
 
@@ -126,8 +90,10 @@ export class GitLabPipelineService implements IGitLabPipelineService {
             const jobTrace = await this.gitlabClient.requester.get(traceUrl);
 
             if (!jobTrace || !jobTrace.body) {
-              console.error(
-                `Got empty job log on attempt ${attempt} for job ${jobId}, will retry if attempts remain`,
+              this.logger.info(
+                'Got empty job log on attempt {} for job {}, will retry if attempts remain',
+                attempt,
+                jobId
               );
               throw new Error('Empty job log received');
             }
@@ -143,21 +109,28 @@ export class GitLabPipelineService implements IGitLabPipelineService {
           minTimeout: 5000,
           maxTimeout: 15000,
           onRetry: (error: Error, attempt: number) => {
-            console.log(
-              `[GITLAB-RETRY ${attempt}/10] 🔄 Project: ${projectPath}, Job: ${jobId} | Status: Failed | Reason: ${error.message}`,
+            this.logger.warn(
+              'Retry attempt {}/{} for logs job {} project {}: {}',
+              attempt,
+              10,
+              jobId,
+              projectPath,
+              error.message
             );
           },
         },
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = error;
       if (errorMessage === 'Empty job log received') {
-        console.warn(
-          `Job ${jobId} in project ${projectPath} has an empty log after multiple retries. Continuing without its logs.`
+        this.logger.warn(
+          'Job {} in project {} has an empty log after multiple retries. Continuing without its logs.',
+          jobId,
+          projectPath
         );
         return `${log} Log is empty`;
       }
-      console.error(`Failed to get logs for job ${jobId} in project ${projectPath} after multiple retries:`, error);
+      this.logger.error('Failed to get logs for job {} in project {} after multiple retries: {}', jobId, projectPath, error);
       throw error;
     }
   }
@@ -174,8 +147,10 @@ export class GitLabPipelineService implements IGitLabPipelineService {
 
       const jobLogPromises = (allJobs as GitLabJob[]).map((job) => {
         if (!job.id && !job.name) {
-          console.error(
-            `Job in pipeline ${pipelineId} is missing an ID or name. Skipping Job: ${JSON.stringify(job)}`,
+          this.logger.error(
+            'Job in pipeline {} is missing an ID or name. Skipping Job: {}',
+            pipelineId,
+            JSON.stringify(job)
           );
           return Promise.resolve('');
         }
@@ -185,7 +160,7 @@ export class GitLabPipelineService implements IGitLabPipelineService {
       const logs = await Promise.all(jobLogPromises);
       return logs.join('');
     } catch (error) {
-      console.error(`Failed to get logs for pipeline ${pipelineId} in project ${projectPath}:`, error);
+      this.logger.error('Failed to get logs for pipeline {} in project {}: {}', pipelineId, projectPath, error);
       return 'Failed to retrieve job logs';
     }
   }
@@ -193,12 +168,15 @@ export class GitLabPipelineService implements IGitLabPipelineService {
   public async cancelPipeline(projectPath: string, pipelineId: number): Promise<GitLabPipeline> {
     try {
       const cancelledPipeline = await this.gitlabClient.Pipelines.cancel(projectPath, pipelineId);
-      console.log(`Cancelled pipeline ${pipelineId} for project ${projectPath}`);
+      this.logger.info('Cancelled pipeline {} for project {}', pipelineId, projectPath);
       return cancelledPipeline as GitLabPipeline;
     } catch (error) {
-      console.error(
-        `Failed to cancel GitLab pipeline ${pipelineId} for project ${projectPath}:`,
-        error
+      this.logger.error(
+        'Failed to cancel GitLab pipeline {} for project {}: {}',
+        pipelineId,
+        projectPath,
+        error,
+
       );
       throw createGitLabErrorFromResponse(
         'cancelPipeline',

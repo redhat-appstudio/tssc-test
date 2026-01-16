@@ -1,13 +1,15 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { Git } from '../../../rhtap/core/integration/git';
+import { LoggerFactory } from '../../../logger/logger';
+import type { Logger } from '../../../logger/logger';
 
 export class GitUi {
-    private gitProvider: Git;
+    protected readonly logger: Logger;
 
     constructor(
-        git: Git
+        _git: Git
     ) {
-        this.gitProvider = git;
+        this.logger = LoggerFactory.getLogger(GitUi);
     }
 
     protected async checkGitLink(page: Page, gitLink: Locator): Promise<void> {
@@ -23,6 +25,6 @@ export class GitUi {
         const status = response.status();
         expect(status).not.toBe(404);
 
-        console.log(`Checked git link: ${linkHref}`);
+        this.logger.debug('Checked git link: {}', linkHref);
     }
 }

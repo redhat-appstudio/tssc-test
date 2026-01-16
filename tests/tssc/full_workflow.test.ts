@@ -6,7 +6,6 @@ import { TPA } from '../../src/rhtap/core/integration/tpa';
 import { ComponentPostCreateAction } from '../../src/rhtap/postcreation/componentPostCreateAction';
 import {
   runAndWaitforAppSync,
-  handleInitialPipelineRuns,
   handleSourceRepoCodeChanges,
   handlePromotionToEnvironmentandGetPipeline,
   getSbomIDFromCIPipelineLogs,
@@ -16,10 +15,11 @@ import { createBasicFixture } from '../../src/utils/test/fixtures';
 import { expect } from '@playwright/test';
 
 /**
- * Create a basic test fixture with testItem
+ * Create a basic test fixture with testItem and logger
  */
 const test = createBasicFixture();
-
+ // Apply serial mode to entire file                                                                                                                                                                                                                                                                                
+test.describe.configure({ mode: 'serial' });  
 /**
  * A complete test scenario for TSSC workflow:
  *
@@ -30,7 +30,7 @@ const test = createBasicFixture();
  * 4. Verification of deployments in all environments
  * 5. SBOM validation in Trustification server
  */
-test.describe.serial('TSSC Complete Workflow', () => {
+test.describe('TSSC Complete Workflow', () => {
   // Shared variables for test steps
   let component: Component;
   let cd: ArgoCD;
@@ -41,11 +41,11 @@ test.describe.serial('TSSC Complete Workflow', () => {
   const sbomDocumentIdList: string[] = [];
 
   test.describe('Component Creation', () => {
-    test('should create a component successfully', async ({ testItem }) => {
+    test('should create a component successfully', async ({ testItem, logger }) => {
       // Generate component name directly in the test
       const componentName = testItem.getName();
       const imageName = `${componentName}`;
-      console.log(`Creating component: ${componentName}`);
+      logger.info(`Creating component: ${componentName}`);
 
       // Create the component directly in the test
       component = await Component.new(componentName, testItem, imageName);
@@ -61,7 +61,7 @@ test.describe.serial('TSSC Complete Workflow', () => {
       // Verify component status
       const componentStatus = await component.getStatus();
       expect(componentStatus).toBe('completed');
-      console.log('Component was created successfully!');
+      logger.info('Component was created successfully!');
 
       // Wait for initial CI deployment to sync
       await component.waitUntilInitialDeploymentIsSynced();
@@ -70,26 +70,25 @@ test.describe.serial('TSSC Complete Workflow', () => {
       // Execute post-creation actions
       const postCreateAction = new ComponentPostCreateAction(component);
       await postCreateAction.execute();
-      console.log('✅ Post-creation actions executed successfully!');
+      logger.info('✅ Post-creation actions executed successfully!');
 
       // It is possible to trigger multiple pipelines when a new component is created and make some changes 
       // to the both source and gitops repos. These pipelines are not needed for the test and should be cancelled.
       await ci.cancelAllPipelines();
-      console.log('All pipelines have been cancelled!');
-      console.log('Component creation is complete!');
+      logger.info('All initial pipelines have ended!');
     });
   });
 
   test.describe('Build Application Image', () => {
-    test('should build application changes as new image through pipelines', async () => {
+    test('should build application changes as new image through pipelines', async ({ logger }) => {
       // Handle source code changes based on CI provider type
       await handleSourceRepoCodeChanges(git, ci);
-      console.log('Source code changes processed successfully!');
+      logger.info('Source code changes processed successfully!');
     });
   });
 
   test.describe('Deployment Verification', () => {
-    test('should verify deployment to development environment', async () => {
+    test('should verify deployment to development environment', async ({ logger }) => {
       // Verify application exists in development environment
       const application = await cd.getApplication(Environment.DEVELOPMENT);
       expect(application).not.toBeNull();
@@ -100,30 +99,30 @@ test.describe.serial('TSSC Complete Workflow', () => {
        // Verify sync was successful
       const syncResult = await runAndWaitforAppSync(cd, Environment.DEVELOPMENT, commitSha);
       expect(syncResult).toBe(true);
-      console.log('Application deployed correctly in the development environment!');
+      logger.info('Application deployed correctly in the development environment!');
     });
 
-    test('should promote and verify deployment to stage environment', async () => {
+    test('should promote and verify deployment to stage environment', async ({ logger }) => {
       // Extract the image from development
       image = await git.extractApplicationImage(Environment.DEVELOPMENT);
       expect(image).toBeTruthy();
 
       // Promote to stage environment
       promotionPipelineInfo = await handlePromotionToEnvironmentandGetPipeline(git, ci, cd, Environment.STAGE, image);
-      console.log('Image promoted to stage environment successfully!');
+      logger.info('Image promoted to stage environment successfully!');
 
       // Get Sbom Document ID from promotion pipeline logs
       sbomDocumentIdList.push(await getSbomIDFromCIPipelineLogs(ci, promotionPipelineInfo));
     });
 
-    test('should promote and verify deployment to production environment', async () => {
+    test('should promote and verify deployment to production environment', async ({ logger }) => {
       // Extract the image from stage
       image = await git.extractApplicationImage(Environment.STAGE);
       expect(image).toBeTruthy();
 
       // Promote to production environment
       promotionPipelineInfo = await handlePromotionToEnvironmentandGetPipeline(git, ci, cd, Environment.PROD, image);
-      console.log('Image promoted to production environment successfully!');
+      logger.info('Image promoted to production environment successfully!');
 
       // Get Sbom Document ID from promotion pipeline logs
       sbomDocumentIdList.push(await getSbomIDFromCIPipelineLogs(ci, promotionPipelineInfo));
@@ -131,7 +130,7 @@ test.describe.serial('TSSC Complete Workflow', () => {
   });
 
   test.describe('Security and Compliance', () => {
-    test('should verify SBOM is uploaded to Trustification server', async () => {
+    test('should verify SBOM is uploaded to Trustification server', async ({ logger }) => {
       // Skip if no image to verify
       test.skip(!image, 'No image available to verify SBOM');
 
@@ -148,7 +147,7 @@ test.describe.serial('TSSC Complete Workflow', () => {
 
       // Verify SBOM results exist
       expect(sbom).toBe(true);
-      console.log(`SBOM verification successful! Found SBOM for image: ${imageDigest}`);
+      logger.info(`SBOM verification successful! Found SBOM for image: ${imageDigest}`);
     });
   });
 });

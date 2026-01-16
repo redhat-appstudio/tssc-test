@@ -10,8 +10,11 @@ import { createGit } from '../core/integration/git';
 import { BitbucketProvider } from '../core/integration/git';
 import { ImageRegistry, createRegistry } from '../core/integration/registry';
 import { ScaffolderScaffoldOptions } from '@backstage/plugin-scaffolder-react';
+import { LoggerFactory } from '../../logger/factory/loggerFactory';
+import { Logger } from '../../logger/logger';
 
 export class Component {
+  private readonly logger: Logger;
   private name: string;
   private kubeClient!: KubeClient;
   private developerHub!: DeveloperHub;
@@ -23,6 +26,7 @@ export class Component {
   private cd!: ArgoCD;
 
   private constructor(name: string) {
+    this.logger = LoggerFactory.getLogger('rhtap.core.component');
     this.name = name;
   }
 
@@ -89,8 +93,10 @@ export class Component {
         }
 
         component.id = response.id;
-        console.log(
-          `Component creation started. Component Name: ${component.name}, ID: ${component.id}`
+        component.logger.info(
+          'Component creation started. Component Name: {}, ID: {}',
+          component.name,
+          component.id
         );
       }
 
@@ -98,7 +104,7 @@ export class Component {
       return component;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Failed to create component '${name}': ${errorMessage}`);
+      component.logger.error('Failed to create component \'{}\': {}', name, errorMessage);
       throw new Error(`Component creation failed: ${errorMessage}`);
     }
   }
@@ -111,7 +117,7 @@ export class Component {
     if (!this.isCreated) {
       throw new Error('Component has not been created yet.');
     }
-    console.log(`Waiting for component ${this.name} to be completed...`);
+    this.logger.info('Waiting for component {} to be completed...', this.name);
     await this.developerHub.waitUntilComponentIsCompleted(this.id);
   }
 
@@ -180,7 +186,7 @@ export class Component {
     const developerHubUrl = `https://${routeHostname}`;
     const developerHub = new DeveloperHub(developerHubUrl);
 
-    console.log(`Connected to Developer Hub at: ${developerHub.getUrl()}`);
+    this.logger.info('Connected to Developer Hub at: {}', developerHub.getUrl());
     return developerHub;
   }
 

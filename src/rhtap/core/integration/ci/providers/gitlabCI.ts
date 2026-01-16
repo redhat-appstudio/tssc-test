@@ -114,7 +114,7 @@ export class GitLabCI extends BaseCI {
       );
 
       if (!pipelines || pipelines.length === 0) {
-        console.log(
+        this.logger.info(
           `No pipelines found for repository ${pullRequest.repository} with SHA ${pullRequest.sha}`
         );
         return null;
@@ -123,7 +123,7 @@ export class GitLabCI extends BaseCI {
       // Filter pipelines by the requested event type if provided, the event type maps the GitLab pipeline source property
       if (eventType === EventType.PULL_REQUEST || eventType === EventType.PUSH) {
         pipelines.map(pipeline => {
-          console.log(`Pipeline ID: ${pipeline.id}, Source: ${pipeline.source}`);
+          this.logger.info(`Pipeline ID: ${pipeline.id}, Source: ${pipeline.source}`);
         });
         pipelines = pipelines.filter(
           pipeline => pipeline.source === 'push' || pipeline.source === 'merge_request_event'
@@ -131,7 +131,7 @@ export class GitLabCI extends BaseCI {
 
         // Check if pipelines array is empty after filtering
         if (pipelines.length === 0) {
-          console.log(
+          this.logger.info(
             `No pipelines found for repository ${pullRequest.repository} with SHA ${pullRequest.sha} after filtering by event type`
           );
           return null;
@@ -143,12 +143,12 @@ export class GitLabCI extends BaseCI {
 
       const latestPipeline = pipelines[0];
       //TODO: for debugging purpose, remove it later
-      console.log(`Latest pipeline ID: ${latestPipeline.id}, Source: ${latestPipeline.source}`);
+      this.logger.info(`Latest pipeline ID: ${latestPipeline.id}, Source: ${latestPipeline.source}`);
       const mappedStatus = this.mapPipelineStatus(latestPipeline.status);
 
       // Only return pipelines that match the requested status if it's not UNKNOWN
       if (pipelineStatus !== PipelineStatus.UNKNOWN && mappedStatus !== pipelineStatus) {
-        console.log(
+        this.logger.info(
           `Latest pipeline status ${mappedStatus} doesn't match requested status ${pipelineStatus}`
         );
         return null;
@@ -165,7 +165,7 @@ export class GitLabCI extends BaseCI {
         latestPipeline.sha
       );
     } catch (error) {
-      console.error(`Error fetching GitLab pipelines:`, error);
+      this.logger.error('Error fetching GitLab pipelines: {}', error);
       return null;
     }
   }
@@ -208,14 +208,14 @@ export class GitLabCI extends BaseCI {
       const mappedStatus = this.mapPipelineStatus(gitlabStatus);
       return mappedStatus;
     } catch (error) {
-      console.error(`Error checking pipeline status for ${pipeline.id}:`, error);
+      this.logger.error('Error checking pipeline status for {}: {}', pipeline.id, error);
       return PipelineStatus.UNKNOWN;
     }
   }
 
   public override async waitForAllPipelineRunsToFinish(): Promise<void> {
     try {
-      console.log(
+      this.logger.info(
         `Waiting for all GitLab CI pipelines for component ${this.componentName} to finish...`
       );
       const maxAttempts = 20;
@@ -229,7 +229,7 @@ export class GitLabCI extends BaseCI {
         );
 
         if (!allPipelines || allPipelines.length === 0) {
-          console.log(`No pipelines found for component ${this.componentName}`);
+          this.logger.info(`No pipelines found for component ${this.componentName}`);
           return true;
         }
 
@@ -245,11 +245,11 @@ export class GitLabCI extends BaseCI {
         );
 
         if (allIncompletePipelines.length === 0) {
-          console.log(`No running or pending pipelines found for component ${this.componentName}`);
+          this.logger.info(`No running or pending pipelines found for component ${this.componentName}`);
           return true;
         }
 
-        console.log(
+        this.logger.info(
           `Found ${allIncompletePipelines.length} active pipelines for component ${this.componentName}`
         );
 
@@ -263,22 +263,22 @@ export class GitLabCI extends BaseCI {
           retries: maxAttempts,
           minTimeout: pollIntervalMs,
           onRetry: (error: Error, attemptNumber: number) => {
-            console.log(
-              `[GITLAB-CI-RETRY ${attemptNumber}/${maxAttempts}] 🔄 Component: ${this.componentName} | Status: Waiting | Reason: ${error.message}`
+            this.logger.info(
+              `[GITLAB-CI-RETRY ${attemptNumber}/${maxAttempts}] 🔄 Component: ${this.componentName} | Status: Waiting | Reason: {}`
             );
           },
         });
 
-        console.log(
+        this.logger.info(
           `All GitLab CI pipelines for component ${this.componentName} have finished processing.`
         );
       } catch (error: any) {
-        console.log(
+        this.logger.info(
           `Timeout reached. Some pipeline(s) still running after ${maxAttempts} attempts.`
         );
       }
     } catch (error) {
-      console.error(`Error waiting for GitLab CI pipelines to finish:`, error);
+      this.logger.error('Error waiting for GitLab CI pipelines to finish: {}', error);
       throw new Error(`Failed to wait for pipelines: ${error}`);
     }
   }
@@ -304,7 +304,7 @@ export class GitLabCI extends BaseCI {
       errors: [],
     };
 
-    console.log(`[GitLabCI] Starting pipeline cancellation for ${this.componentName}`);
+    this.logger.info(`[GitLabCI] Starting pipeline cancellation for ${this.componentName}`);
 
     try {
       // 3. Fetch all pipelines from GitLab API
@@ -312,17 +312,17 @@ export class GitLabCI extends BaseCI {
       result.total = allPipelines.length;
 
       if (allPipelines.length === 0) {
-        console.log(`[GitLabCI] No pipelines found for ${this.componentName}`);
+        this.logger.info(`[GitLabCI] No pipelines found for ${this.componentName}`);
         return result;
       }
 
-      console.log(`[GitLabCI] Found ${allPipelines.length} total pipelines`);
+      this.logger.info(`[GitLabCI] Found ${allPipelines.length} total pipelines`);
 
       // 4. Apply filters
       const pipelinesToCancel = this.filterPipelines(allPipelines, opts);
 
-      console.log(`[GitLabCI] ${pipelinesToCancel.length} pipelines match filters`);
-      console.log(`[GitLabCI] ${allPipelines.length - pipelinesToCancel.length} pipelines filtered out`);
+      this.logger.info(`[GitLabCI] ${pipelinesToCancel.length} pipelines match filters`);
+      this.logger.info(`[GitLabCI] ${allPipelines.length - pipelinesToCancel.length} pipelines filtered out`);
 
       // 5. Cancel pipelines in batches
       await this.cancelPipelinesInBatches(pipelinesToCancel, opts, result);
@@ -331,7 +331,7 @@ export class GitLabCI extends BaseCI {
       const accounted = result.cancelled + result.failed + result.skipped;
       if (accounted !== result.total) {
         const missing = result.total - accounted;
-        console.error(
+        this.logger.error(
           `❌ [GitLabCI] ACCOUNTING ERROR: ${missing} pipelines unaccounted for ` +
           `(total: ${result.total}, accounted: ${accounted})`
         );
@@ -345,7 +345,7 @@ export class GitLabCI extends BaseCI {
       }
 
       // 7. Log summary
-      console.log(`[GitLabCI] Cancellation complete:`, {
+      this.logger.info(`[GitLabCI] Cancellation complete:`, {
         total: result.total,
         cancelled: result.cancelled,
         failed: result.failed,
@@ -353,8 +353,8 @@ export class GitLabCI extends BaseCI {
       });
 
     } catch (error: any) {
-      console.error(`[GitLabCI] Error in cancelAllPipelines: ${error.message}`);
-      throw new Error(`Failed to cancel pipelines: ${error.message}`);
+      this.logger.error('[GitLabCI] Error in cancelAllPipelines: {}', error);
+      throw new Error(`Failed to cancel pipelines: {}`);
     }
 
     return result;
@@ -371,14 +371,19 @@ export class GitLabCI extends BaseCI {
 
       // Fetch from source repository
       const sourceProjectPath = `${this.getGroup()}/${this.sourceRepoName}`;
-      const sourcePipelines = await this.gitlabCIClient.pipelines.getAllPipelines(sourceProjectPath);
+      try {
+        const sourcePipelines = await this.gitlabCIClient.pipelines.getAllPipelines(sourceProjectPath);
 
-      // Tag pipelines with their project path for later cancellation
-      const taggedSourcePipelines = (sourcePipelines || []).map(p => ({
-        ...p,
-        _projectPath: sourceProjectPath
-      }));
-      allPipelines.push(...taggedSourcePipelines);
+        // Tag pipelines with their project path for later cancellation
+        const taggedSourcePipelines = (sourcePipelines || []).map(p => ({
+          ...p,
+          _projectPath: sourceProjectPath
+        }));
+        allPipelines.push(...taggedSourcePipelines);
+      } catch (sourceError: any) {
+        // Source repo might not exist or have no pipelines, log but don't fail
+        this.logger.info(`[GitLabCI] Source repository ${sourceProjectPath} not found or no pipelines: ${sourceError.message}`);
+      }
 
       // Fetch from gitops repository
       const gitopsProjectPath = `${this.getGroup()}/${this.gitOpsRepoName}`;
@@ -393,13 +398,13 @@ export class GitLabCI extends BaseCI {
         allPipelines.push(...taggedGitopsPipelines);
       } catch (gitopsError: any) {
         // Gitops repo might not exist, log but don't fail
-        console.log(`[GitLabCI] Gitops repository ${gitopsProjectPath} not found or no pipelines: ${gitopsError.message}`);
+        this.logger.info(`[GitLabCI] Gitops repository ${gitopsProjectPath} not found or no pipelines: ${gitopsError.message}`);
       }
 
       return allPipelines;
 
     } catch (error: any) {
-      console.error(`[GitLabCI] Failed to fetch pipelines: ${error.message}`);
+      this.logger.error('[GitLabCI] Failed to fetch pipelines: {}', error);
       throw error;
     }
   }
@@ -414,25 +419,25 @@ export class GitLabCI extends BaseCI {
     return pipelines.filter(pipeline => {
       // Filter 1: Skip completed pipelines unless includeCompleted is true
       if (!options.includeCompleted && this.isCompletedStatus(pipeline.status)) {
-        console.log(`[Filter] Skipping completed pipeline ${pipeline.id} (${pipeline.status})`);
+        this.logger.info(`[Filter] Skipping completed pipeline ${pipeline.id} (${pipeline.status})`);
         return false;
       }
 
       // Filter 2: Check exclusion patterns
       if (this.matchesExclusionPattern(pipeline, options.excludePatterns)) {
-        console.log(`[Filter] Excluding pipeline ${pipeline.id} by pattern`);
+        this.logger.info(`[Filter] Excluding pipeline ${pipeline.id} by pattern`);
         return false;
       }
 
       // Filter 3: Filter by event type if specified
       if (options.eventType && !this.matchesEventType(pipeline, options.eventType)) {
-        console.log(`[Filter] Skipping pipeline ${pipeline.id} (event type mismatch)`);
+        this.logger.info(`[Filter] Skipping pipeline ${pipeline.id} (event type mismatch)`);
         return false;
       }
 
       // Filter 4: Filter by branch if specified
       if (options.branch && pipeline.ref !== options.branch) {
-        console.log(`[Filter] Skipping pipeline ${pipeline.id} (branch mismatch)`);
+        this.logger.info(`[Filter] Skipping pipeline ${pipeline.id} (branch mismatch)`);
         return false;
       }
 
@@ -490,11 +495,11 @@ export class GitLabCI extends BaseCI {
     // Split into batches
     const batches = this.chunkArray(pipelines, options.concurrency);
 
-    console.log(`[GitLabCI] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
+    this.logger.info(`[GitLabCI] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
 
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
-      console.log(`[GitLabCI] Processing batch ${i + 1}/${batches.length} (${batch.length} pipelines)`);
+      this.logger.info(`[GitLabCI] Processing batch ${i + 1}/${batches.length} (${batch.length} pipelines)`);
 
       // Create promises for all pipelines in this batch
       const promises = batch.map(pipeline =>
@@ -508,16 +513,16 @@ export class GitLabCI extends BaseCI {
       const batchSuccesses = batchResults.filter(r => r.status === 'fulfilled').length;
       const batchFailures = batchResults.filter(r => r.status === 'rejected').length;
 
-      console.log(`[GitLabCI] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
+      this.logger.info(`[GitLabCI] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
 
       // Alert on complete batch failure - indicates systemic issue
       if (batchFailures === batch.length && batch.length > 0) {
-        console.error(`❌ [GitLabCI] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
+        this.logger.error(`❌ [GitLabCI] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
 
         // Log first rejection reason for debugging
         const firstRejected = batchResults.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
         if (firstRejected) {
-          console.error(`[GitLabCI] First failure reason: ${firstRejected.reason}`);
+          this.logger.error(`[GitLabCI] First failure reason: ${firstRejected.reason}`);
         }
       }
     }
@@ -547,7 +552,7 @@ export class GitLabCI extends BaseCI {
         detail.result = 'skipped';
         detail.reason = 'Dry run mode';
         result.skipped++;
-        console.log(`[DryRun] Would cancel pipeline ${pipeline.id}`);
+        this.logger.info(`[DryRun] Would cancel pipeline ${pipeline.id}`);
 
       } else {
         // Extract project path from tagged pipeline (added in fetchAllPipelines)
@@ -558,7 +563,7 @@ export class GitLabCI extends BaseCI {
 
         detail.result = 'cancelled';
         result.cancelled++;
-        console.log(`✅ [GitLabCI] Cancelled pipeline ${pipeline.id} in ${projectPath} (status: ${pipeline.status})`);
+        this.logger.info(`✅ [GitLabCI] Cancelled pipeline ${pipeline.id} in ${projectPath} (status: ${pipeline.status})`);
       }
 
     } catch (error: any) {
@@ -586,7 +591,7 @@ export class GitLabCI extends BaseCI {
 
       result.errors.push(cancelError);
 
-      console.error(`❌ [GitLabCI] Failed to cancel pipeline ${pipeline.id}: ${error.message}`);
+      this.logger.error('❌ [GitLabCI] Failed to cancel pipeline {}: {}', pipeline.id, error);
     }
 
     // Add detail to results

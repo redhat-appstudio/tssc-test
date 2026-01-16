@@ -1,12 +1,16 @@
 import { AzureHttpClient } from '../http/azure-http.client';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 export class AzureProjectService {
   private readonly client: AzureHttpClient;
   private readonly apiVersion: string;
+  private readonly logger: Logger;
 
   constructor(client: AzureHttpClient, apiVersion: string) {
     this.client = client;
     this.apiVersion = apiVersion;
+    this.logger = LoggerFactory.getLogger('azure.project');
   }
 
   private getApiVersionParam(): string {
@@ -20,7 +24,7 @@ export class AzureProjectService {
       );
       return response.id;
     } catch (error) {
-      console.error(`Failed to get project ID for project '${projectName}':`, error);
+      this.logger.error('Failed to get project ID for project \'{}\': {}', projectName, error);
       throw error;
     }
   }

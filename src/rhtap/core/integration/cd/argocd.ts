@@ -1,16 +1,18 @@
 import { KubeClient } from '../../../../../src/api/ocp/kubeClient';
 import { ApplicationKind, ArgoCDClient } from '../../../../api/argocd';
 import retry from 'async-retry';
+import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
+import { Logger } from '../../../../logger/logger';
 
 // Define environment constants
 export enum Environment {
-  CI = 'ci',
   DEVELOPMENT = 'development',
   STAGE = 'stage',
   PROD = 'prod',
 }
 
 export class ArgoCD {
+  private readonly logger: Logger;
   private argoCDClient: ArgoCDClient;
   private readonly NAMESPACE = 'tssc-gitops';
 
@@ -18,6 +20,7 @@ export class ArgoCD {
     public readonly componentName: string,
     public readonly kubeClient: KubeClient
   ) {
+    this.logger = LoggerFactory.getLogger('rhtap.core.integration.cd.argocd');
     this.argoCDClient = new ArgoCDClient(kubeClient);
   }
 
@@ -59,7 +62,7 @@ export class ArgoCD {
 
     if (!success) {
       const status = await this.getApplicationStatus(environment);
-      console.error(`Getting latest ${applicationName} app status: \n${status}`);
+      this.logger.error(`Getting latest ${applicationName} app status: \n${status}`);
       throw new Error(`Failed to sync application ${applicationName}`);
     }
   }
@@ -118,10 +121,10 @@ export class ArgoCD {
           const isHealthy = finalHealthStatus === 'Healthy';
 
           if (isSynced && isHealthy && isRevisionMatched) {
-            console.log(`Application ${applicationName} is successfully synced and healthy.`);
-            console.log(`- Sync Status: ${finalSyncStatus}`);
-            console.log(`- Health Status: ${finalHealthStatus}`);
-            console.log(`- Revision: ${finalRevision}`);
+            this.logger.info(`Application ${applicationName} is successfully synced and healthy.`);
+            this.logger.info(`- Sync Status: ${finalSyncStatus}`);
+            this.logger.info(`- Health Status: ${finalHealthStatus}`);
+            this.logger.info(`- Revision: ${finalRevision}`);
             return; // Success, don't retry
           }
 
@@ -136,7 +139,7 @@ export class ArgoCD {
           if (!isRevisionMatched)
             pendingConditions.push(`Revision (current: ${finalRevision}, expected: ${revision})`);
 
-          console.log(
+          this.logger.info(
             `Waiting for application ${applicationName} to be fully synced... Pending conditions: ${pendingConditions.join(', ')}`
           );
           // Throw an error to trigger a retry
@@ -148,7 +151,7 @@ export class ArgoCD {
           retries: maxRetries,
           minTimeout: retryDelayMs,
           onRetry: (_: any, attempt: any) => {
-            console.log(`Attempt ${attempt} failed. ${maxRetries - attempt + 1} attempts left.`);
+            this.logger.info(`Attempt ${attempt} failed. ${maxRetries - attempt + 1} attempts left.`);
           },
         }
       );
@@ -162,16 +165,15 @@ export class ArgoCD {
     } catch (error) {
       // If we reach here, all retries were exhausted
       // Get detailed application details for debugging
-      console.error(`Failed to sync application ${environment} after ${maxRetries} retries:`);
-      console.error(error);
-      console.error(
+      this.logger.error('Failed to sync application {} after {} retries: {}', environment, maxRetries, error);
+      this.logger.error(
         `Final sync status: ${finalSyncStatus}, Health status: ${finalHealthStatus}, Revision: ${finalRevision}`
       );
       try{
         const latestAppEvents = await this.argoCDClient.applications.getApplicationEvents(applicationName, this.NAMESPACE);
-        console.error(`Getting latest application events: \n${latestAppEvents}`);
+        this.logger.error(`Getting latest application events: \n${latestAppEvents}`);
       } catch (error) {
-        console.error(`Unable to fetch application details for debug: ${error}`);
+        this.logger.error(`Unable to fetch application details for debug: ${error}`);
       }
 
       // Return detailed information instead of throwing, allowing caller to handle the situation

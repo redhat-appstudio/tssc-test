@@ -1,5 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { GithubApiError } from '../errors/github.errors';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 export interface WebhookConfig {
   /** Webhook URL endpoint */
@@ -17,7 +19,11 @@ export interface WebhookConfig {
 }
 
 export class GithubWebhookService {
-  constructor(private readonly octokit: Octokit) {}
+  private readonly logger: Logger;
+
+  constructor(private readonly octokit: Octokit) {
+    this.logger = LoggerFactory.getLogger('github.webhook');
+  }
 
   public async configWebhook(
     repoOwner: string,
@@ -29,7 +35,7 @@ export class GithubWebhookService {
         throw new Error('Webhook secret is required for security. Please provide a secret for payload verification.');
       }
 
-      console.log(`Configuring webhook for ${repoOwner}/${repoName} at ${config.url}`);
+      this.logger.info('Configuring webhook for {}/{} at {}', repoOwner, repoName, config.url);
 
       const webhookConfig = {
         url: config.url,
@@ -40,7 +46,7 @@ export class GithubWebhookService {
       };
 
       if (config.insecureSSL) {
-        console.warn('⚠️  WARNING: Webhook configured with insecure SSL. This should only be used in development environments.');
+        this.logger.warn('WARNING: Webhook configured with insecure SSL. This should only be used in development environments.');
       }
 
       await this.octokit.repos.createWebhook({
@@ -51,9 +57,9 @@ export class GithubWebhookService {
         active: config.active !== false, // Default to true
       });
       
-      console.log(`Webhook configured successfully for ${repoOwner}/${repoName} with secure settings`);
+      this.logger.info('Webhook configured successfully for {}/{} with secure settings', repoOwner, repoName);
     } catch (error: any) {
-      console.error(`Failed to configure webhook for ${repoOwner}/${repoName}: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error('Failed to configure webhook for {}/{}: {}', repoOwner, repoName, error);
       throw new GithubApiError(`Failed to configure webhook for ${repoOwner}/${repoName}`, error.status, error);
     }
   }

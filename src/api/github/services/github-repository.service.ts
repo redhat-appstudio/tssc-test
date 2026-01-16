@@ -2,9 +2,15 @@ import { Octokit } from '@octokit/rest';
 import { Buffer } from 'buffer';
 import { GithubApiError, GithubNotFoundError } from '../errors/github.errors';
 import { ContentModifications } from '../../../rhtap/modification/contentModification';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 export class GithubRepositoryService {
-  constructor(private readonly octokit: Octokit) {}
+  private readonly logger: Logger;
+
+  constructor(private readonly octokit: Octokit) {
+    this.logger = LoggerFactory.getLogger('github.repository');
+  }
 
   public async getRepository(owner: string, repo: string) {
     try {
@@ -14,7 +20,7 @@ export class GithubRepositoryService {
       });
       return data;
     } catch (error: any) {
-      console.error(`Failed to get repository ${owner}/${repo}: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error('Failed to get repository {}/{}: {}', owner, repo, error);
       throw new GithubApiError(`Failed to get repository ${owner}/${repo}`, error.status, error);
     }
   }
@@ -29,7 +35,7 @@ export class GithubRepositoryService {
       });
       return data;
     } catch (error: any) {
-      console.error(`Failed to get content for ${owner}/${repo} at path ${path}: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error('Failed to get content for {}/{} at path {}: {}', owner, repo, path, error);
       throw new GithubApiError(`Failed to get content for ${owner}/${repo} at path ${path}`, error.status, error);
     }
   }
@@ -41,7 +47,7 @@ export class GithubRepositoryService {
     message: string,
     branch: string = 'main',
   ): Promise<string> {
-    console.log(`Committing changes to branch '${branch}' with message: ${message}`);
+    this.logger.info('Committing changes to branch \'{}\' with message: {}', branch, message);
     try {
       const { data: refData } = await this.octokit.git.getRef({
         owner: repoOwner,
@@ -116,7 +122,7 @@ export class GithubRepositoryService {
             sha: blobData.sha,
           });
         } catch (error: any) {
-          console.error(`Error processing file ${filePath}:`, error);
+          this.logger.error('Error processing file {}: {}', filePath, error);
           throw new GithubApiError(`Failed to process file ${filePath}`, error.status, error);
         }
       }
@@ -143,10 +149,10 @@ export class GithubRepositoryService {
         sha: newCommitData.sha,
       });
 
-      console.log(`Changes committed successfully to ${repoOwner}/${sourceRepoName} branch '${branch}' with commit SHA: ${newCommitData.sha}`);
+      this.logger.info('Changes committed successfully to {}/{} branch \'{}\' with commit SHA: {}', repoOwner, sourceRepoName, branch, newCommitData.sha);
       return newCommitData.sha;
     } catch (error: any) {
-      console.error(`Failed to commit changes to branch '${branch}': ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error('Failed to commit changes to branch \'{}\': {}', branch, error);
       throw new GithubApiError(`Failed to commit changes to branch '${branch}'`, error.status, error);
     }
   }
@@ -159,7 +165,7 @@ export class GithubRepositoryService {
     branch: string = 'main',
   ): Promise<string[]> {
     try {
-      console.log(`Searching for pattern ${searchPattern} in file ${filePath} (${branch} branch)`);
+      this.logger.info('Searching for pattern {} in file {} ({} branch)', searchPattern, filePath, branch);
 
       const fileContentResponse = await this.octokit.repos.getContent({
         owner: repoOwner,
@@ -169,7 +175,7 @@ export class GithubRepositoryService {
       });
 
       if (!fileContentResponse.data || !('content' in fileContentResponse.data)) {
-        console.log(`Could not retrieve content for file: ${filePath}`);
+        this.logger.info('Could not retrieve content for file: {}', filePath);
         return [];
       }
 
@@ -177,14 +183,14 @@ export class GithubRepositoryService {
       const matches = content.match(searchPattern);
 
       if (!matches) {
-        console.log(`No matches found in file ${filePath}`);
+        this.logger.info('No matches found in file {}', filePath);
         return [];
       }
 
-      console.log(`Found ${matches.length} matches in ${filePath}`);
+      this.logger.info('Found {} matches in {}', matches.length, filePath);
       return matches;
     } catch (error: any) {
-      console.error(`Error extracting content with regex from ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error('Error extracting content with regex from {}: {}', filePath, error);
       throw new GithubApiError(`Failed to extract content by regex from ${filePath}`, error.status, error);
     }
   }
@@ -195,7 +201,7 @@ export class GithubRepositoryService {
     branch: string = 'main',
   ): Promise<string> {
     try {
-      console.log(`Getting latest commit SHA for ${repoOwner}/${repoName} branch '${branch}'`);
+      this.logger.info('Getting latest commit SHA for {}/{} branch \'{}\'', repoOwner, repoName, branch);
 
       const response = await this.octokit.repos.getBranch({
         owner: repoOwner,
@@ -204,11 +210,11 @@ export class GithubRepositoryService {
       });
 
       const commitSha = response.data.commit.sha;
-      console.log(`Latest commit SHA for branch '${branch}': ${commitSha}`);
+      this.logger.info('Latest commit SHA for branch \'{}\': {}', branch, commitSha);
 
       return commitSha;
     } catch (error: any) {
-      console.error(`Failed to get commit SHA for branch '${branch}': ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error('Failed to get commit SHA for branch \'{}\': {}', branch, error);
       throw new GithubApiError(`Failed to get commit SHA for branch '${branch}'`, error.status, error);
     }
   }
