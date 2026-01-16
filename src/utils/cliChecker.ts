@@ -1,8 +1,11 @@
 import { exec as execCallback } from 'child_process';
 import { promisify } from 'util';
+import { LoggerFactory } from '../logger/factory/loggerFactory';
+import { Logger } from '../logger/logger';
 
 // Use the same exec pattern as the existing ArgoCD implementation
 const exec = promisify(execCallback);
+const logger: Logger = LoggerFactory.getLogger('utils.cli-checker');
 
 /**
  * Checks if ArgoCD CLI is available using the same pattern as the existing ArgoCD service
@@ -12,12 +15,12 @@ export async function checkArgoCDCli(): Promise<boolean> {
   try {
     // Use the same command pattern as in sync.service.ts
     const command = 'argocd version --client';
-    console.log(`Checking ArgoCD CLI availability: ${command}`);
+    logger.info('Checking ArgoCD CLI availability: {}', command);
     
     const { stderr } = await exec(command);
     
     if (stderr && stderr.trim()) {
-      console.warn(`ArgoCD CLI check warnings: ${stderr}`);
+      logger.warn('ArgoCD CLI check warnings: {}', stderr);
     }
     
     return true;

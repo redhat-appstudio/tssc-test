@@ -6,6 +6,8 @@ import { AzureServiceEndpointService } from './services/azure-service-endpoint.s
 import { AzureProjectService } from './services/azure-project.service';
 import { AzurePipelinesClientConfig } from './types/azure.types';
 import { AZURE_API_VERSIONS } from './constants/api-versions';
+import { LoggerFactory } from '../../logger/factory/loggerFactory';
+import { Logger } from '../../logger/logger';
 
 export class AzureClient {
   public readonly pipelines: AzurePipelineService;
@@ -17,8 +19,10 @@ export class AzureClient {
   private readonly httpClient: AzureHttpClient;
   private readonly project: string;
   private readonly apiVersion: string;
+  private readonly logger: Logger;
 
   constructor(config: AzurePipelinesClientConfig) {
+    this.logger = LoggerFactory.getLogger('azure.client');
     this.project = config.project;
     this.apiVersion = config.apiVersion || AZURE_API_VERSIONS.DEFAULT;
 
@@ -35,5 +39,7 @@ export class AzureClient {
     this.agentPools = new AzureAgentPoolService(this.httpClient, this.project, this.apiVersion);
     this.serviceEndpoints = new AzureServiceEndpointService(this.httpClient, this.project, this.apiVersion);
     this.projects = new AzureProjectService(this.httpClient, this.apiVersion);
+
+    this.logger.info('Initialized Azure client', { project: this.project, organization: config.organization, host: config.host, apiVersion: this.apiVersion });
   }
 }

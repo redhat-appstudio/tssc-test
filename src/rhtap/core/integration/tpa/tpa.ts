@@ -1,6 +1,8 @@
 import { KubeClient } from '../../../../../src/api/ocp/kubeClient';
 import { SBOMResult, TPAClient } from '../../../../../src/api/tpa/tpaClient';
 import { IntegrationSecret } from '../../integrationSecret';
+import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
+import { Logger } from '../../../../logger/logger';
 
 /**
  * TPA (Trustification) singleton class
@@ -8,15 +10,14 @@ import { IntegrationSecret } from '../../integrationSecret';
  */
 export class TPA implements IntegrationSecret {
   private static instance: TPA | null = null;
+  private readonly logger: Logger;
   private tpaClient: TPAClient | null = null;
   private initialized = false;
   private kubeClient: KubeClient;
   private secret: Record<string, string> = {};
 
-  /**
-   * Private constructor to enforce singleton pattern
-   */
   private constructor(kubeClient: KubeClient) {
+    this.logger = LoggerFactory.getLogger('rhtap.core.integration.tpa');
     this.kubeClient = kubeClient;
   }
 
@@ -75,7 +76,7 @@ export class TPA implements IntegrationSecret {
         await this.tpaClient.initAccessToken();
         this.initialized = true;
       } catch (error) {
-        console.error('Failed to initialize TPA client:', error);
+        this.logger.error('Failed to initialize TPA client:', error);
         throw error;
       }
     }
@@ -107,7 +108,7 @@ export class TPA implements IntegrationSecret {
    * @returns A promise that resolves to an array of SBOM results
    */
   public async searchSBOMByName(name: string): Promise<SBOMResult[]> {
-    console.log(`Searching for SBOM with name: ${name}`);
+    this.logger.info('Searching for SBOM with name: {}', name);
 
     if (!this.initialized) {
       await this.initClient();
@@ -118,10 +119,10 @@ export class TPA implements IntegrationSecret {
 
     try {
       const results = await this.tpaClient.findSBOMsByName(name);
-      console.log(`Found ${results.length} SBOM results for: ${name}`);
+      this.logger.info(`Found ${results.length} SBOM results for: ${name}`);
       return results;
     } catch (error) {
-      console.log({ err: error }, `Failed to search for SBOM: ${name}`);
+      this.logger.error('Failed to search for SBOM: {}. Error: {}', name, error);
       throw error;
     }
   }
@@ -134,7 +135,7 @@ export class TPA implements IntegrationSecret {
    * @throws Error if the TPA client is not initialized or if the search fails
    */
   public async searchSBOMBySha256(sha256: string): Promise<SBOMResult | null> {
-    console.log(`Searching for SBOM with SHA: ${sha256}`);
+    this.logger.info(`Searching for SBOM with SHA: ${sha256}`);
     if (!this.initialized) {
       await this.initClient();
     }
@@ -145,7 +146,7 @@ export class TPA implements IntegrationSecret {
       const result = await this.tpaClient.findSBOMBySha256(sha256);
       return result;
     } catch (error) {
-      console.log({ err: error }, `Failed to get SBOM by SHA: ${sha256}`);
+      this.logger.error('Failed to get SBOM by SHA: {}. Error: {}', sha256, error);
       throw error;
     }
   }
@@ -158,7 +159,7 @@ export class TPA implements IntegrationSecret {
    * @throws Error if the TPA client is not initialized or if the search fails
    */
   public async searchSBOMByNameAndDocID(name: string, documentId: string): Promise<SBOMResult | null> {
-    console.log(`Searching for SBOM with name ${name} and document ID ${documentId}`);
+    this.logger.info(`Searching for SBOM with name ${name} and document ID ${documentId}`);
     if (!this.initialized) {
       await this.initClient();
     }
@@ -169,7 +170,7 @@ export class TPA implements IntegrationSecret {
       const result = await this.tpaClient.findSBOMsByNameAndDocID(name, documentId);
       return result;
     } catch (error) {
-      console.error({ err: error }, `Failed to get SBOM by document ID: ${documentId}`);
+      this.logger.error('Failed to get SBOM by document ID: {}. Error: {}', documentId, error);
       throw error;
     }
   }

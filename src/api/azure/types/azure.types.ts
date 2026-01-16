@@ -78,6 +78,7 @@ export interface AzureBuild {
   sourceGetVersion?: string;
   triggerInfo?: {
     'ci.sourceSha'?: string;
+    'pr.sourceSha'?: string;
     'pr.pullRequestId'?: string;
   };
 }

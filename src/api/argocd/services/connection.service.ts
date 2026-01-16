@@ -10,6 +10,8 @@ import {
   ArgoCDConnectionError,
   ArgoCDInstanceNotFoundError,
 } from '../errors/argocd.errors';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 /**
  * Service for managing ArgoCD connections
@@ -18,8 +20,11 @@ export class ArgoCDConnectionService {
   private readonly API_GROUP = 'argoproj.io';
   private readonly API_VERSION = 'v1alpha1';
   private readonly ARGOCD_PLURAL = 'argocds';
+  private readonly logger: Logger;
 
-  constructor(private readonly kubeClient: KubeClient) {}
+  constructor(private readonly kubeClient: KubeClient) {
+    this.logger = LoggerFactory.getLogger('argocd.connection');
+  }
 
   /**
    * Gets the name of the ArgoCD instance in the specified namespace.
@@ -64,9 +69,7 @@ export class ArgoCDConnectionService {
           factor: 2,
           maxTimeout: 30000,
           onRetry: (error: Error, attempt: number) => {
-            console.log(
-              `[ARGOCD-INSTANCE-RETRY ${attempt}/3] 🔄 Retrying ArgoCD instance lookup for namespace ${namespace} | Reason: ${error.message}`
-            );
+            this.logger.warn('[ARGOCD-INSTANCE-RETRY {}/3] Retrying ArgoCD instance lookup for namespace {} | Reason: {}', attempt, namespace, error);
           },
         }
       );

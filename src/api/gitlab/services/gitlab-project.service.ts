@@ -7,9 +7,15 @@ import {
   CreateVariableOptions,
 } from '../types/gitlab.types';
 import { createGitLabErrorFromResponse } from '../errors/gitlab.errors';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 export class GitLabProjectService implements IGitLabProjectService {
-  constructor(private readonly gitlabClient: InstanceType<typeof Gitlab>) {}
+  private readonly logger: Logger;
+
+  constructor(private readonly gitlabClient: InstanceType<typeof Gitlab>) {
+    this.logger = LoggerFactory.getLogger('gitlab.project');
+  }
 
   public async getProjects(params: GitLabProjectSearchParams = {}): Promise<GitLabProject[]> {
     try {
@@ -53,11 +59,13 @@ export class GitLabProjectService implements IGitLabProjectService {
         variableOptions
       );
 
-      console.log(`Environment variable '${key}' set successfully in project ${projectId}`);
+      this.logger.info('Environment variable \'{}\' set successfully in project {}', key, projectId);
       return response as GitLabVariable;
     } catch (error) {
-      console.error(
-        `Error setting environment variable '${key}' in project ${projectId}:`,
+      this.logger.error(
+        'Error setting environment variable \'{}\' in project {}: {}',
+        key,
+        projectId,
         error
       );
       throw createGitLabErrorFromResponse(

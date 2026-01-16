@@ -1,3 +1,6 @@
+import { LoggerFactory } from '../../logger/factory/loggerFactory';
+import { Logger } from '../../logger/logger';
+
 /**
  * Base client interface that all API clients should implement
  * This provides a consistent structure across all API clients
@@ -21,10 +24,12 @@ export interface IBaseApiClient {
 export abstract class BaseApiClient implements IBaseApiClient {
   protected readonly baseUrl: string;
   protected readonly timeout: number;
+  protected readonly logger: Logger;
 
   constructor(baseUrl: string, timeout: number = 30000) {
     this.baseUrl = baseUrl;
     this.timeout = timeout;
+    this.logger = LoggerFactory.getLogger('base-api');
   }
 
   /**
@@ -49,7 +54,7 @@ export abstract class BaseApiClient implements IBaseApiClient {
    */
   protected handleError(operation: string, error: any): never {
     const message = `Failed to ${operation}: ${error.message || error}`;
-    console.error(message, error);
+    this.logger.error('Failed to {}: {}', operation, error.message || error, { error });
     throw new Error(message);
   }
 
@@ -70,7 +75,7 @@ export abstract class BaseApiClient implements IBaseApiClient {
         lastError = error;
         
         if (attempt < maxRetries) {
-          console.log(`Attempt ${attempt} failed, retrying in ${delay}ms...`);
+          this.logger.info('Attempt {} failed, retrying in {}ms...', attempt, delay);
           await new Promise(resolve => setTimeout(resolve, delay));
           delay *= 2; // Exponential backoff
         }

@@ -7,8 +7,11 @@ import { PullRequest } from '../models';
 import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
 import sodium from 'sodium-native';
 import { ContentModifications } from '../../../../modification/contentModification';
+import { LoggerFactory } from '../../../../../logger/factory/loggerFactory';
+import { Logger } from '../../../../../logger/logger';
 
 export class GithubProvider extends BaseGitProvider {
+  private readonly logger: Logger;
   private githubClient!: GithubClient;
   private template!: ITemplate;
   private repoOwner: string;
@@ -19,6 +22,7 @@ export class GithubProvider extends BaseGitProvider {
     kubeClient: KubeClient
   ) {
     super(componentName, GitType.GITHUB, kubeClient);
+    this.logger = LoggerFactory.getLogger('rhtap.core.integration.git.github');
     this.repoOwner = repoOwner;
     this.template = TemplateFactory.createTemplate(templateType);
   }
@@ -84,7 +88,6 @@ export class GithubProvider extends BaseGitProvider {
 
   private async initGithubClient(): Promise<GithubClient> {
     const githubToken = this.getToken();
-
     return new GithubClient({ token: githubToken });
   }
 
@@ -169,7 +172,7 @@ export class GithubProvider extends BaseGitProvider {
   ): Promise<string> {
     try {
       // Get the content of the file
-      console.log(`Getting File Contents of ${filePath} in repo ${repo}`);
+      this.logger.info(`Getting File Contents of ${filePath} in repo ${repo}`);
       const fileContent = await this.githubClient.repository.getContent(owner, repo, filePath, branch);
 
       if (!fileContent || !('content' in fileContent)) {
@@ -179,7 +182,7 @@ export class GithubProvider extends BaseGitProvider {
       // Decode the content from base64
       return Buffer.from(fileContent.content, 'base64').toString('utf-8');
     } catch (error: any) {
-      console.error(`Error getting file contents of ${filePath} in repo ${repo}:${error.message}`);
+      this.logger.error('Error getting file contents of {} in repo {}: {}', filePath, repo, error);
       throw error;
     }
   }
@@ -242,8 +245,8 @@ export class GithubProvider extends BaseGitProvider {
         },
       ];
 
-      console.log(`Creating a promotion PR for environment: ${environment}`);
-      console.log(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
+      this.logger.info(`Creating a promotion PR for environment: ${environment}`);
+      this.logger.info(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
 
       // Create a PR with the changes
       const result = await this.githubClient.pullRequests.createPullRequest(
@@ -260,14 +263,14 @@ export class GithubProvider extends BaseGitProvider {
       // Extract the pull number and commit SHA from the result
       const { prNumber, commitSha } = result;
 
-      console.log(`Successfully created promotion PR #${prNumber} for ${environment} environment`);
+      this.logger.info(`Successfully created promotion PR #${prNumber} for ${environment} environment`);
 
       // Construct the pull request URL
       const prUrl = `https://${this.getHost()}/${this.repoOwner}/${this.gitOpsRepoName}/pull/${prNumber}`;
 
       return new PullRequest(prNumber, commitSha, this.gitOpsRepoName, false, undefined, prUrl);
     } catch (error: any) {
-      console.error(`Error creating promotion PR for ${environment}: ${error.message}`);
+      this.logger.error(`Error creating promotion PR for ${environment}: {}`);
       throw error;
     }
   }
@@ -280,10 +283,10 @@ export class GithubProvider extends BaseGitProvider {
    * @returns Updated PullRequest object with merge information
    */
   public override async mergePullRequest(pullRequest: PullRequest): Promise<PullRequest> {
-    console.log(`Merging pull request #${pullRequest.pullNumber}...`);
+    this.logger.info(`Merging pull request #${pullRequest.pullNumber}...`);
     // if pullRequest is already merged, return it
     if (pullRequest.isMerged) {
-      console.log(`Pull request #${pullRequest.pullNumber} is already merged.`);
+      this.logger.info(`Pull request #${pullRequest.pullNumber} is already merged.`);
       return pullRequest;
     }
 
@@ -301,7 +304,7 @@ export class GithubProvider extends BaseGitProvider {
         );
       }
 
-      console.log(
+      this.logger.info(
         `Pull request #${pullRequest.pullNumber} merged successfully with SHA: ${mergeResponse.sha}`
       );
 
@@ -317,7 +320,7 @@ export class GithubProvider extends BaseGitProvider {
 
       return mergedPR;
     } catch (error: unknown) {
-      console.error(`Failed to merge pull request #${pullRequest.pullNumber}: ${error}`);
+      this.logger.error(`Failed to merge pull request #${pullRequest.pullNumber}: ${error}`);
       throw error;
     }
   }
@@ -349,12 +352,12 @@ export class GithubProvider extends BaseGitProvider {
         branch
       );
 
-      console.log(
+      this.logger.info(
         `Successfully committed all changes in a batch commit to branch '${branch}' with SHA: ${commitSha}`
       );
       return commitSha;
     } catch (error: any) {
-      console.error(`Error creating batch commit on branch '${branch}': ${error.message}`);
+      this.logger.error(`Error creating batch commit on branch '${branch}': {}`);
       throw error;
     }
   }
@@ -378,7 +381,7 @@ export class GithubProvider extends BaseGitProvider {
     const contentModifications: ContentModifications = {};
 
     try {
-      console.log(`Creating a direct promotion commit for environment: ${environment}`);
+      this.logger.info(`Creating a direct promotion commit for environment: ${environment}`);
 
       // Get the current content of the deployment patch file
       const currentContent = await this.getFileContentInString(
@@ -417,7 +420,7 @@ export class GithubProvider extends BaseGitProvider {
         },
       ];
 
-      console.log(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
+      this.logger.info(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
 
       // Create a direct commit with the changes
       const commitSha = await this.commitChangesToRepo(
@@ -428,19 +431,19 @@ export class GithubProvider extends BaseGitProvider {
         branch
       );
 
-      console.log(
+      this.logger.info(
         `Successfully created direct promotion commit (${commitSha.substring(0, 7)}) for ${environment} environment`
       );
       return commitSha;
     } catch (error: any) {
-      console.error(`Error creating promotion commit for ${environment}: ${error.message}`);
+      this.logger.error(`Error creating promotion commit for {}: {}`, environment, error);
       throw error;
     }
   }
 
   public override async extractApplicationImage(environment: Environment): Promise<string> {
     const filePath = `components/${this.componentName}/overlays/${environment}/deployment-patch.yaml`;
-    console.log(`Extracting application image from file: ${filePath}`);
+    this.logger.info(`Extracting application image from file: ${filePath}`);
     try {
       // Use a regex pattern that can handle both inline and multi-line image formats
       // Pattern explanation:
@@ -485,10 +488,10 @@ export class GithubProvider extends BaseGitProvider {
         throw new Error(`Could not parse image value from matches in file: ${filePath}`);
       }
 
-      console.log(`Extracted image from ${filePath}: ${imageValue}`);
+      this.logger.info(`Extracted image from ${filePath}: ${imageValue}`);
       return imageValue;
     } catch (error: any) {
-      console.error(`Error extracting application image: ${error.message}`);
+      this.logger.error(`Error extracting application image: {}`);
       throw error;
     }
   }
@@ -501,7 +504,7 @@ export class GithubProvider extends BaseGitProvider {
    */
   public override async getSourceRepoCommitSha(branch: string = 'main'): Promise<string> {
     try {
-      console.log(
+      this.logger.info(
         `Getting latest commit SHA for source repo: ${this.sourceRepoName}, branch: ${branch}`
       );
 
@@ -511,7 +514,7 @@ export class GithubProvider extends BaseGitProvider {
         branch
       );
     } catch (error: any) {
-      console.error(`Failed to get commit SHA for source repo: ${error.message}`);
+      this.logger.error(`Failed to get commit SHA for source repo: {}`);
       throw error;
     }
   }
@@ -524,7 +527,7 @@ export class GithubProvider extends BaseGitProvider {
    */
   public override async getGitOpsRepoCommitSha(branch: string = 'main'): Promise<string> {
     try {
-      console.log(
+      this.logger.info(
         `Getting latest commit SHA for GitOps repo: ${this.gitOpsRepoName}, branch: ${branch}`
       );
 
@@ -534,7 +537,7 @@ export class GithubProvider extends BaseGitProvider {
         branch
       );
     } catch (error: any) {
-      console.error(`Failed to get commit SHA for GitOps repo: ${error.message}`);
+      this.logger.error(`Failed to get commit SHA for GitOps repo: {}`);
       throw error;
     }
   }
@@ -545,7 +548,7 @@ export class GithubProvider extends BaseGitProvider {
    */
   public override async configWebhookOnSourceRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(`Configuring webhook for source repo at ${webhookUrl}`);
+      this.logger.info(`Configuring webhook for source repo at ${webhookUrl}`);
       await this.githubClient.webhooks.configWebhook(this.repoOwner, this.sourceRepoName, {
         url: webhookUrl,
         secret: process.env.WEBHOOK_SECRET || 'default-secret-please-change', // TODO: Make this configurable
@@ -555,7 +558,7 @@ export class GithubProvider extends BaseGitProvider {
         active: true
       });
     } catch (error: any) {
-      console.error(`Failed to configure webhook on source repo: ${error.message}`);
+      this.logger.error(`Failed to configure webhook on source repo: {}`);
       throw error;
     }
   }
@@ -566,7 +569,7 @@ export class GithubProvider extends BaseGitProvider {
    */
   public override async configWebhookOnGitOpsRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(`Configuring webhook for GitOps repo at ${webhookUrl}`);
+      this.logger.info(`Configuring webhook for GitOps repo at ${webhookUrl}`);
       await this.githubClient.webhooks.configWebhook(this.repoOwner, this.gitOpsRepoName, {
         url: webhookUrl,
         secret: process.env.WEBHOOK_SECRET || 'default-secret-please-change', // TODO: Make this configurable
@@ -576,7 +579,7 @@ export class GithubProvider extends BaseGitProvider {
         active: true
       });
     } catch (error: any) {
-      console.error(`Failed to configure webhook on GitOps repo: ${error.message}`);
+      this.logger.error(`Failed to configure webhook on GitOps repo: {}`);
       throw error;
     }
   }

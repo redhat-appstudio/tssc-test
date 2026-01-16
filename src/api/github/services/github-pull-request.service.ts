@@ -2,6 +2,8 @@ import { Octokit } from '@octokit/rest';
 import { Buffer } from 'buffer';
 import { ContentModifications } from '../../../rhtap/modification/contentModification';
 import { GithubApiError, GithubNotFoundError } from '../errors/github.errors';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 /**
  * GitHub Pull Request Service
@@ -46,12 +48,16 @@ import { GithubApiError, GithubNotFoundError } from '../errors/github.errors';
  * ```
  */
 export class GithubPullRequestService {
+  private readonly logger: Logger;
+
   /**
    * Creates a new GitHub Pull Request Service instance
-   * 
+   *
    * @param octokit The Octokit instance for GitHub API interactions
    */
-  constructor(private readonly octokit: Octokit) {}
+  constructor(private readonly octokit: Octokit) {
+    this.logger = LoggerFactory.getLogger('github.pull-request');
+  }
 
   /**
    * Lists pull requests for a repository
@@ -80,7 +86,7 @@ export class GithubPullRequestService {
       });
       return data;
     } catch (error: any) {
-      console.error(`Failed to list pull requests for ${owner}/${repo}: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error('Failed to list pull requests for {}/{}: {}', owner, repo, error);
       throw new GithubApiError(`Failed to list pull requests for ${owner}/${repo}`, error.status, error);
     }
   }
@@ -95,10 +101,10 @@ export class GithubPullRequestService {
       return data;
     } catch (error: any) {
       if (error.status === 404 || (error.response && error.response.status === 404)) {
-        console.error(`Pull request #${pullNumber} not found in ${owner}/${repo}`);
+        this.logger.error('Pull request #{} not found in {}/{}', pullNumber, owner, repo);
         throw new GithubNotFoundError('pull request', `#${pullNumber} in ${owner}/${repo}`, error.status || 404);
       }
-      console.error(`Failed to get pull request #${pullNumber} for ${owner}/${repo}: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error('Failed to get pull request #{} for {}/{}: {}', pullNumber, owner, repo, error);
       throw new GithubApiError(`Failed to get pull request #${pullNumber} for ${owner}/${repo}`, error.status, error);
     }
   }
@@ -199,9 +205,9 @@ export class GithubPullRequestService {
           ref: `refs/heads/${newBranchName}`,
           sha: newCommitSha,
         });
-        console.log(`Successfully created branch: ${newBranchName} in your fork.`);
+        this.logger.info('Successfully created branch: {} in your fork', newBranchName);
       } catch (error: any) {
-        console.warn(`Branch ${newBranchName} might already exist in your fork: ${error.message}`);
+        this.logger.warn('Branch {} might already exist in your fork: {}', newBranchName, error);
       }
 
       const createPullResponse = await this.octokit.rest.pulls.create({
@@ -213,13 +219,13 @@ export class GithubPullRequestService {
         body: pullRequestBody,
       });
 
-      console.log(`Successfully created pull request: ${createPullResponse.data.html_url}`);
+      this.logger.info('Successfully created pull request: {}', createPullResponse.data.html_url);
       return {
         prNumber: createPullResponse.data.number,
         commitSha: newCommitSha,
       };
     } catch (error: any) {
-      console.error(`Error creating pull request and updating files: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error('Error creating pull request and updating files: {}', error);
       throw new GithubApiError(`Failed to create pull request and update files`, error.status, error);
     }
   }
@@ -242,7 +248,7 @@ export class GithubPullRequestService {
         message: response.data.message,
       };
     } catch (error: any) {
-      console.error(`Failed to merge pull request #${pullNumber}: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error('Failed to merge pull request #{}: {}', pullNumber, error);
       throw new GithubApiError(`Failed to merge pull request #${pullNumber}`, error.status, error);
     }
   }

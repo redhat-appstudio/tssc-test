@@ -101,7 +101,7 @@ export class GitHubActionsCI extends BaseCI {
   ): Promise<Pipeline | null> {
     const gitRepository = pullRequest.repository;
 
-    console.log(
+    this.logger.info(
       `Finding workflow runs for repository: ${gitRepository}, event type: ${eventType}, status: ${pipelineStatus}`
     );
 
@@ -143,13 +143,13 @@ export class GitHubActionsCI extends BaseCI {
 
       // Check if we have any workflow runs
       if (!workflowRuns || workflowRuns.length === 0) {
-        console.log(
+        this.logger.info(
           `No workflow runs found yet for repository: ${gitRepository}. Workflow may still be launching.`
         );
         return null;
       }
 
-      console.log(`Found ${workflowRuns.length} workflow runs for repository: ${gitRepository}`);
+      this.logger.info(`Found ${workflowRuns.length} workflow runs for repository: ${gitRepository}`);
 
       // Filter workflow runs by the requested pipeline status
       const filteredWorkflowRuns = workflowRuns.filter(run => {
@@ -157,7 +157,7 @@ export class GitHubActionsCI extends BaseCI {
         if (!run) return false;
 
         const mappedStatus = this.mapGitHubWorkflowStatusToPipelineStatus(run);
-        console.log(
+        this.logger.info(
           `Workflow run ID ${run.id}: GitHub status=${run.status}, conclusion=${run.conclusion}, mapped status=${mappedStatus}`
         );
 
@@ -166,7 +166,7 @@ export class GitHubActionsCI extends BaseCI {
 
       // If no matching workflow runs are found, check if there are any in progress that might match later
       if (filteredWorkflowRuns.length === 0) {
-        console.log(`No matching workflow runs found with status: ${pipelineStatus}`);
+        this.logger.info(`No matching workflow runs found with status: ${pipelineStatus}`);
 
         // Special case: For SUCCESS or FAILURE, check if there are any in-progress runs
         if (
@@ -180,11 +180,11 @@ export class GitHubActionsCI extends BaseCI {
           );
 
           if (pendingOrRunning) {
-            console.log(
+            this.logger.info(
               `Found workflows still executing for repository: ${gitRepository} which may reach status ${pipelineStatus} later`
             );
           } else {
-            console.log(
+            this.logger.info(
               `All workflows are completed, but none match the requested status: ${pipelineStatus}`
             );
           }
@@ -193,7 +193,7 @@ export class GitHubActionsCI extends BaseCI {
         return null;
       }
 
-      console.log(`Found ${filteredWorkflowRuns.length} matching workflow runs`);
+      this.logger.info(`Found ${filteredWorkflowRuns.length} matching workflow runs`);
 
       // Sort workflow runs by creation timestamp to get the latest one
       const sortedWorkflowRuns = [...filteredWorkflowRuns].sort((a, b) => {
@@ -205,17 +205,17 @@ export class GitHubActionsCI extends BaseCI {
       // Get the latest workflow run
       const latestRun = sortedWorkflowRuns[0];
       if (!latestRun) {
-        console.log('No workflow runs available after sorting');
+        this.logger.info('No workflow runs available after sorting');
         return null;
       }
 
-      console.log(`Using latest workflow run: ${latestRun.id} - ${latestRun.name || ''}`);
+      this.logger.info(`Using latest workflow run: ${latestRun.id} - ${latestRun.name || ''}`);
 
       // Create and return a standardized Pipeline object
       return this.createPipelineFromWorkflowRun(latestRun, gitRepository, pullRequest.sha);
     } catch (error) {
-      console.error(
-        `Error getting workflow runs: ${error instanceof Error ? error.message : String(error)}`
+      this.logger.error(
+        `Error getting workflow runs: ${error}`
       );
       return null;
     }
@@ -254,7 +254,7 @@ export class GitHubActionsCI extends BaseCI {
     const status = workflowRun.status ? workflowRun.status.toLowerCase() : '';
     const conclusion = workflowRun.conclusion ? workflowRun.conclusion.toLowerCase() : '';
 
-    console.log(`Mapping GitHub status: ${status || 'null'}, conclusion: ${conclusion || 'none'}`);
+    this.logger.info(`Mapping GitHub status: ${status || 'null'}, conclusion: ${conclusion || 'none'}`);
 
     // First check the status
     if (status === 'completed') {
@@ -282,7 +282,7 @@ export class GitHubActionsCI extends BaseCI {
     }
 
     // Default fallback
-    console.warn(
+    this.logger.warn(
       `Unknown GitHub workflow status/conclusion combination: ${status || 'null'}/${conclusion || 'null'}`
     );
     return PipelineStatus.UNKNOWN;
@@ -349,15 +349,15 @@ export class GitHubActionsCI extends BaseCI {
       );
 
       if (!workflowRun) {
-        console.warn(`Workflow run ${pipeline.id} not found`);
+        this.logger.warn(`Workflow run ${pipeline.id} not found`);
         return PipelineStatus.UNKNOWN;
       }
 
       // Return the mapped status
       return this.mapGitHubWorkflowStatusToPipelineStatus(workflowRun);
     } catch (error) {
-      console.warn(
-        `Workflow run ${pipeline.id} not found or inaccessible: ${error instanceof Error ? error.message : String(error)}`
+      this.logger.warn(
+        `Workflow run ${pipeline.id} not found or inaccessible: ${error}`
       );
       return PipelineStatus.UNKNOWN;
     }
@@ -384,7 +384,7 @@ export class GitHubActionsCI extends BaseCI {
       errors: [],
     };
 
-    console.log(`[GitHubActions] Starting workflow cancellation for ${this.componentName}`);
+    this.logger.info(`[GitHubActions] Starting workflow cancellation for ${this.componentName}`);
 
     try {
       // 3. Fetch all workflow runs from GitHub API
@@ -392,17 +392,17 @@ export class GitHubActionsCI extends BaseCI {
       result.total = allWorkflowRuns.length;
 
       if (allWorkflowRuns.length === 0) {
-        console.log(`[GitHubActions] No workflow runs found for ${this.componentName}`);
+        this.logger.info(`[GitHubActions] No workflow runs found for ${this.componentName}`);
         return result;
       }
 
-      console.log(`[GitHubActions] Found ${allWorkflowRuns.length} total workflow runs`);
+      this.logger.info(`[GitHubActions] Found ${allWorkflowRuns.length} total workflow runs`);
 
       // 4. Apply filters
       const workflowRunsToCancel = this.filterWorkflowRuns(allWorkflowRuns, opts);
 
-      console.log(`[GitHubActions] ${workflowRunsToCancel.length} workflow runs match filters`);
-      console.log(`[GitHubActions] ${allWorkflowRuns.length - workflowRunsToCancel.length} workflow runs filtered out`);
+      this.logger.info(`[GitHubActions] ${workflowRunsToCancel.length} workflow runs match filters`);
+      this.logger.info(`[GitHubActions] ${allWorkflowRuns.length - workflowRunsToCancel.length} workflow runs filtered out`);
 
       // 5. Cancel workflow runs in batches
       await this.cancelWorkflowRunsInBatches(workflowRunsToCancel, opts, result);
@@ -411,7 +411,7 @@ export class GitHubActionsCI extends BaseCI {
       const accounted = result.cancelled + result.failed + result.skipped;
       if (accounted !== result.total) {
         const missing = result.total - accounted;
-        console.error(
+        this.logger.error(
           `❌ [GitHubActions] ACCOUNTING ERROR: ${missing} workflow runs unaccounted for ` +
           `(total: ${result.total}, accounted: ${accounted})`
         );
@@ -425,7 +425,7 @@ export class GitHubActionsCI extends BaseCI {
       }
 
       // 7. Log summary
-      console.log(`[GitHubActions] Cancellation complete:`, {
+      this.logger.info(`[GitHubActions] Cancellation complete:`, {
         total: result.total,
         cancelled: result.cancelled,
         failed: result.failed,
@@ -433,8 +433,8 @@ export class GitHubActionsCI extends BaseCI {
       });
 
     } catch (error: any) {
-      console.error(`[GitHubActions] Error in cancelAllPipelines: ${error.message}`);
-      throw new Error(`Failed to cancel pipelines: ${error.message}`);
+      this.logger.error('[GitHubActions] Error in cancelAllPipelines: {}', error);
+      throw new Error(`Failed to cancel pipelines: {}`);
     }
 
     return result;
@@ -480,13 +480,13 @@ export class GitHubActionsCI extends BaseCI {
         allWorkflowRuns.push(...taggedGitopsRuns);
       } catch (gitopsError: any) {
         // Gitops repo might not exist, log but don't fail
-        console.log(`[GitHubActions] Gitops repository ${gitopsRepoName} not found or no workflows: ${gitopsError.message}`);
+        this.logger.info(`[GitHubActions] Gitops repository ${gitopsRepoName} not found or no workflows: ${gitopsError.message}`);
       }
 
       return allWorkflowRuns;
 
     } catch (error: any) {
-      console.error(`[GitHubActions] Failed to fetch workflow runs: ${error.message}`);
+      this.logger.error('[GitHubActions] Failed to fetch workflow runs: {}', error);
       throw error;
     }
   }
@@ -501,25 +501,25 @@ export class GitHubActionsCI extends BaseCI {
     return workflowRuns.filter(workflowRun => {
       // Filter 1: Skip completed workflow runs unless includeCompleted is true
       if (!options.includeCompleted && this.isCompletedStatus(workflowRun)) {
-        console.log(`[Filter] Skipping completed workflow run ${workflowRun.id} (${workflowRun.status}/${workflowRun.conclusion || 'none'})`);
+        this.logger.info(`[Filter] Skipping completed workflow run ${workflowRun.id} (${workflowRun.status}/${workflowRun.conclusion || 'none'})`);
         return false;
       }
 
       // Filter 2: Check exclusion patterns
       if (this.matchesExclusionPattern(workflowRun, options.excludePatterns)) {
-        console.log(`[Filter] Excluding workflow run ${workflowRun.id} by pattern`);
+        this.logger.info(`[Filter] Excluding workflow run ${workflowRun.id} by pattern`);
         return false;
       }
 
       // Filter 3: Filter by event type if specified
       if (options.eventType && !this.matchesEventType(workflowRun, options.eventType)) {
-        console.log(`[Filter] Skipping workflow run ${workflowRun.id} (event type mismatch)`);
+        this.logger.info(`[Filter] Skipping workflow run ${workflowRun.id} (event type mismatch)`);
         return false;
       }
 
       // Filter 4: Filter by branch if specified
       if (options.branch && workflowRun.head_branch !== options.branch) {
-        console.log(`[Filter] Skipping workflow run ${workflowRun.id} (branch mismatch)`);
+        this.logger.info(`[Filter] Skipping workflow run ${workflowRun.id} (branch mismatch)`);
         return false;
       }
 
@@ -578,11 +578,11 @@ export class GitHubActionsCI extends BaseCI {
     // Split into batches
     const batches = this.chunkArray(workflowRuns, options.concurrency);
 
-    console.log(`[GitHubActions] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
+    this.logger.info(`[GitHubActions] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
 
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
-      console.log(`[GitHubActions] Processing batch ${i + 1}/${batches.length} (${batch.length} workflow runs)`);
+      this.logger.info(`[GitHubActions] Processing batch ${i + 1}/${batches.length} (${batch.length} workflow runs)`);
 
       // Create promises for all workflow runs in this batch
       const promises = batch.map(workflowRun =>
@@ -596,16 +596,16 @@ export class GitHubActionsCI extends BaseCI {
       const batchSuccesses = batchResults.filter(r => r.status === 'fulfilled').length;
       const batchFailures = batchResults.filter(r => r.status === 'rejected').length;
 
-      console.log(`[GitHubActions] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
+      this.logger.info(`[GitHubActions] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
 
       // Alert on complete batch failure - indicates systemic issue
       if (batchFailures === batch.length && batch.length > 0) {
-        console.error(`❌ [GitHubActions] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
+        this.logger.error(`❌ [GitHubActions] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
 
         // Log first rejection reason for debugging
         const firstRejected = batchResults.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
         if (firstRejected) {
-          console.error(`[GitHubActions] First failure reason: ${firstRejected.reason}`);
+          this.logger.error(`[GitHubActions] First failure reason: ${firstRejected.reason}`);
         }
       }
     }
@@ -635,7 +635,7 @@ export class GitHubActionsCI extends BaseCI {
         detail.result = 'skipped';
         detail.reason = 'Dry run mode';
         result.skipped++;
-        console.log(`[DryRun] Would cancel workflow run ${workflowRun.id}`);
+        this.logger.info(`[DryRun] Would cancel workflow run ${workflowRun.id}`);
 
       } else {
         // Extract repository name from tagged workflow run (added in fetchAllWorkflowRuns)
@@ -646,7 +646,7 @@ export class GitHubActionsCI extends BaseCI {
 
         detail.result = 'cancelled';
         result.cancelled++;
-        console.log(`✅ [GitHubActions] Cancelled workflow run ${workflowRun.id} in ${repositoryName} (status: ${workflowRun.status})`);
+        this.logger.info(`✅ [GitHubActions] Cancelled workflow run ${workflowRun.id} in ${repositoryName} (status: ${workflowRun.status})`);
       }
 
     } catch (error: any) {
@@ -674,7 +674,7 @@ export class GitHubActionsCI extends BaseCI {
 
       result.errors.push(cancelError);
 
-      console.error(`❌ [GitHubActions] Failed to cancel workflow run ${workflowRun.id}: ${error.message}`);
+      this.logger.error('❌ [GitHubActions] Failed to cancel workflow run {}: {}', workflowRun.id, error);
     }
 
     // Add detail to results
@@ -730,7 +730,7 @@ export class GitHubActionsCI extends BaseCI {
     timeoutMs = 5 * 60 * 1000,
     pollIntervalMs = 5000
   ): Promise<void> {
-    console.log(`Waiting for all workflow runs to finish for component: ${this.componentName}`);
+    this.logger.info(`Waiting for all workflow runs to finish for component: ${this.componentName}`);
     const sourceRepoName = this.componentName;
     const startTime = Date.now();
 
@@ -743,7 +743,7 @@ export class GitHubActionsCI extends BaseCI {
       const workflowRuns = response.data?.workflow_runs || [];
 
       if (!workflowRuns.length) {
-        console.log(`No workflow runs found for repository: ${sourceRepoName}`);
+        this.logger.info(`No workflow runs found for repository: ${sourceRepoName}`);
         return;
       }
 
@@ -752,11 +752,11 @@ export class GitHubActionsCI extends BaseCI {
       );
 
       if (runningWorkflowRuns.length === 0) {
-        console.log('All workflows have finished processing.');
+        this.logger.info('All workflows have finished processing.');
         return;
       }
 
-      console.log(
+      this.logger.info(
         `Found ${runningWorkflowRuns.length} running workflow run(s) for ${sourceRepoName}. Waiting...`
       );
 
@@ -779,7 +779,7 @@ export class GitHubActionsCI extends BaseCI {
 
   public override async getPipelineLogs(pipeline: Pipeline): Promise<string> {
     try {
-      console.log(
+      this.logger.info(
         `Fetching comprehensive logs for pipeline ${pipeline.id} (${pipeline.name || 'unnamed'})`
       );
 
@@ -792,11 +792,11 @@ export class GitHubActionsCI extends BaseCI {
 
       return logs;
     } catch (error) {
-      console.error(`Error getting comprehensive workflow logs for ${pipeline.id}:`, error);
+      this.logger.error('Error getting comprehensive workflow logs for {}: {}', pipeline.id, error);
 
       // Fallback to basic job summary if comprehensive logs fail
       try {
-        console.log(`Falling back to basic job summary for pipeline ${pipeline.id}`);
+        this.logger.info(`Falling back to basic job summary for pipeline ${pipeline.id}`);
 
         const jobsResponse = await this.githubClient.actions.listJobsForWorkflowRun(
           this.getRepoOwner(),
@@ -847,9 +847,9 @@ export class GitHubActionsCI extends BaseCI {
         return logSummary;
       } catch (fallbackError) {
         const errorMessage = `Failed to get pipeline logs for workflow ${pipeline.id}`;
-        console.error(`${errorMessage}:`, fallbackError);
+        this.logger.error(`${errorMessage}:`, fallbackError);
 
-        return `${errorMessage}\n\nPrimary error: ${error instanceof Error ? error.message : String(error)}\nFallback error: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}\n\nPlease visit the workflow URL to view logs: ${pipeline.url}`;
+        return `${errorMessage}\n\nPrimary error: ${error}\nFallback error: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}\n\nPlease visit the workflow URL to view logs: ${pipeline.url}`;
       }
     }
   }

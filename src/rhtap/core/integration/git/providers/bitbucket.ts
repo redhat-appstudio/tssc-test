@@ -7,6 +7,8 @@ import { ContentModifications } from '../../../../modification/contentModificati
 
 import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
+import { LoggerFactory } from '../../../../../logger/factory/loggerFactory';
+import { Logger } from '../../../../../logger/logger';
 
 /**
  * Bitbucket provider class
@@ -14,6 +16,7 @@ import { KubeClient } from '../../../../../api/ocp/kubeClient';
  * This class implements the Git interface for Bitbucket repositories.
  */
 export class BitbucketProvider extends BaseGitProvider {
+  private readonly logger: Logger;
   private workspace: string;
   private project: string;
   private bitbucketClient!: BitbucketClient;
@@ -41,6 +44,7 @@ export class BitbucketProvider extends BaseGitProvider {
     templateType: TemplateType
   ) {
     super(componentName, GitType.BITBUCKET, kubeClient);
+    this.logger = LoggerFactory.getLogger('rhtap.core.integration.git.bitbucket');
     this.workspace = workspace;
     this.project = project;
     this.template = TemplateFactory.createTemplate(templateType);
@@ -114,7 +118,7 @@ export class BitbucketProvider extends BaseGitProvider {
   ): Promise<string> {
     try {
       // Get the content of the  file
-      console.log(`Getting File Contents of ${filePath} in repo ${repo}`);
+      this.logger.info(`Getting File Contents of ${filePath} in repo ${repo}`);
       const fileContent = await this.bitbucketClient.repositories.getFileContent(owner, repo, filePath, branch);
 
       if (!fileContent) {
@@ -123,7 +127,7 @@ export class BitbucketProvider extends BaseGitProvider {
 
       return fileContent;
     } catch (error: any) {
-      console.error(`Error getting file contents of ${filePath} in repo ${repo}:${error.message}`);
+      this.logger.error(`Error getting file contents of ${filePath} in repo ${repo}:{}`);
       throw error;
     }
   }
@@ -156,12 +160,12 @@ export class BitbucketProvider extends BaseGitProvider {
     repository: string
   ): Promise<PullRequest> {
     try {
-      console.log(`Creating a sample pull request in Bitbucket with the following parameters:`);
-      console.log(`Repository: ${repository}`);
-      console.log(`New Branch Name: ${newBranchName}`);
-      console.log(`Title: ${title}`);
-      console.log(`Description: ${description}`);
-      console.log(`Base Branch: ${baseBranch}`);
+      this.logger.info(`Creating a sample pull request in Bitbucket with the following parameters:`);
+      this.logger.info(`Repository: ${repository}`);
+      this.logger.info(`New Branch Name: ${newBranchName}`);
+      this.logger.info(`Title: ${title}`);
+      this.logger.info(`Description: ${description}`);
+      this.logger.info(`Base Branch: ${baseBranch}`);
 
       // First create a branch using the Bitbucket API's refs endpoint
       // Get the latest commit on the base branch to use as the starting point
@@ -183,7 +187,7 @@ export class BitbucketProvider extends BaseGitProvider {
         branchInfo.target.hash
       );
 
-      console.log(`Created new branch ${newBranchName} from ${baseBranch}`);
+      this.logger.info(`Created new branch ${newBranchName} from ${baseBranch}`);
 
       // Commit the changes to the new branch using our common method
       await this.commitChangesToRepo(
@@ -222,12 +226,12 @@ export class BitbucketProvider extends BaseGitProvider {
       // Construct the pull request URL
       const prUrl = `https://${this.getHost()}/${this.workspace}/${repository}/pull-requests/${prNumber}`;
 
-      console.log(`Successfully created pull request #${prNumber} with commit SHA: ${commitSha}`);
-      console.log(`Pull request URL: ${prUrl}`);
+      this.logger.info(`Successfully created pull request #${prNumber} with commit SHA: ${commitSha}`);
+      this.logger.info(`Pull request URL: ${prUrl}`);
 
       return new PullRequest(prNumber, commitSha, repository, false, undefined, prUrl);
     } catch (error: any) {
-      console.error(`Error creating sample pull request: ${error.message}`);
+      this.logger.error(`Error creating sample pull request: {}`);
       throw error;
     }
   }
@@ -251,9 +255,9 @@ export class BitbucketProvider extends BaseGitProvider {
 
       const contentModifications = this.template.getContentModifications();
 
-      console.log(`Creating a sample pull request in Bitbucket with the following parameters:`);
-      console.log(`New Branch Name: ${newBranchName}`);
-      console.log(`Source Repository: ${this.sourceRepoName}`);
+      this.logger.info(`Creating a sample pull request in Bitbucket with the following parameters:`);
+      this.logger.info(`New Branch Name: ${newBranchName}`);
+      this.logger.info(`Source Repository: ${this.sourceRepoName}`);
 
       // First create a branch using the Bitbucket API's refs endpoint
       // Get the latest commit on the base branch to use as the starting point
@@ -275,7 +279,7 @@ export class BitbucketProvider extends BaseGitProvider {
         branchInfo.target.hash
       );
 
-      console.log(`Created new branch ${newBranchName} from ${baseBranch}`);
+      this.logger.info(`Created new branch ${newBranchName} from ${baseBranch}`);
 
       // Commit the changes to the new branch
       // We need to use a different approach since Bitbucket API works differently
@@ -302,7 +306,7 @@ export class BitbucketProvider extends BaseGitProvider {
               }
             } catch (error) {
               // File probably doesn't exist, we'll create it with the new content
-              console.log(`File ${filePath} not found, will create it`);
+              this.logger.info(`File ${filePath} not found, will create it`);
             }
 
             // Upload the file via the src endpoint
@@ -320,9 +324,9 @@ export class BitbucketProvider extends BaseGitProvider {
               commitData
             );
 
-            console.log(`Updated file ${filePath} on branch ${newBranchName}`);
+            this.logger.info(`Updated file ${filePath} on branch ${newBranchName}`);
           } catch (error: any) {
-            console.error(`Error updating file ${filePath}: ${error.message}`);
+            this.logger.error(`Error updating file ${filePath}: {}`);
             throw error;
           }
         }
@@ -352,12 +356,12 @@ export class BitbucketProvider extends BaseGitProvider {
       // Construct the pull request URL
       const prUrl = `https://${this.getHost()}/${this.workspace}/${this.sourceRepoName}/pull-requests/${prNumber}`;
 
-      console.log(`Successfully created pull request #${prNumber} with commit SHA: ${commitSha}`);
-      console.log(`Pull request URL: ${prUrl}`);
+      this.logger.info(`Successfully created pull request #${prNumber} with commit SHA: ${commitSha}`);
+      this.logger.info(`Pull request URL: ${prUrl}`);
 
       return new PullRequest(prNumber, commitSha, this.sourceRepoName, false, undefined, prUrl);
     } catch (error: any) {
-      console.error(`Error creating sample pull request: ${error.message}`);
+      this.logger.error(`Error creating sample pull request: {}`);
       throw error;
     }
   }
@@ -389,7 +393,7 @@ export class BitbucketProvider extends BaseGitProvider {
         throw new Error('Commit message is required');
       }
 
-      console.log(`Committing changes to ${workspace}/${repo} in branch ${branch}`);
+      this.logger.info(`Committing changes to ${workspace}/${repo} in branch ${branch}`);
 
       // Create an object to hold the files for the /src endpoint
       const files: Record<string, string> = {};
@@ -423,7 +427,7 @@ export class BitbucketProvider extends BaseGitProvider {
                   fileContent = fileContent.replace(oldContent, newContent);
                 } else {
                   // Can't find the old content or the response format is unexpected
-                  console.log(
+                  this.logger.info(
                     `Could not find old content in ${filePath}, using new content directly`
                   );
                   fileContent = newContent;
@@ -431,11 +435,11 @@ export class BitbucketProvider extends BaseGitProvider {
               }
             } catch (error) {
               // File may not exist, use new content directly
-              console.log(`Error getting file ${filePath}, using new content directly: ${error}`);
+              this.logger.info(`Error getting file ${filePath}, using new content directly: ${error}`);
               fileContent = newContent;
             }
           } catch (error: any) {
-            console.error(`Error modifying file ${filePath}: ${error.message}`);
+            this.logger.error(`Error modifying file ${filePath}: {}`);
             throw error;
           }
         }
@@ -468,12 +472,12 @@ export class BitbucketProvider extends BaseGitProvider {
 
       const commitSha = commits[0].hash;
 
-      console.log(
+      this.logger.info(
         `Successfully committed all changes to branch '${branch}' with SHA: ${commitSha}`
       );
       return commitSha;
     } catch (error: any) {
-      console.error(`Error creating batch commit on branch '${branch}': ${error.message}`);
+      this.logger.error(`Error creating batch commit on branch '${branch}': {}`);
       throw error;
     }
   }
@@ -486,7 +490,7 @@ export class BitbucketProvider extends BaseGitProvider {
    */
   public override async getSourceRepoCommitSha(branch: string = 'main'): Promise<string> {
     try {
-      console.log(
+      this.logger.info(
         `Getting latest commit SHA for source repo: ${this.sourceRepoName}, branch: ${branch}`
       );
 
@@ -497,11 +501,11 @@ export class BitbucketProvider extends BaseGitProvider {
       }
 
       const commitSha = commits[0].hash;
-      console.log(`Latest commit SHA for ${this.sourceRepoName}/${branch}: ${commitSha}`);
+      this.logger.info(`Latest commit SHA for ${this.sourceRepoName}/${branch}: ${commitSha}`);
 
       return commitSha;
     } catch (error: any) {
-      console.error(`Failed to get commit SHA for source repo: ${error.message}`);
+      this.logger.error(`Failed to get commit SHA for source repo: {}`);
       throw error;
     }
   }
@@ -514,7 +518,7 @@ export class BitbucketProvider extends BaseGitProvider {
    */
   public override async getGitOpsRepoCommitSha(branch: string = 'main'): Promise<string> {
     try {
-      console.log(
+      this.logger.info(
         `Getting latest commit SHA for GitOps repo: ${this.gitOpsRepoName}, branch: ${branch}`
       );
 
@@ -525,11 +529,11 @@ export class BitbucketProvider extends BaseGitProvider {
       }
 
       const commitSha = commits[0].hash;
-      console.log(`Latest commit SHA for ${this.gitOpsRepoName}/${branch}: ${commitSha}`);
+      this.logger.info(`Latest commit SHA for ${this.gitOpsRepoName}/${branch}: ${commitSha}`);
 
       return commitSha;
     } catch (error: any) {
-      console.error(`Failed to get commit SHA for GitOps repo: ${error.message}`);
+      this.logger.error(`Failed to get commit SHA for GitOps repo: {}`);
       throw error;
     }
   }
@@ -553,7 +557,7 @@ export class BitbucketProvider extends BaseGitProvider {
     const contentModifications: ContentModifications = {};
 
     try {
-      console.log(`Creating a direct promotion commit for environment: ${environment}`);
+      this.logger.info(`Creating a direct promotion commit for environment: ${environment}`);
 
       // Get the current content of the deployment patch file
       const fileContent = await this.getFileContentInString(
@@ -592,7 +596,7 @@ export class BitbucketProvider extends BaseGitProvider {
         },
       ];
 
-      console.log(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
+      this.logger.info(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
 
       // Create a direct commit with the changes
       const commitSha = await this.commitChangesToRepo(
@@ -603,12 +607,12 @@ export class BitbucketProvider extends BaseGitProvider {
         branch
       );
 
-      console.log(
+      this.logger.info(
         `Successfully created direct promotion commit (${commitSha.substring(0, 7)}) for ${environment} environment`
       );
       return commitSha;
     } catch (error: any) {
-      console.error(`Error creating promotion commit for ${environment}: ${error.message}`);
+      this.logger.error(`Error creating promotion commit for ${environment}: {}`);
       throw error;
     }
   }
@@ -621,10 +625,10 @@ export class BitbucketProvider extends BaseGitProvider {
    * @returns Updated PullRequest object with merge information
    */
   public override async mergePullRequest(pullRequest: PullRequest): Promise<PullRequest> {
-    console.log(`Merging pull request #${pullRequest.pullNumber}...`);
+    this.logger.info(`Merging pull request #${pullRequest.pullNumber}...`);
     // if pullRequest is already merged, return it
     if (pullRequest.isMerged) {
-      console.log(`Pull request #${pullRequest.pullNumber} is already merged.`);
+      this.logger.info(`Pull request #${pullRequest.pullNumber} is already merged.`);
       return pullRequest;
     }
 
@@ -650,7 +654,7 @@ export class BitbucketProvider extends BaseGitProvider {
         );
       }
 
-      console.log(
+      this.logger.info(
         `Pull request #${pullRequest.pullNumber} merged successfully with SHA: ${mergeResponse.merge_commit.hash}`
       );
 
@@ -666,7 +670,7 @@ export class BitbucketProvider extends BaseGitProvider {
 
       return mergedPR;
     } catch (error: unknown) {
-      console.error(`Failed to merge pull request #${pullRequest.pullNumber}: ${error}`);
+      this.logger.error(`Failed to merge pull request #${pullRequest.pullNumber}: ${error}`);
       throw error;
     }
   }
@@ -714,7 +718,7 @@ export class BitbucketProvider extends BaseGitProvider {
     const contentModifications: ContentModifications = {};
 
     try {
-      console.log(`Creating a promotion PR for environment: ${environment}`);
+      this.logger.info(`Creating a promotion PR for environment: ${environment}`);
 
       // Get the current content of the deployment patch file
       const fileContent = await this.getFileContentInString(
@@ -753,7 +757,7 @@ export class BitbucketProvider extends BaseGitProvider {
         },
       ];
 
-      console.log(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
+      this.logger.info(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
 
       // Create a branch for this PR using the refs endpoint
       // Get the latest commit on the base branch to use as the starting point
@@ -775,7 +779,7 @@ export class BitbucketProvider extends BaseGitProvider {
         branchInfo.target.hash
       );
 
-      console.log(`Created new branch ${newBranchName} from ${baseBranch}`);
+      this.logger.info(`Created new branch ${newBranchName} from ${baseBranch}`);
 
       // Commit the changes to the new branch
       await this.commitChangesToRepo(
@@ -810,12 +814,12 @@ export class BitbucketProvider extends BaseGitProvider {
       // Construct the pull request URL
       const prUrl = `https://${this.getHost()}/${this.workspace}/${this.gitOpsRepoName}/pull-requests/${prNumber}`;
 
-      console.log(`Successfully created promotion PR #${prNumber} for ${environment} environment`);
-      console.log(`Pull request URL: ${prUrl}`);
+      this.logger.info(`Successfully created promotion PR #${prNumber} for ${environment} environment`);
+      this.logger.info(`Pull request URL: ${prUrl}`);
 
       return new PullRequest(prNumber, commitSha, this.gitOpsRepoName, false, undefined, prUrl);
     } catch (error: any) {
-      console.error(`Error creating promotion PR for ${environment}: ${error.message}`);
+      this.logger.error(`Error creating promotion PR for ${environment}: {}`);
       throw error;
     }
   }
@@ -827,7 +831,7 @@ export class BitbucketProvider extends BaseGitProvider {
    */
   public override async extractApplicationImage(environment: Environment): Promise<string> {
     const filePath = `components/${this.componentName}/overlays/${environment}/deployment-patch.yaml`;
-    console.log(`Extracting application image from file: ${filePath}`);
+    this.logger.info(`Extracting application image from file: ${filePath}`);
 
     try {
       // Get the file content
@@ -874,10 +878,10 @@ export class BitbucketProvider extends BaseGitProvider {
         throw new Error(`Could not parse image value from matches in file: ${filePath}`);
       }
 
-      console.log(`Extracted image from ${filePath}: ${imageValue}`);
+      this.logger.info(`Extracted image from ${filePath}: ${imageValue}`);
       return imageValue;
     } catch (error: any) {
-      console.error(`Error extracting application image: ${error.message}`);
+      this.logger.error(`Error extracting application image: {}`);
       throw error;
     }
   }
@@ -889,7 +893,7 @@ export class BitbucketProvider extends BaseGitProvider {
    */
   public override async configWebhookOnSourceRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(
+      this.logger.info(
         `Configuring webhook for source repo ${this.workspace}/${this.sourceRepoName} with ${webhookUrl}`
       );
 
@@ -910,11 +914,11 @@ export class BitbucketProvider extends BaseGitProvider {
         'TSSC Integration Webhook'
       );
 
-      console.log(
+      this.logger.info(
         `Successfully configured webhook for source repo ${this.workspace}/${this.sourceRepoName} with ID: ${response.uuid}`
       );
     } catch (error: any) {
-      console.error(`Failed to configure webhook for source repo: ${error.message}`);
+      this.logger.error(`Failed to configure webhook for source repo: {}`);
       throw error;
     }
   }
@@ -926,7 +930,7 @@ export class BitbucketProvider extends BaseGitProvider {
    */
   public override async configWebhookOnGitOpsRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(
+      this.logger.info(
         `Configuring webhook for GitOps repo ${this.workspace}/${this.gitOpsRepoName} at ${webhookUrl}`
       );
 
@@ -947,11 +951,11 @@ export class BitbucketProvider extends BaseGitProvider {
         'TSSC GitOps Integration Webhook'
       );
 
-      console.log(
+      this.logger.info(
         `Successfully configured webhook for GitOps repo ${this.workspace}/${this.gitOpsRepoName} with ID: ${response.uuid}`
       );
     } catch (error: any) {
-      console.error(`Failed to configure webhook for GitOps repo: ${error.message}`);
+      this.logger.error(`Failed to configure webhook for GitOps repo: {}`);
       throw error;
     }
   }

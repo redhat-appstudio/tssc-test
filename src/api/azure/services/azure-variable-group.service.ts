@@ -1,16 +1,20 @@
 import { AzureHttpClient } from '../http/azure-http.client';
 import { VariableGroup } from '../types/azure.types';
 import { AZURE_API_VERSIONS } from '../constants/api-versions';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 export class AzureVariableGroupService {
   private readonly client: AzureHttpClient;
   private readonly project: string;
   private readonly apiVersion: string;
+  private readonly logger: Logger;
 
   constructor(client: AzureHttpClient, project: string, apiVersion: string) {
     this.client = client;
     this.project = project;
     this.apiVersion = apiVersion;
+    this.logger = LoggerFactory.getLogger('azure.variable-group');
   }
 
   private getApiVersionParam(): string {
@@ -36,15 +40,15 @@ export class AzureVariableGroupService {
         `${this.project}/_apis/distributedtask/variablegroups?${this.getApiVersionParam()}`,
         payload
       );
-      console.log(`AzureCI group creation response: ${response}`);
+      this.logger.info('AzureCI group creation response: {}', response);
     } catch (error) {
-      console.error(`Failed to create variable group '${groupName}':`, error);
+      this.logger.error('Failed to create variable group \'{}\': {}', groupName, error);
       throw error;
     }
   }
 
   public async getVariableGroupByName(groupName: string): Promise<VariableGroup | null> {
-    console.log(`Retrieving variable group with name: ${groupName}`);
+    this.logger.info('Retrieving variable group with name: {}', groupName);
     try {
       const response = await this.client.get<{ count: number; value: VariableGroup[] }>(
         `${this.project}/_apis/distributedtask/variablegroups?${this.getApiVersionParam()}`,
@@ -55,7 +59,7 @@ export class AzureVariableGroupService {
       }
       return null;
     } catch (error) {
-      console.error(`Failed to get variable group by name '${groupName}':`, error);
+      this.logger.error('Failed to get variable group by name \'{}\': {}', groupName, error);
       throw error;
     }
   }
@@ -77,10 +81,7 @@ export class AzureVariableGroupService {
         payload
       );
     } catch (error) {
-      console.error(
-        `Failed to authorize pipeline ${pipelineId} for variable group ${groupId}:`,
-        error
-      );
+      this.logger.error('Failed to authorize pipeline {} for variable group {}: {}', pipelineId, groupId, error);
       throw error;
     }
   }
@@ -91,9 +92,9 @@ export class AzureVariableGroupService {
 
       await this.client.delete(deleteUrl);
 
-      console.log(`Successfully deleted variable group with ID: ${groupId}`);
+      this.logger.info('Successfully deleted variable group with ID: {}', groupId);
     } catch (error) {
-      console.error(`Failed to delete variable group with ID ${groupId}:`, error);
+      this.logger.error('Failed to delete variable group with ID {}: {}', groupId, error);
       throw error;
     }
   }

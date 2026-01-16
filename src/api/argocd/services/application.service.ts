@@ -4,6 +4,8 @@ import {
   ArgoCDApplicationNotFoundError,
   ArgoCDConnectionError,
 } from '../errors/argocd.errors';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 /**
  * Service for managing ArgoCD applications
@@ -12,8 +14,11 @@ export class ArgoCDApplicationService {
   private readonly API_GROUP = 'argoproj.io';
   private readonly API_VERSION = 'v1alpha1';
   private readonly APPLICATIONS_PLURAL = 'applications';
+  private readonly logger: Logger;
 
-  constructor(private readonly kubeClient: KubeClient) {}
+  constructor(private readonly kubeClient: KubeClient) {
+    this.logger = LoggerFactory.getLogger('argocd.application');
+  }
 
   /**
    * Get ArgoCD Application
@@ -47,9 +52,7 @@ export class ArgoCDApplicationService {
       if (statusCode === 404) {
         throw new ArgoCDApplicationNotFoundError(applicationName, namespace);
       }
-      console.error(
-        `Error retrieving application ${applicationName}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.logger.error('Error retrieving application {}: {}', applicationName, error);
       throw new ArgoCDConnectionError(
         `Failed to get application ${applicationName}`,
         error instanceof Error ? error : new Error(String(error))
@@ -77,9 +80,7 @@ export class ArgoCDApplicationService {
 
       return applications || [];
     } catch (error) {
-      console.error(
-        `Error listing applications in namespace ${namespace}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.logger.error('Error listing applications in namespace {}: {}', namespace, error);
       return [];
     }
   }
@@ -187,9 +188,7 @@ export class ArgoCDApplicationService {
 
       return eventStrings.join('\n');
     } catch (error) {
-      console.error(
-        `Error retrieving events for application ${applicationName}`
-      );
+      this.logger.error('Error retrieving events for application {}: {}', applicationName, error);
       throw new ArgoCDConnectionError(
         `Failed to retrieve events for application ${applicationName}`,
         error instanceof Error ? error : new Error(String(error))

@@ -1,5 +1,9 @@
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
+import { LoggerFactory } from '../logger/factory/loggerFactory';
+import { Logger } from '../logger/logger';
+
+const logger: Logger = LoggerFactory.getLogger('utils.test-filter-loader');
 
 export interface TestFilterInfo {
   tests: string[];
@@ -14,7 +18,7 @@ export function loadTestFilterInfo(): TestFilterInfo | null {
   const summaryPath = path.resolve(process.cwd(), 'tmp/project-config-summary.json');
   
   if (!existsSync(summaryPath)) {
-    console.warn('Project configuration summary not found. Using default test patterns.');
+    logger.warn('Project configuration summary not found. Using default test patterns.');
     return null;
   }
 
@@ -28,7 +32,7 @@ export function loadTestFilterInfo(): TestFilterInfo | null {
     
     return null;
   } catch (error) {
-    console.error('Failed to load test filtering information:', error);
+    logger.error('Failed to load test filtering information: {}', error);
     return null;
   }
 }

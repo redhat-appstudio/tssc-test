@@ -6,13 +6,18 @@ import { GitHubActionsCI } from './providers/githubActionsCI';
 import { GitLabCI } from './providers/gitlabCI';
 import { JenkinsCI } from './providers/jenkinsCI';
 import { TektonCI } from './providers/tektonCI';
+import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
+import { Logger } from '../../../../logger/logger';
 
 export class CIFactory {
   // Private static instance for singleton pattern
   private static instance: CIFactory;
+  private readonly logger: Logger;
 
   // Private constructor to prevent direct instantiation
-  private constructor() {}
+  private constructor() {
+    this.logger = LoggerFactory.getLogger('rhtap.core.integration.ci.factory');
+  }
 
   // Static method to get the singleton instance
   public static getInstance(): CIFactory {
@@ -82,9 +87,9 @@ export class CIFactory {
           throw new Error(`Unsupported CI type: ${type}`);
       }
     } catch (error) {
-      console.error(`Failed to create CI instance of type ${type}:`, error);
+      this.logger.error('Failed to create CI instance of type {}: {}', type, error);
       throw new Error(
-        `Failed to create CI instance: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to create CI instance: ${error}`
       );
     }
   }

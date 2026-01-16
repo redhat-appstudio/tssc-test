@@ -3,6 +3,8 @@ import { GitType } from '../../core/integration/git';
 import { Command } from './commands/command';
 import { CreateWebhookCommand } from './commands/createWebhookCommand';
 import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 /**
  * Implementation of PostCreateActionStrategy for Tekton CI
@@ -12,6 +14,8 @@ import { ComponentActionStrategy } from '../../common/strategies/componentAction
  * GitHub and other providers do not require any post-creation actions.
  */
 export class TektonPostCreateActionStrategy implements ComponentActionStrategy {
+  private readonly logger: Logger = LoggerFactory.getLogger('postcreation.strategy.tekton');
+  
   /**
    * Map of Git provider types to their handler functions
    * This allows for easy extension with new Git providers
@@ -47,8 +51,9 @@ export class TektonPostCreateActionStrategy implements ComponentActionStrategy {
   private async handleGithubActions(component: Component): Promise<void> {
     const componentName = component.getName();
     //TODO: Update the log message to be more descriptive
-    console.log(
-      `No post-creation actions needed for component: ${componentName} (GitHub + Tekton CI)`
+    this.logger.info(
+      'No post-creation actions needed for component: {} (GitHub + Tekton CI)',
+      componentName
     );
   }
 
@@ -62,20 +67,24 @@ export class TektonPostCreateActionStrategy implements ComponentActionStrategy {
     const gitProviderType = git.getGitType();
     const componentName = component.getName();
 
-    console.log(
-      `Post-creation actions needed for component: ${componentName} (${gitProviderType})`
+    this.logger.info(
+      'Post-creation actions needed for component: {} ({})',
+      componentName,
+      gitProviderType
     );
 
     try {
       const commands = this.createCommandsForProvider(component);
       await this.executeCommands(commands);
-      console.log(
-        `${gitProviderType} post-creation actions completed successfully for ${componentName}`
+      this.logger.info(
+        '{} post-creation actions completed successfully for {}',
+        gitProviderType,
+        componentName
       );
     } catch (error) {
-      console.error(`Error executing ${gitProviderType} post-creation actions: ${error}`);
+      this.logger.error('Error executing {} post-creation actions: {}', gitProviderType, error);
       throw new Error(
-        `${gitProviderType} post-creation actions failed: ${error instanceof Error ? error.message : String(error)}`
+        `${gitProviderType} post-creation actions failed: ${error}`
       );
     }
   }

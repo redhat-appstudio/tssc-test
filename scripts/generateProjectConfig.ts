@@ -3,6 +3,8 @@
 import { TestPlan } from '../src/playwright/testplan';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import path from 'path';
+import { LoggerFactory } from '../src/logger/logger';
+import type { Logger } from '../src/logger/logger';
 
 interface ProjectConfig {
   name: string;
@@ -14,10 +16,13 @@ interface ProjectConfig {
  * This ensures consistent TestItem instances across all test executions
  */
 function generateProjectConfig(): void {
+  // Initialize logger for the script
+  const logger: Logger = LoggerFactory.getLogger('generateProjectConfig');
+
   try {
     // Load test plan
     const testPlanPath = process.env.TESTPLAN_PATH || path.resolve(process.cwd(), 'testplan.json');
-    console.log(`Using test plan: ${testPlanPath}`);
+    logger.info('Using test plan: {}', testPlanPath);
     
     if (!existsSync(testPlanPath)) {
       throw new Error(`Test plan file not found: ${testPlanPath}`);
@@ -34,7 +39,7 @@ function generateProjectConfig(): void {
     if (requestedPlan && testPlan.getTestPlans().length > 0) {
       // New format: filter by specific test plan(s) - support comma-separated values
       requestedPlans = requestedPlan.split(',').map(name => name.trim()).filter(name => name.length > 0);
-      console.log(`Filtering test items for plan(s): ${requestedPlans.join(', ')}`);
+      logger.info('Filtering test items for plan(s): {}', requestedPlans.join(', '));
       
       // Collect test items from all requested plans
       const allTestItems: any[] = [];
@@ -52,18 +57,18 @@ function generateProjectConfig(): void {
       projectConfigs = testPlan.getProjectConfigs();
     }
     
-    console.log(`Generated ${projectConfigs.length} project configurations`);
+    logger.info('Generated {} project configurations', projectConfigs.length);
 
     // Log test plan information
     if (testPlan.getTestPlans().length > 0) {
-      console.log(`Available test plans: ${testPlan.getTestPlanNames().join(', ')}`);
+      logger.info('Available test plans: {}', testPlan.getTestPlanNames().join(', '));
       if (requestedPlan) {
-        console.log(`Using test plan: ${requestedPlan}`);
+        logger.info('Using test plan: {}', requestedPlan);
       } else {
-        console.log('Using all test plans (no TESTPLAN_NAME specified)');
+        logger.info('Using all test plans (no TESTPLAN_NAME specified)');
       }
     } else {
-      console.log('Using legacy single test plan format');
+      logger.info('Using legacy single test plan format');
     }
 
     // Prepare serialized configurations
@@ -108,12 +113,12 @@ function generateProjectConfig(): void {
     // Log test filtering information
     const testsToShow = requestedPlan ? testPlan.getTestsForPlans(requestedPlans) : testPlan.getTests();
     const testMatchPattern = requestedPlan ? testPlan.getTestMatchPatternsForPlans(requestedPlans) : testPlan.getTestMatchPattern();
-    console.log(`Test filtering: ${testsToShow.length > 0 ? testsToShow.join(', ') : 'All tests'}`);
-    console.log(`Test match pattern: ${testMatchPattern}`);
-    console.log('Project configuration generation completed successfully!');
+    logger.info('Test filtering: {}', testsToShow.length > 0 ? testsToShow.join(', ') : 'All tests');
+    logger.info('Test match pattern: {}', testMatchPattern);
+    logger.info('Project configuration generation completed successfully!');
 
   } catch (error) {
-    console.error('Failed to generate project configurations:', error);
+    logger.error('Failed to generate project configurations: {}', error);
     process.exit(1);
   }
 }

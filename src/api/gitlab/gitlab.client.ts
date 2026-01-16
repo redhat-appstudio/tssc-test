@@ -126,6 +126,8 @@ export class GitLabClient extends BaseApiClient {
     );
     this.webhooks = new GitLabWebhookService(this.client, this.projects);
     this.pipelines = new GitLabPipelineService(this.client);
+
+    this.logger.info('Initialized GitLab client', { baseUrl: this.baseUrl, timeout: this.timeout, sslVerify: config.sslVerify });
   }
 
   /**
