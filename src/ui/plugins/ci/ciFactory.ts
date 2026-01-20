@@ -2,6 +2,7 @@ import { CIPlugin } from './ciPlugin';
 import { CIType } from '../../../rhtap/core/integration/ci/ciInterface';
 import { TektonPlugin } from './tektonPlugin';
 import { GithubActionsPlugin } from './githubActionsPlugin';
+import { AzurePlugin } from './azurePlugin';
 
 export class CIFactory {
     /**
@@ -22,6 +23,8 @@ export class CIFactory {
                 return new TektonPlugin(name, registryOrg);
             case CIType.GITHUB_ACTIONS:
                 return new GithubActionsPlugin(name, registryOrg);
+            case CIType.AZURE:
+                return new AzurePlugin(name, registryOrg);
             default:
                 console.warn(`Unsupported CI type: ${ciType}`);
                 return undefined;

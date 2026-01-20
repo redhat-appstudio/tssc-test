@@ -6,7 +6,7 @@ import { expect, Locator, Page } from '@playwright/test';
 import { AcsPO } from '../../page-objects/acsPo';
 
 export class BaseCIPlugin implements CIPlugin {
-    private name: string;
+    protected name: string;
     private imageUrlRegex: RegExp;
 
     constructor(name: string, registryOrg: string) {

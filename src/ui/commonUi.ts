@@ -120,7 +120,7 @@ export async function waitForPageLoad(page: Page, name: string) {
         bars.map(bar => expect(bar).toBeHidden({ timeout: 90000 }))
     );
 
-    await expect(page.getByTestId('sidebar-root')).toBeAttached({ timeout: 10000 });
+    await expect(page.getByTestId('sidebar-root')).toBeAttached({ timeout: 30000 });
 
     // Handle "Login Required" dialog if it appears (e.g., GitHub Actions plugin)
     await handleGitHubActionsLoginDialog(page);
