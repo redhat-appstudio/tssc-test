@@ -7,6 +7,7 @@ import { ImageRegistry } from '../../../core/integration/registry';
 import { TAS } from '../../../core/integration/tas';
 import { TPA } from '../../../core/integration/tpa';
 import { CredentialService } from '../../services/credentialService';
+import { isSelfSignedCluster } from '../../../../utils/certificateHelper';
 import { Command } from './command';
 
 /**
@@ -64,5 +65,27 @@ export abstract class BaseCommand implements Command {
    */
   protected logComplete(action: string): void {
     console.log(`Completed ${action} for component ${this.folderName}`);
+  }
+
+  /**
+   * Get the cluster's root CA certificate if self-signed certificates are detected
+   * @returns A Promise that resolves to the root CA certificate as a string, or null if not needed
+   */
+  protected async getCustomRootCA(): Promise<string | null> {
+    // Perform detection - obtain all info from cluster
+    try {
+      const rhdhUrl = await this.kubeClient.getOpenshiftRoute('backstage-developer-hub', 'tssc-dh');
+      const fullUrl = `https://${rhdhUrl}`;
+      const hasSelfSigned = await isSelfSignedCluster(fullUrl);
+      
+      if (hasSelfSigned) {
+        console.log('Detected self-signed certificates - retrieving cluster root CA');
+        return await this.kubeClient.getClusterRootCA();
+      }
+    } catch (error) {
+      console.warn('Failed to detect certificate trust, skipping CUSTOM_ROOT_CA:', error);
+    }
+    
+    return null;
   }
 }

@@ -105,6 +105,7 @@ export class UpdateImageRegistryUser implements EnvModification {
     };
   }
 }
+
 /**
  * Enum of available environment modification types
  */

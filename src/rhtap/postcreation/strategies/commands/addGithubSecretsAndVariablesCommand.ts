@@ -27,6 +27,8 @@ export class AddGithubSecretsAndVariablesCommand extends BaseCommand {
     imageRegistry: ImageRegistry,
     github: GithubProvider
   ): Promise<void> {
+    const rootCA = await this.getCustomRootCA();
+    
     const variables = {
       IMAGE_REGISTRY: imageRegistry.getRegistryHost(),
       ROX_CENTRAL_ENDPOINT: this.acs.getRoxCentralEndpoint(),
@@ -34,6 +36,7 @@ export class AddGithubSecretsAndVariablesCommand extends BaseCommand {
       REKOR_HOST: this.tas.getRekorServerURL(),
       TUF_MIRROR: this.tas.getTufMirrorURL(),
       COSIGN_PUBLIC_KEY: await this.credentialService.getCosignPublicKey(),
+      ...(rootCA ? { CUSTOM_ROOT_CA: rootCA } : {}),
     };
 
     await github.setVariablesOnSourceRepo(variables);
@@ -53,6 +56,8 @@ export class AddGithubSecretsAndVariablesCommand extends BaseCommand {
     imageRegistry: ImageRegistry,
     github: GithubProvider
   ): Promise<void> {
+    const rootCA = await this.getCustomRootCA();
+    
     const variables = {
       IMAGE_REGISTRY: imageRegistry.getRegistryHost(),
       COSIGN_PUBLIC_KEY: await this.credentialService.getCosignPublicKey(),
@@ -63,6 +68,7 @@ export class AddGithubSecretsAndVariablesCommand extends BaseCommand {
       IMAGE_REGISTRY_USER: imageRegistry.getImageRegistryUser(),
       REKOR_HOST: this.tas.getRekorServerURL(),
       TUF_MIRROR: this.tas.getTufMirrorURL(),
+      ...(rootCA ? { CUSTOM_ROOT_CA: rootCA } : {}),
     };
 
     await github.setVariablesOnGitOpsRepo(variables);
