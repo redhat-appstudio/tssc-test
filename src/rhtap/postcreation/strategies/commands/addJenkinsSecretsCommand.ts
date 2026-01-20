@@ -34,6 +34,7 @@ export class AddJenkinsSecretsCommand extends BaseCommand {
       this.addRekorHostSecrets(),
       this.addTufMirrorSecrets(),
       this.addCosignPublicKeySecrets(),
+      this.addCustomRootCASecrets(),
     ]);
 
     this.logComplete('secrets addition');
@@ -167,5 +168,17 @@ export class AddJenkinsSecretsCommand extends BaseCommand {
       Credential.COSIGN_PUBLIC_KEY,
       await this.credentialService.getCosignPublicKey()
     );
+  }
+
+  //add CUSTOM_ROOT_CA
+  private async addCustomRootCASecrets(): Promise<void> {
+    const customRootCA = await this.getCustomRootCA();
+    if (customRootCA) {
+      await this.jenkinsCI.addCredential(
+        this.folderName,
+        Credential.CUSTOM_ROOT_CA,
+        customRootCA
+      );
+    }
   }
 }
