@@ -266,6 +266,37 @@ export class KubeClient {
   }
 
   /**
+   * Generic method to patch a resource with proper error handling
+   *
+   * @template T The resource type to return
+   * @param {K8sApiOptions} options - API options for the request (must include name)
+   * @param {any} patchData - The patch data to apply
+   * @returns {Promise<T>} The patched resource of type T
+   */
+  public async patchResource<T>(options: K8sApiOptions, patchData: any): Promise<T> {
+    try {
+      if (!options.name) {
+        throw new Error('Resource name is required for patchResource');
+      }
+
+      const response = await this.customApi.patchNamespacedCustomObject({
+        group: options.group,
+        version: options.version,
+        namespace: options.namespace,
+        plural: options.plural,
+        name: options.name,
+        body: patchData,
+      });
+      return response as T;
+    } catch (error) {
+      console.error(
+        `Error patching resource '${options.name}' in namespace '${options.namespace}': ${error}`
+      );
+      throw new Error(`Failed to patch resource '${options.name}': ${error}`);
+    }
+  }
+
+  /**
    * Retrieves logs from a pod or specific containers within a pod
    * @param podName The name of the pod
    * @param namespace The namespace where the pod is located (default: 'default')
@@ -414,7 +445,17 @@ export class KubeClient {
     return key;
   }
 
-  public async getConfigMap(configMapName: string, namespace: string = 'default'): Promise<Record<string, string>> {
+  /**
+   * Retrieves a ConfigMap from Kubernetes
+   * @param configMapName The name of the ConfigMap
+   * @param namespace The namespace where the ConfigMap is located
+   * @returns A Promise that resolves to an object containing the ConfigMap data
+   * @throws Error if the ConfigMap cannot be retrieved
+   */
+  public async getConfigMap(
+    configMapName: string,
+    namespace: string
+  ): Promise<Record<string, string>> {
     try {
       const response = await this.k8sApi.readNamespacedConfigMap({
         name: configMapName,
@@ -422,8 +463,34 @@ export class KubeClient {
       });
       return response.data || {};
     } catch (error) {
-      console.error(`Failed to retrieve config map '${configMapName}': ${error}`);
-      throw error;
+      throw new Error(`Failed to retrieve ConfigMap '${configMapName}' in namespace '${namespace}': ${error}`);
     }
+  }
+
+  /**
+   * Retrieves the cluster's root CA certificate from the kube-root-ca.crt ConfigMap
+   * @returns A Promise that resolves to the root CA certificate as a string, or null if not found
+   */
+  public async getClusterRootCA(): Promise<string | null> {
+    // Try different namespaces where the kube-root-ca.crt ConfigMap might exist
+    const namespaces = ['tssc', 'tssc-dh', 'default', 'kube-system'];
+
+    for (const namespace of namespaces) {
+      try {
+        const configMap = await this.getConfigMap('kube-root-ca.crt', namespace);
+        const caCert = configMap['ca.crt'];
+
+        if (caCert) {
+          console.log(`Found cluster root CA in namespace '${namespace}'`);
+          return caCert;
+        }
+      } catch (error) {
+        // Continue to next namespace if this one fails
+        console.debug(`ConfigMap 'kube-root-ca.crt' not found in namespace '${namespace}': ${error}`);
+      }
+    }
+
+    console.warn('Cluster root CA not found in any of the expected namespaces');
+    return null;
   }
 }

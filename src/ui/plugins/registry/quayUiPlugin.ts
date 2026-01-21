@@ -19,13 +19,15 @@ export class QuayUiPlugin extends BaseRegistryPlugin {
         await expect(page.getByRole('link', { name: repositoryLink })).toBeVisible();
     }
 
-    async checkTableColumnHeaders(page: Page): Promise<void> {
-        await expect(page.getByRole('columnheader', { name: RegistryPO.tagColumnHeader })).toBeVisible();
-        await expect(page.getByRole('columnheader', { name: RegistryPO.lastModifiedColumnHeader })).toBeVisible();
-        await expect(page.getByRole('columnheader', { name: RegistryPO.securityScanColumnHeader })).toBeVisible();
-        await expect(page.getByRole('columnheader', { name: RegistryPO.sizeColumnHeader })).toBeVisible();
-        await expect(page.getByRole('columnheader', { name: RegistryPO.expiresColumnHeader })).toBeVisible();
-        await expect(page.getByRole('columnheader', { name: RegistryPO.manifestColumnHeader })).toBeVisible();
+    async checkTableColumns(page: Page): Promise<void> {
+        await this.checkTableColumnHeaders(page, [
+            RegistryPO.tagColumnHeader,
+            RegistryPO.lastModifiedColumnHeader,
+            RegistryPO.securityScanColumnHeader,
+            RegistryPO.sizeColumnHeader,
+            RegistryPO.expiresColumnHeader,
+            RegistryPO.manifestColumnHeader,
+        ]);
     }
 
     async checkVulnerabilities(page: Page): Promise<void> {

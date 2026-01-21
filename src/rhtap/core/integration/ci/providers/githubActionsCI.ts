@@ -6,7 +6,17 @@ import { GithubClient } from '../../../../../api/github';
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
-import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
+import {
+  CIType,
+  EventType,
+  Pipeline,
+  PipelineStatus,
+  CancelPipelineOptions,
+  CancelResult,
+  MutableCancelResult,
+  MutablePipelineCancelDetail,
+  MutableCancelError,
+} from '../ciInterface';
 
 export class GitHubActionsCI extends BaseCI {
   private githubClient!: GithubClient;
@@ -353,11 +363,368 @@ export class GitHubActionsCI extends BaseCI {
     }
   }
 
-  public override async cancelAllInitialPipelines(): Promise<void> {
-    throw new Error(
-      'GitHub Actions does not support cancelling initial pipeline runs.'
+
+
+  /**
+   * Cancel all pipelines for this component with optional filtering
+   */
+  public override async cancelAllPipelines(
+    options?: CancelPipelineOptions
+  ): Promise<CancelResult> {
+    // 1. Normalize options with defaults
+    const opts = this.normalizeOptions(options);
+
+    // 2. Initialize result object (mutable during construction)
+    const result: MutableCancelResult = {
+      total: 0,
+      cancelled: 0,
+      failed: 0,
+      skipped: 0,
+      details: [],
+      errors: [],
+    };
+
+    console.log(`[GitHubActions] Starting workflow cancellation for ${this.componentName}`);
+
+    try {
+      // 3. Fetch all workflow runs from GitHub API
+      const allWorkflowRuns = await this.fetchAllWorkflowRuns();
+      result.total = allWorkflowRuns.length;
+
+      if (allWorkflowRuns.length === 0) {
+        console.log(`[GitHubActions] No workflow runs found for ${this.componentName}`);
+        return result;
+      }
+
+      console.log(`[GitHubActions] Found ${allWorkflowRuns.length} total workflow runs`);
+
+      // 4. Apply filters
+      const workflowRunsToCancel = this.filterWorkflowRuns(allWorkflowRuns, opts);
+
+      console.log(`[GitHubActions] ${workflowRunsToCancel.length} workflow runs match filters`);
+      console.log(`[GitHubActions] ${allWorkflowRuns.length - workflowRunsToCancel.length} workflow runs filtered out`);
+
+      // 5. Cancel workflow runs in batches
+      await this.cancelWorkflowRunsInBatches(workflowRunsToCancel, opts, result);
+
+      // 6. Validate result counts (accounting invariant)
+      const accounted = result.cancelled + result.failed + result.skipped;
+      if (accounted !== result.total) {
+        const missing = result.total - accounted;
+        console.error(
+          `❌ [GitHubActions] ACCOUNTING ERROR: ${missing} workflow runs unaccounted for ` +
+          `(total: ${result.total}, accounted: ${accounted})`
+        );
+
+        // Add accounting error to errors array
+        result.errors.push({
+          pipelineId: 'ACCOUNTING_ERROR',
+          message: `${missing} workflow runs lost in processing`,
+          error: new Error('Result count mismatch - this indicates a bug in the cancellation logic'),
+        });
+      }
+
+      // 7. Log summary
+      console.log(`[GitHubActions] Cancellation complete:`, {
+        total: result.total,
+        cancelled: result.cancelled,
+        failed: result.failed,
+        skipped: result.skipped,
+      });
+
+    } catch (error: any) {
+      console.error(`[GitHubActions] Error in cancelAllPipelines: ${error.message}`);
+      throw new Error(`Failed to cancel pipelines: ${error.message}`);
+    }
+
+    return result;
+  }
+
+
+
+  /**
+   * Fetch all workflow runs from GitHub API (both source and gitops repos)
+   */
+  private async fetchAllWorkflowRuns(): Promise<WorkflowRun[]> {
+    try {
+      const allWorkflowRuns: WorkflowRun[] = [];
+
+      // Fetch from source repository
+      const responseSource = await this.githubClient.actions.getWorkflowRuns(
+        this.getRepoOwner(),
+        this.componentName,
+        { per_page: 100 }
+      );
+
+      // Tag workflow runs with their repository name for later cancellation
+      const taggedSourceRuns = (responseSource.data?.workflow_runs || []).map(run => ({
+        ...run,
+        _repositoryName: this.componentName
+      }));
+      allWorkflowRuns.push(...taggedSourceRuns);
+
+      // Fetch from gitops repository
+      const gitopsRepoName = `${this.componentName}-gitops`;
+      try {
+        const responseGitops = await this.githubClient.actions.getWorkflowRuns(
+          this.getRepoOwner(),
+          gitopsRepoName,
+          { per_page: 100 }
+        );
+
+        // Tag workflow runs with their repository name for later cancellation
+        const taggedGitopsRuns = (responseGitops.data?.workflow_runs || []).map(run => ({
+          ...run,
+          _repositoryName: gitopsRepoName
+        }));
+        allWorkflowRuns.push(...taggedGitopsRuns);
+      } catch (gitopsError: any) {
+        // Gitops repo might not exist, log but don't fail
+        console.log(`[GitHubActions] Gitops repository ${gitopsRepoName} not found or no workflows: ${gitopsError.message}`);
+      }
+
+      return allWorkflowRuns;
+
+    } catch (error: any) {
+      console.error(`[GitHubActions] Failed to fetch workflow runs: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Filter workflow runs based on cancellation options
+   */
+  private filterWorkflowRuns(
+    workflowRuns: WorkflowRun[],
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>
+  ): WorkflowRun[] {
+    return workflowRuns.filter(workflowRun => {
+      // Filter 1: Skip completed workflow runs unless includeCompleted is true
+      if (!options.includeCompleted && this.isCompletedStatus(workflowRun)) {
+        console.log(`[Filter] Skipping completed workflow run ${workflowRun.id} (${workflowRun.status}/${workflowRun.conclusion || 'none'})`);
+        return false;
+      }
+
+      // Filter 2: Check exclusion patterns
+      if (this.matchesExclusionPattern(workflowRun, options.excludePatterns)) {
+        console.log(`[Filter] Excluding workflow run ${workflowRun.id} by pattern`);
+        return false;
+      }
+
+      // Filter 3: Filter by event type if specified
+      if (options.eventType && !this.matchesEventType(workflowRun, options.eventType)) {
+        console.log(`[Filter] Skipping workflow run ${workflowRun.id} (event type mismatch)`);
+        return false;
+      }
+
+      // Filter 4: Filter by branch if specified
+      if (options.branch && workflowRun.head_branch !== options.branch) {
+        console.log(`[Filter] Skipping workflow run ${workflowRun.id} (branch mismatch)`);
+        return false;
+      }
+
+      return true; // Include this workflow run for cancellation
+    });
+  }
+
+  /**
+   * Check if workflow run status is completed
+   * GitHub has two-level status: status + conclusion
+   */
+  private isCompletedStatus(workflowRun: WorkflowRun): boolean {
+    // A workflow is completed if status is 'completed'
+    return workflowRun.status === 'completed';
+  }
+
+  /**
+   * Check if workflow run matches any exclusion pattern
+   */
+  private matchesExclusionPattern(workflowRun: WorkflowRun, patterns: ReadonlyArray<RegExp>): boolean {
+    if (patterns.length === 0) {
+      return false;
+    }
+
+    const workflowName = workflowRun.name || `Workflow-${workflowRun.id}`;
+    const branch = workflowRun.head_branch || '';
+
+    return patterns.some(pattern =>
+      pattern.test(workflowName) || pattern.test(branch)
     );
   }
+
+  /**
+   * Check if workflow run matches the event type
+   */
+  private matchesEventType(workflowRun: WorkflowRun, eventType: EventType): boolean {
+    // GitHub uses 'event' field to indicate trigger type
+    switch (eventType) {
+      case EventType.PUSH:
+        return workflowRun.event === 'push';
+      case EventType.PULL_REQUEST:
+        return workflowRun.event === 'pull_request';
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Cancel workflow runs in batches with concurrency control
+   */
+  private async cancelWorkflowRunsInBatches(
+    workflowRuns: WorkflowRun[],
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>,
+    result: MutableCancelResult
+  ): Promise<void> {
+    // Split into batches
+    const batches = this.chunkArray(workflowRuns, options.concurrency);
+
+    console.log(`[GitHubActions] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      console.log(`[GitHubActions] Processing batch ${i + 1}/${batches.length} (${batch.length} workflow runs)`);
+
+      // Create promises for all workflow runs in this batch
+      const promises = batch.map(workflowRun =>
+        this.cancelSingleWorkflowRun(workflowRun, options, result)
+      );
+
+      // Wait for all in batch to complete (don't stop on errors)
+      const batchResults = await Promise.allSettled(promises);
+
+      // Inspect batch results for systemic failures
+      const batchSuccesses = batchResults.filter(r => r.status === 'fulfilled').length;
+      const batchFailures = batchResults.filter(r => r.status === 'rejected').length;
+
+      console.log(`[GitHubActions] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
+
+      // Alert on complete batch failure - indicates systemic issue
+      if (batchFailures === batch.length && batch.length > 0) {
+        console.error(`❌ [GitHubActions] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
+
+        // Log first rejection reason for debugging
+        const firstRejected = batchResults.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
+        if (firstRejected) {
+          console.error(`[GitHubActions] First failure reason: ${firstRejected.reason}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Cancel a single workflow run and update results
+   */
+  private async cancelSingleWorkflowRun(
+    workflowRun: WorkflowRun,
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>,
+    result: MutableCancelResult
+  ): Promise<void> {
+    // Initialize detail object (mutable during construction)
+    const detail: MutablePipelineCancelDetail = {
+      pipelineId: workflowRun.id,
+      name: workflowRun.name || `Workflow-${workflowRun.id}`,
+      status: this.mapGitHubWorkflowStatusToPipelineStatus(workflowRun),
+      result: 'skipped',
+      branch: workflowRun.head_branch || undefined,
+      eventType: this.mapGitHubEventType(workflowRun),
+    };
+
+    try {
+      if (options.dryRun) {
+        // Dry run mode - don't actually cancel
+        detail.result = 'skipped';
+        detail.reason = 'Dry run mode';
+        result.skipped++;
+        console.log(`[DryRun] Would cancel workflow run ${workflowRun.id}`);
+
+      } else {
+        // Extract repository name from tagged workflow run (added in fetchAllWorkflowRuns)
+        const repositoryName = (workflowRun as any)._repositoryName || this.componentName;
+
+        // Actually cancel the workflow run via GitHub API
+        await this.cancelWorkflowRunViaAPI(workflowRun.id, repositoryName);
+
+        detail.result = 'cancelled';
+        result.cancelled++;
+        console.log(`✅ [GitHubActions] Cancelled workflow run ${workflowRun.id} in ${repositoryName} (status: ${workflowRun.status})`);
+      }
+
+    } catch (error: any) {
+      // Cancellation failed
+      detail.result = 'failed';
+      detail.reason = error.message;
+      result.failed++;
+
+      // Add to errors array (mutable during construction)
+      const cancelError: MutableCancelError = {
+        pipelineId: workflowRun.id,
+        message: error.message,
+        error: error,
+      };
+
+      // Add status code if available
+      if (error.response?.status) {
+        cancelError.statusCode = error.response.status;
+      }
+
+      // Add provider error code if available
+      if (error.response?.data?.message) {
+        cancelError.providerErrorCode = error.response.data.message;
+      }
+
+      result.errors.push(cancelError);
+
+      console.error(`❌ [GitHubActions] Failed to cancel workflow run ${workflowRun.id}: ${error.message}`);
+    }
+
+    // Add detail to results
+    result.details.push(detail);
+  }
+
+  /**
+   * Actually cancel the workflow run via GitHub API
+   */
+  private async cancelWorkflowRunViaAPI(workflowRunId: number, repositoryName: string): Promise<void> {
+    try {
+      await this.githubClient.actions.cancelWorkflowRun(
+        this.getRepoOwner(),
+        repositoryName,
+        workflowRunId
+      );
+
+    } catch (error: any) {
+      // Handle GitHub-specific errors
+      if (error.response?.status === 404) {
+        throw new Error('Workflow run not found (may have been deleted)');
+      }
+      if (error.response?.status === 403) {
+        throw new Error('Insufficient permissions to cancel workflow run');
+      }
+      if (error.response?.status === 409) {
+        throw new Error('Workflow run cannot be cancelled (already completed or not cancellable)');
+      }
+      if (error.response?.data?.message) {
+        throw new Error(`GitHub API error: ${error.response.data.message}`);
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Map GitHub workflow run to EventType
+   */
+  private mapGitHubEventType(workflowRun: WorkflowRun): EventType | undefined {
+    if (workflowRun.event === 'push') {
+      return EventType.PUSH;
+    }
+    if (workflowRun.event === 'pull_request') {
+      return EventType.PULL_REQUEST;
+    }
+    return undefined;
+  }
+
+
 
   public override async waitForAllPipelineRunsToFinish(
     timeoutMs = 5 * 60 * 1000,

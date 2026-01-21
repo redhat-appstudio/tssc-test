@@ -9,6 +9,7 @@ import { ImageRegistry, ImageRegistryType } from '../../../rhtap/core/integratio
 import { RegistryPlugin } from './registryPlugin';
 import { QuayUiPlugin } from './quayUiPlugin';
 import { NexusUiPlugin } from './nexusUiPlugin';
+import { ArtifactoryUiPlugin } from './artifactoryUiPlugin';
 
 export class RegistryUiFactory {
     /**
@@ -28,6 +29,8 @@ export class RegistryUiFactory {
                 return new QuayUiPlugin(registry);
             case ImageRegistryType.NEXUS:
                 return new NexusUiPlugin(registry);
+            case ImageRegistryType.ARTIFACTORY:
+                return new ArtifactoryUiPlugin(registry);
             default:
                 console.warn(`Unsupported Registry type: ${registryType}`);
                 return undefined;
