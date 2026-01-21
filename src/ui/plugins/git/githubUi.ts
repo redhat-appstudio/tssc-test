@@ -10,13 +10,18 @@ import { expect, Page } from '@playwright/test';
 import { loadFromEnv } from '../../../utils/util';
 import { DHLoginPO, GhLoginPO } from '../../page-objects/loginPo';
 import { GitPO } from '../../page-objects/commonPo';
-import { authenticator } from 'otplib';
+import { TOTP, createGuardrails, NobleCryptoPlugin, ScureBase32Plugin } from 'otplib';
 import retry from 'async-retry';
 import { GitUi } from './gitUi';
 import { AuthUi } from '../auth/authUi';
 import { blurLocator } from '../../commonUi';
 
 export class GithubUiPlugin extends GitUi implements GitPlugin, AuthUi {
+    private totp = new TOTP({
+        crypto: new NobleCryptoPlugin(),
+        base32: new ScureBase32Plugin(),
+        guardrails: createGuardrails({ MIN_SECRET_BYTES: 1 }),
+    });
 
     /**
      * Performs GitHub login through the Developer Hub UI.
@@ -94,8 +99,7 @@ export class GithubUiPlugin extends GitUi implements GitPlugin, AuthUi {
      */
     private async getGitHub2FAOTP(): Promise<string> {
         const secret = loadFromEnv("GH_SECRET");
-        const token = authenticator.generate(secret);
+        const token = await this.totp.generate({ secret });
         return token;
     }
-
 }
