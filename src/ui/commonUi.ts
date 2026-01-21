@@ -45,13 +45,6 @@ export async function performGitHubLogin(page: Page, options: GitHubAuthOptions 
         return;
     }
 
-    console.warn(`[${logPrefix}] 2FA required, entering token...`);
-    console.warn(`[${logPrefix}] Secret loaded: ${secret ? `yes (length: ${secret.length}, first 4 chars: ${secret.substring(0, 4)}...)` : 'NO - SECRET IS EMPTY!'}`);
-
-    if (!secret || secret.trim().length === 0) {
-        throw new Error(`[${logPrefix}] GH_SECRET is empty or not loaded - cannot generate 2FA token`);
-    }
-
     // Retry inserting 2FA token for cases when it was already used
     const maxRetries = 5;
     const retryTimeout = 30000; // token resets every 30 seconds
@@ -59,10 +52,8 @@ export async function performGitHubLogin(page: Page, options: GitHubAuthOptions 
     await retry(
         async (): Promise<void> => {
             const token = authenticator.generate(secret);
-            console.warn(`[${logPrefix}] Generated 2FA token: ${token} (length: ${token.length}, secret length: ${secret.length})`);
             await blurLocator(twoFactorField);
             await twoFactorField.fill(token);
-            console.warn(`[${logPrefix}] Filled 2FA token, waiting for field to detach...`);
             await twoFactorField.waitFor({ state: 'detached', timeout: 5000 });
         },
         {
@@ -74,8 +65,6 @@ export async function performGitHubLogin(page: Page, options: GitHubAuthOptions 
             },
         }
     );
-
-    console.warn(`[${logPrefix}] Authentication completed successfully`);
 }
 
 /**
