@@ -2,8 +2,15 @@ import { expect, Page, Locator } from '@playwright/test';
 import { GhLoginPO } from './page-objects/loginPo';
 import { CiPo } from './page-objects/ciPo';
 import { loadFromEnv } from '../utils/util';
-import { authenticator } from 'otplib';
+import { TOTP, createGuardrails, NobleCryptoPlugin, ScureBase32Plugin } from 'otplib';
 import retry from 'async-retry';
+
+// TOTP instance for 2FA token generation
+const totp = new TOTP({
+    crypto: new NobleCryptoPlugin(),
+    base32: new ScureBase32Plugin(),
+    guardrails: createGuardrails({ MIN_SECRET_BYTES: 1 }),
+});
 
 /**
  * Configuration options for GitHub authentication
@@ -51,7 +58,7 @@ export async function performGitHubLogin(page: Page, options: GitHubAuthOptions 
 
     await retry(
         async (): Promise<void> => {
-            const token = authenticator.generate(secret);
+            const token = await totp.generate({ secret });
             await blurLocator(twoFactorField);
             await twoFactorField.fill(token);
             await twoFactorField.waitFor({ state: 'detached', timeout: 5000 });
