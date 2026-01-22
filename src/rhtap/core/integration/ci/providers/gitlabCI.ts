@@ -3,7 +3,17 @@ import { GitLabClient, GitLabConfigBuilder } from '../../../../../api/gitlab';
 // import { GitLabClient } from '../../../../../api/git/gitlabClient';
 import { PullRequest } from '../../git/models';
 import { BaseCI } from '../baseCI';
-import { CIType, EventType, Pipeline, PipelineStatus } from '../ciInterface';
+import {
+  CIType,
+  EventType,
+  Pipeline,
+  PipelineStatus,
+  CancelPipelineOptions,
+  CancelResult,
+  MutableCancelResult,
+  MutablePipelineCancelDetail,
+  MutableCancelError,
+} from '../ciInterface';
 import retry from 'async-retry';
 
 export class GitLabCI extends BaseCI {
@@ -273,33 +283,353 @@ export class GitLabCI extends BaseCI {
     }
   }
 
-  public override async cancelAllInitialPipelines(): Promise<void> {
-    try{
-      const allPipelines = await this.gitlabCIClient.pipelines.getAllPipelines(
-        `${this.getGroup()}/${this.sourceRepoName}`
-      );
-      if (!allPipelines || allPipelines.length === 0) {
-          throw new Error(`No pipelines found for component ${this.componentName}`);
+
+
+  /**
+   * Cancel all pipelines for this component with optional filtering
+   */
+  public override async cancelAllPipelines(
+    options?: CancelPipelineOptions
+  ): Promise<CancelResult> {
+    // 1. Normalize options with defaults
+    const opts = this.normalizeOptions(options);
+
+    // 2. Initialize result object
+    const result: MutableCancelResult = {
+      total: 0,
+      cancelled: 0,
+      failed: 0,
+      skipped: 0,
+      details: [],
+      errors: [],
+    };
+
+    console.log(`[GitLabCI] Starting pipeline cancellation for ${this.componentName}`);
+
+    try {
+      // 3. Fetch all pipelines from GitLab API
+      const allPipelines = await this.fetchAllPipelines();
+      result.total = allPipelines.length;
+
+      if (allPipelines.length === 0) {
+        console.log(`[GitLabCI] No pipelines found for ${this.componentName}`);
+        return result;
       }
 
-      console.log(`Found ${allPipelines.length} pipelines for ${this.componentName}`);
+      console.log(`[GitLabCI] Found ${allPipelines.length} total pipelines`);
 
-      await Promise.all(
-        allPipelines
-        .filter(pipeline => pipeline.status !== 'failed')
-        .map(pipeline => {
-          console.log(`Cancelling initial pipeline ${pipeline.id} with status ${pipeline.status}`);
-          return this.gitlabCIClient.pipelines.cancelPipeline(
-            `${this.getGroup()}/${this.sourceRepoName}`,
-            pipeline.id
-          );
-        })
-      );
+      // 4. Apply filters
+      const pipelinesToCancel = this.filterPipelines(allPipelines, opts);
+
+      console.log(`[GitLabCI] ${pipelinesToCancel.length} pipelines match filters`);
+      console.log(`[GitLabCI] ${allPipelines.length - pipelinesToCancel.length} pipelines filtered out`);
+
+      // 5. Cancel pipelines in batches
+      await this.cancelPipelinesInBatches(pipelinesToCancel, opts, result);
+
+      // 6. Validate result counts (accounting invariant)
+      const accounted = result.cancelled + result.failed + result.skipped;
+      if (accounted !== result.total) {
+        const missing = result.total - accounted;
+        console.error(
+          `❌ [GitLabCI] ACCOUNTING ERROR: ${missing} pipelines unaccounted for ` +
+          `(total: ${result.total}, accounted: ${accounted})`
+        );
+
+        // Add accounting error to errors array
+        result.errors.push({
+          pipelineId: 'ACCOUNTING_ERROR',
+          message: `${missing} pipelines lost in processing`,
+          error: new Error('Result count mismatch - this indicates a bug in the cancellation logic'),
+        });
+      }
+
+      // 7. Log summary
+      console.log(`[GitLabCI] Cancellation complete:`, {
+        total: result.total,
+        cancelled: result.cancelled,
+        failed: result.failed,
+        skipped: result.skipped,
+      });
 
     } catch (error: any) {
-      console.error(`Error while cancelling pipelines: ${error}`);
+      console.error(`[GitLabCI] Error in cancelAllPipelines: ${error.message}`);
+      throw new Error(`Failed to cancel pipelines: ${error.message}`);
+    }
+
+    return result;
+  }
+
+
+
+  /**
+   * Fetch all pipelines from GitLab API (both source and gitops repos)
+   */
+  private async fetchAllPipelines(): Promise<any[]> {
+    try {
+      const allPipelines: any[] = [];
+
+      // Fetch from source repository
+      const sourceProjectPath = `${this.getGroup()}/${this.sourceRepoName}`;
+      const sourcePipelines = await this.gitlabCIClient.pipelines.getAllPipelines(sourceProjectPath);
+
+      // Tag pipelines with their project path for later cancellation
+      const taggedSourcePipelines = (sourcePipelines || []).map(p => ({
+        ...p,
+        _projectPath: sourceProjectPath
+      }));
+      allPipelines.push(...taggedSourcePipelines);
+
+      // Fetch from gitops repository
+      const gitopsProjectPath = `${this.getGroup()}/${this.gitOpsRepoName}`;
+      try {
+        const gitopsPipelines = await this.gitlabCIClient.pipelines.getAllPipelines(gitopsProjectPath);
+
+        // Tag pipelines with their project path for later cancellation
+        const taggedGitopsPipelines = (gitopsPipelines || []).map(p => ({
+          ...p,
+          _projectPath: gitopsProjectPath
+        }));
+        allPipelines.push(...taggedGitopsPipelines);
+      } catch (gitopsError: any) {
+        // Gitops repo might not exist, log but don't fail
+        console.log(`[GitLabCI] Gitops repository ${gitopsProjectPath} not found or no pipelines: ${gitopsError.message}`);
+      }
+
+      return allPipelines;
+
+    } catch (error: any) {
+      console.error(`[GitLabCI] Failed to fetch pipelines: ${error.message}`);
+      throw error;
     }
   }
+
+  /**
+   * Filter pipelines based on cancellation options
+   */
+  private filterPipelines(
+    pipelines: any[],
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>
+  ): any[] {
+    return pipelines.filter(pipeline => {
+      // Filter 1: Skip completed pipelines unless includeCompleted is true
+      if (!options.includeCompleted && this.isCompletedStatus(pipeline.status)) {
+        console.log(`[Filter] Skipping completed pipeline ${pipeline.id} (${pipeline.status})`);
+        return false;
+      }
+
+      // Filter 2: Check exclusion patterns
+      if (this.matchesExclusionPattern(pipeline, options.excludePatterns)) {
+        console.log(`[Filter] Excluding pipeline ${pipeline.id} by pattern`);
+        return false;
+      }
+
+      // Filter 3: Filter by event type if specified
+      if (options.eventType && !this.matchesEventType(pipeline, options.eventType)) {
+        console.log(`[Filter] Skipping pipeline ${pipeline.id} (event type mismatch)`);
+        return false;
+      }
+
+      // Filter 4: Filter by branch if specified
+      if (options.branch && pipeline.ref !== options.branch) {
+        console.log(`[Filter] Skipping pipeline ${pipeline.id} (branch mismatch)`);
+        return false;
+      }
+
+      return true; // Include this pipeline for cancellation
+    });
+  }
+
+  /**
+   * Check if pipeline status is completed
+   */
+  private isCompletedStatus(status: string): boolean {
+    const completedStatuses = ['success', 'failed', 'canceled', 'skipped', 'manual'];
+    return completedStatuses.includes(status.toLowerCase());
+  }
+
+  /**
+   * Check if pipeline matches any exclusion pattern
+   */
+  private matchesExclusionPattern(pipeline: any, patterns: ReadonlyArray<RegExp>): boolean {
+    if (patterns.length === 0) {
+      return false;
+    }
+
+    const pipelineName = `Pipeline-${pipeline.id}`;
+    const branch = pipeline.ref || '';
+
+    return patterns.some(pattern =>
+      pattern.test(pipelineName) || pattern.test(branch)
+    );
+  }
+
+  /**
+   * Check if pipeline matches the event type
+   */
+  private matchesEventType(pipeline: any, eventType: EventType): boolean {
+    // GitLab uses 'source' field to indicate trigger type
+    switch (eventType) {
+      case EventType.PUSH:
+        return pipeline.source === 'push';
+      case EventType.PULL_REQUEST:
+        return pipeline.source === 'merge_request_event';
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Cancel pipelines in batches with concurrency control
+   */
+  private async cancelPipelinesInBatches(
+    pipelines: any[],
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>,
+    result: MutableCancelResult
+  ): Promise<void> {
+    // Split into batches
+    const batches = this.chunkArray(pipelines, options.concurrency);
+
+    console.log(`[GitLabCI] Processing ${batches.length} batches with concurrency ${options.concurrency}`);
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      console.log(`[GitLabCI] Processing batch ${i + 1}/${batches.length} (${batch.length} pipelines)`);
+
+      // Create promises for all pipelines in this batch
+      const promises = batch.map(pipeline =>
+        this.cancelSinglePipeline(pipeline, options, result)
+      );
+
+      // Wait for all in batch to complete (don't stop on errors)
+      const batchResults = await Promise.allSettled(promises);
+
+      // Inspect batch results for systemic failures
+      const batchSuccesses = batchResults.filter(r => r.status === 'fulfilled').length;
+      const batchFailures = batchResults.filter(r => r.status === 'rejected').length;
+
+      console.log(`[GitLabCI] Batch ${i + 1}/${batches.length} complete: ${batchSuccesses} succeeded, ${batchFailures} rejected`);
+
+      // Alert on complete batch failure - indicates systemic issue
+      if (batchFailures === batch.length && batch.length > 0) {
+        console.error(`❌ [GitLabCI] ENTIRE BATCH ${i + 1} FAILED - possible systemic issue (auth, network, or API problem)`);
+
+        // Log first rejection reason for debugging
+        const firstRejected = batchResults.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
+        if (firstRejected) {
+          console.error(`[GitLabCI] First failure reason: ${firstRejected.reason}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Cancel a single pipeline and update results
+   */
+  private async cancelSinglePipeline(
+    pipeline: any,
+    options: Required<Omit<CancelPipelineOptions, 'eventType' | 'branch'>> & Pick<CancelPipelineOptions, 'eventType' | 'branch'>,
+    result: MutableCancelResult
+  ): Promise<void> {
+    // Initialize detail object
+    const detail: MutablePipelineCancelDetail = {
+      pipelineId: pipeline.id,
+      name: `Pipeline-${pipeline.id}`,
+      status: this.mapPipelineStatus(pipeline.status),
+      result: 'skipped',
+      branch: pipeline.ref,
+      eventType: this.mapGitLabEventType(pipeline),
+    };
+
+    try {
+      if (options.dryRun) {
+        // Dry run mode - don't actually cancel
+        detail.result = 'skipped';
+        detail.reason = 'Dry run mode';
+        result.skipped++;
+        console.log(`[DryRun] Would cancel pipeline ${pipeline.id}`);
+
+      } else {
+        // Extract project path from tagged pipeline (added in fetchAllPipelines)
+        const projectPath = pipeline._projectPath || `${this.getGroup()}/${this.sourceRepoName}`;
+
+        // Actually cancel the pipeline via GitLab API
+        await this.cancelPipelineViaAPI(pipeline.id, projectPath);
+
+        detail.result = 'cancelled';
+        result.cancelled++;
+        console.log(`✅ [GitLabCI] Cancelled pipeline ${pipeline.id} in ${projectPath} (status: ${pipeline.status})`);
+      }
+
+    } catch (error: any) {
+      // Cancellation failed
+      detail.result = 'failed';
+      detail.reason = error.message;
+      result.failed++;
+
+      // Add to errors array
+      const cancelError: MutableCancelError = {
+        pipelineId: pipeline.id,
+        message: error.message,
+        error: error,
+      };
+
+      // Add status code if available
+      if (error.response?.status) {
+        cancelError.statusCode = error.response.status;
+      }
+
+      // Add provider error code if available
+      if (error.response?.data?.error) {
+        cancelError.providerErrorCode = error.response.data.error;
+      }
+
+      result.errors.push(cancelError);
+
+      console.error(`❌ [GitLabCI] Failed to cancel pipeline ${pipeline.id}: ${error.message}`);
+    }
+
+    // Add detail to results
+    result.details.push(detail);
+  }
+
+  /**
+   * Actually cancel the pipeline via GitLab API
+   */
+  private async cancelPipelineViaAPI(pipelineId: number, projectPath: string): Promise<void> {
+    try {
+      await this.gitlabCIClient.pipelines.cancelPipeline(projectPath, pipelineId);
+
+    } catch (error: any) {
+      // Handle GitLab-specific errors
+      if (error.response?.status === 404) {
+        throw new Error('Pipeline not found (may have been deleted)');
+      }
+      if (error.response?.status === 403) {
+        throw new Error('Insufficient permissions to cancel pipeline');
+      }
+      if (error.response?.data?.message) {
+        throw new Error(`GitLab API error: ${error.response.data.message}`);
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Map GitLab pipeline to EventType
+   */
+  private mapGitLabEventType(pipeline: any): EventType | undefined {
+    if (pipeline.source === 'push') {
+      return EventType.PUSH;
+    }
+    if (pipeline.source === 'merge_request_event') {
+      return EventType.PULL_REQUEST;
+    }
+    return undefined;
+  }
+
+
 
   public override async getWebhookUrl(): Promise<string> {
     throw new Error('GitLab does not support webhooks in the same way as other CI systems.');
