@@ -85,4 +85,13 @@ export class GithubActionsPlugin extends BaseCIPlugin {
         const pathname = url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
         return `${url.origin}${pathname}/actions`;
     }
+
+    /**
+     * GitHub Actions UI does not have the "View Output" popup with ACTIONS column
+     * that Tekton has. Skip this check for GitHub Actions.
+     */
+    // eslint-disable-next-line no-unused-vars
+    public async checkImageRegistryLinks(_page: Page): Promise<void> {
+        console.log('[GITHUB-ACTIONS] Skipping checkImageRegistryLinks - not applicable for GitHub Actions CI');
+    }
 }
