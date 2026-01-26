@@ -2,7 +2,7 @@
 FROM registry.redhat.io/openshift4/ose-tools-rhel9@sha256:66c94bdf1a6ad868176f86a6c0d3c244306b65759d250e5968cafb3647f825be AS ose-tools
 
 # Builder stage for ArgoCD CLI
-FROM registry.access.redhat.com/ubi9/ubi:9.7-1768785530 AS builder
+FROM registry.access.redhat.com/ubi9/ubi:9.7-1769057030 AS builder
 
 # Install ArgoCD CLI
 RUN VERSION=$(curl -L -s https://raw.githubusercontent.com/argoproj/argo-cd/stable/VERSION) \
