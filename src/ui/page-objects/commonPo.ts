@@ -13,6 +13,8 @@ export const CommonPO = {
 	viewOutputIconTestId: 'view-output-icon',
     closeIconTestId: 'CloseIcon',
 
+    // Table selectors
+    dataRowSelector: 'tbody tr[index]',
 } 
 
 /**

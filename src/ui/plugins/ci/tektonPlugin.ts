@@ -1,6 +1,7 @@
 import { expect, Page, Locator } from '@playwright/test';
 import { BaseCIPlugin } from './baseCIPlugin';
 import { TektonPO } from '../../page-objects/tektonPo';
+import { CiPo } from '../../page-objects/ciPo';
 import { CommonPO } from '../../page-objects/commonPo';
 
 export class TektonPlugin extends BaseCIPlugin {
@@ -102,8 +103,8 @@ export class TektonPlugin extends BaseCIPlugin {
         await expect(firstRow.getByRole('cell').filter({ hasText: TektonPO.vulnerabilitySeverityRegex }).first()).toBeVisible();
 
         // 3. Status is Succeeded and has a tick
-        await expect(firstRow).toContainText(TektonPO.statusSucceededText);
-        await expect(firstRow.locator(`[data-testid="${TektonPO.statusOkTestId}"]`)).toBeVisible();
+        await expect(firstRow).toContainText(CiPo.statusSucceededText);
+        await expect(firstRow.locator(`[data-testid="${CiPo.statusOkTestId}"]`)).toBeVisible();
 
         // 4. Started column has a date and time format (look for date pattern in any cell)
         await expect(firstRow.getByRole('cell').filter({ hasText: /\d{1,2}\/\d{1,2}\/\d{4}/ })).toBeVisible();
