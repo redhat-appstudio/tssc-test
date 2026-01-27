@@ -687,4 +687,177 @@ export class GithubProvider extends BaseGitProvider {
     sodium.crypto_box_seal(encryptedBuffer, secretBuffer, keyBuffer);
     return encryptedBuffer.toString('base64');
   }
+
+  /**
+   * Checks if a repository exists in GitHub
+   * @param owner The repository owner (organization or user)
+   * @param repoName The repository name
+   * @returns Promise<boolean> True if repository exists, false otherwise
+   */
+  public async checkIfRepositoryExists(owner: string, repoName: string): Promise<boolean> {
+    try {
+      await this.githubClient.repository.getRepository(owner, repoName);
+      return true;
+    } catch (error: any) {
+      if (error.status === 404) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Checks if a file exists in a repository
+   * @param owner The repository owner (organization or user)
+   * @param repoName The repository name
+   * @param filePath The path to the file
+   * @param branch The branch to check (default: 'main')
+   * @returns Promise<boolean> True if file exists, false otherwise
+   */
+  public async checkIfFileExistsInRepository(owner: string, repoName: string, filePath: string, branch: string = 'main'): Promise<boolean> {
+    try {
+      await this.githubClient.repository.getContent(owner, repoName, filePath, branch);
+      return true;
+    } catch (error: any) {
+      if (error.status === 404) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Deletes a file from a repository
+   * @param owner The repository owner (organization or user)
+   * @param repoName The repository name
+   * @param filePath The path to the file to delete
+   * @param branch The branch to delete from (default: 'main')
+   * @param commitMessage The commit message for the deletion
+   * @returns Promise<void>
+   */
+  public async deleteFileInRepository(owner: string, repoName: string, filePath: string, branch: string = 'main', commitMessage: string = 'Delete file'): Promise<void> {
+    try {
+      // Ensure the GitHub client is initialized
+      if (!this.githubClient) {
+        await this.initialize();
+      }
+
+      // First, get the current file to get its SHA
+      const fileContent = await this.githubClient.repository.getContent(owner, repoName, filePath, branch);
+      
+      if (!fileContent || !('sha' in fileContent)) {
+        throw new Error(`File ${filePath} not found or is not a file`);
+      }
+
+      // Delete the file using the GitHub API
+      await this.githubClient.repository.deleteFile(owner, repoName, filePath, commitMessage, fileContent.sha, branch);
+
+      console.log(`Successfully deleted file ${filePath} from ${owner}/${repoName}`);
+    } catch (error: any) {
+      console.error(`Failed to delete file ${filePath} from ${owner}/${repoName}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Deletes a folder from a repository using a single tree-based commit
+   * @param owner The repository owner (organization or user)
+   * @param repoName The repository name
+   * @param folderPath The path to the folder to delete
+   * @param branch The branch to delete from (default: 'main')
+   * @param commitMessage The commit message for the deletion
+   * @returns Promise<void>
+   */
+  public async deleteFolderInRepository(owner: string, repoName: string, folderPath: string, branch: string = 'main', commitMessage: string = 'Delete folder'): Promise<void> {
+    try {
+      // Ensure the GitHub client is initialized
+      if (!this.githubClient) {
+        await this.initialize();
+      }
+
+      const octokit = (this.githubClient as any).octokit;
+
+      // Get the current branch ref and base commit SHA
+      const { data: refData } = await octokit.rest.git.getRef({
+        owner,
+        repo: repoName,
+        ref: `heads/${branch}`,
+      });
+      const baseCommitSha = refData.object.sha;
+
+      // Get the base commit to retrieve the tree SHA
+      const { data: commitData } = await octokit.rest.git.getCommit({
+        owner,
+        repo: repoName,
+        commit_sha: baseCommitSha,
+      });
+      const baseTreeSha = commitData.tree.sha;
+
+      // Get the current tree
+      const { data: treeData } = await octokit.rest.git.getTree({
+        owner,
+        repo: repoName,
+        tree_sha: baseTreeSha,
+        recursive: 'true' as any,
+      });
+
+      // Filter out any tree entries under the target folder path
+      const filteredTreeItems = treeData.tree.filter((item: any) => {
+        // Remove any items that start with the folder path
+        return !item.path.startsWith(folderPath + '/') && item.path !== folderPath;
+      });
+
+      // Create a new tree without the folder
+      const { data: newTreeData } = await octokit.rest.git.createTree({
+        owner,
+        repo: repoName,
+        base_tree: baseTreeSha,
+        tree: filteredTreeItems.map((item: any) => ({
+          path: item.path,
+          mode: item.mode,
+          type: item.type,
+          sha: item.sha,
+        })),
+      });
+
+      // Create a new commit with the new tree
+      const { data: newCommitData } = await octokit.rest.git.createCommit({
+        owner,
+        repo: repoName,
+        message: commitMessage,
+        tree: newTreeData.sha,
+        parents: [baseCommitSha],
+      });
+
+      // Update the branch ref to point to the new commit
+      await octokit.rest.git.updateRef({
+        owner,
+        repo: repoName,
+        ref: `heads/${branch}`,
+        sha: newCommitData.sha,
+      });
+
+      console.log(`Successfully deleted folder ${folderPath} from ${owner}/${repoName} in a single commit`);
+    } catch (error: any) {
+      console.error(`Failed to delete folder ${folderPath} from ${owner}/${repoName}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Deletes a repository from GitHub
+   * @param owner The repository owner (organization or user)
+   * @param repoName The repository name
+   * @returns Promise<void>
+   */
+  public async deleteRepository(owner: string, repoName: string): Promise<void> {
+    try {
+      await this.githubClient.repository.deleteRepository(owner, repoName);
+
+      console.log(`Successfully deleted repository ${owner}/${repoName}`);
+    } catch (error: any) {
+      console.error(`Failed to delete repository ${owner}/${repoName}: ${error.message}`);
+      throw error;
+    }
+  }
 }
