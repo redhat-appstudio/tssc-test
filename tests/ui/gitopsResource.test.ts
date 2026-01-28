@@ -61,8 +61,10 @@ test.describe('Gitops Resource UI Test Suite', () => {
   });
 
   test("Verify CI", async ({ page }) => {
+    // Note: GitHub Actions for gitops resources requires additional setup
+    // The GitHub Actions plugin needs OAuth authorization which is handled in auth.setup.ts
     if (component.getCoreComponent().getCI().getCIType() === CIType.GITHUB_ACTIONS) {
-      console.warn(`Skipping CI test as testing ${component.getCoreComponent().getCI().getCIType} is not supported`);
+      console.warn(`Skipping CI test for gitops resource as GitHub Actions gitops CI verification is not yet fully supported`);
       test.skip();
       return;
     }

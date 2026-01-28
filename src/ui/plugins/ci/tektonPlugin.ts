@@ -1,6 +1,7 @@
 import { expect, Page, Locator } from '@playwright/test';
 import { BaseCIPlugin } from './baseCIPlugin';
 import { TektonPO } from '../../page-objects/tektonPo';
+import { CiPo } from '../../page-objects/ciPo';
 import { CommonPO } from '../../page-objects/commonPo';
 
 export class TektonPlugin extends BaseCIPlugin {
@@ -102,8 +103,8 @@ export class TektonPlugin extends BaseCIPlugin {
         await expect(firstRow.getByRole('cell').filter({ hasText: TektonPO.vulnerabilitySeverityRegex }).first()).toBeVisible();
 
         // 3. Status is Succeeded and has a tick
-        await expect(firstRow).toContainText(TektonPO.statusSucceededText);
-        await expect(firstRow.locator(`[data-testid="${TektonPO.statusOkTestId}"]`)).toBeVisible();
+        await expect(firstRow).toContainText(CiPo.statusSucceededText);
+        await expect(firstRow.locator(`[data-testid="${CiPo.statusOkTestId}"]`)).toBeVisible();
 
         // 4. Started column has a date and time format (look for date pattern in any cell)
         await expect(firstRow.getByRole('cell').filter({ hasText: /\d{1,2}\/\d{1,2}\/\d{4}/ })).toBeVisible();
@@ -116,10 +117,13 @@ export class TektonPlugin extends BaseCIPlugin {
     }
 
     async checkActions(page: Page): Promise<void> {
-        // Scroll to the action column header to make action buttons visible
-        await page.getByRole('columnheader', { name: TektonPO.actionsColumnHeader }).scrollIntoViewIfNeeded();
+        // Find the Pipeline Runs table specifically to avoid conflicts with other tables (e.g., ArgoCD)
+        const pipelineRunsTable = page.locator('table').filter({ has: page.getByRole('columnheader', { name: 'NAME' }) });
 
-        const onPushRow = page.locator('tr').filter({ hasText: TektonPO.onPushRowRegex }).first();
+        // Scroll to the action column header within the Pipeline Runs table
+        await pipelineRunsTable.getByRole('columnheader', { name: TektonPO.actionsColumnHeader, exact: true }).scrollIntoViewIfNeeded();
+
+        const onPushRow = pipelineRunsTable.locator('tr').filter({ hasText: TektonPO.onPushRowRegex }).first();
 
         await this.checkActionButtons(onPushRow);
         await this.checkLogsPopup(page, onPushRow);

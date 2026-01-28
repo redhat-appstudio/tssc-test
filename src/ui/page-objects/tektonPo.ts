@@ -25,10 +25,6 @@ export const TektonPO = {
 	vulnerabilitySeverityRegex: /Critical|High|Medium|Low/i,
 	durationRegex: /\d+\s+minutes?\s+\d+\s+seconds?/,
 
-	// Status constants
-	statusOkTestId: 'status-ok',
-	statusSucceededText: 'Succeeded',
-
 	// Task names
     sourceTasks: ['init', 'clone-repository', 'build-container', 'update-deployment', 'acs-image-scan', 'acs-image-check', 'acs-deploy-check', 'show-summary', 'show-sbom'],
 	gitopsTasks: ['clone-repository', 'get-images-to-verify', 'get-images-to-upload-sbom', 'download-sboms', 'upload-sboms-to-trustification', 'verify-enterprise-contract'],
