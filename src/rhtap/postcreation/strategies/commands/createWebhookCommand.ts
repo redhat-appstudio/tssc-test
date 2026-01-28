@@ -1,9 +1,13 @@
 import { BaseCommand } from './baseCommand';
+import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
+import { Logger } from '../../../../logger/logger';
 
 /**
  * Command to configure webhooks on GitLab repositories
  */
 export class CreateWebhookCommand extends BaseCommand {
+  protected readonly logger: Logger = LoggerFactory.getLogger('postcreation.command.webhook');
+  
   public async execute(): Promise<void> {
     this.logStart('Webhook configuration on git repository');
 
@@ -25,11 +29,11 @@ export class CreateWebhookCommand extends BaseCommand {
    */
   private async configureWebhookOnSourceRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(`Configuring webhook for source repo at ${webhookUrl}`);
+      this.logger.info('Configuring webhook for source repo at {}', webhookUrl);
       await this.git.configWebhookOnSourceRepo(webhookUrl);
-      console.log('Source repo webhook configured successfully');
+      this.logger.info('Source repo webhook configured successfully');
     } catch (error) {
-      console.error(`Failed to configure webhook on source repo: ${error}`);
+      this.logger.error('Failed to configure webhook on source repo: {}', error);
       throw error;
     }
   }
@@ -40,11 +44,11 @@ export class CreateWebhookCommand extends BaseCommand {
    */
   private async configureWebhookOnGitOpsRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(`Configuring webhook for GitOps repo at ${webhookUrl}`);
+      this.logger.info('Configuring webhook for GitOps repo at {}', webhookUrl);
       await this.git.configWebhookOnGitOpsRepo(webhookUrl);
-      console.log('GitOps repo webhook configured successfully');
+      this.logger.info('GitOps repo webhook configured successfully');
     } catch (error) {
-      console.error(`Failed to configure webhook on GitOps repo: ${error}`);
+      this.logger.error('Failed to configure webhook on GitOps repo: {}', error);
       throw error;
     }
   }

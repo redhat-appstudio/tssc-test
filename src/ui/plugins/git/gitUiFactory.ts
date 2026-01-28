@@ -10,8 +10,12 @@ import { BitbucketUiPlugin } from './bitbucketUi';
 import { GithubUiPlugin } from './githubUi';
 import { GitlabUiPlugin } from './gitlabUi';
 import { GitPlugin } from './gitUiInterface';
+import { LoggerFactory } from '../../../logger/logger';
+import type { Logger } from '../../../logger/logger';
 
 export class GitUiFactory {
+    private static readonly logger: Logger = LoggerFactory.getLogger(GitUiFactory);
+
     /**
      * Creates a Git UI plugin instance based on the Git type.
      * 
@@ -32,7 +36,7 @@ export class GitUiFactory {
             case GitType.BITBUCKET:
                 return new BitbucketUiPlugin(git);
             default:
-                console.warn(`Unsupported Git type: ${gitType}`);
+                this.logger.warn('Unsupported Git type: {}', gitType);
                 return undefined;
         }
     }

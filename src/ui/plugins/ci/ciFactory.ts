@@ -1,10 +1,14 @@
 import { CIPlugin } from './ciPlugin';
 import { CIType } from '../../../rhtap/core/integration/ci/ciInterface';
 import { TektonPlugin } from './tektonPlugin';
+import { LoggerFactory } from '../../../logger/logger';
+import type { Logger } from '../../../logger/logger';
 import { GithubActionsPlugin } from './githubActionsPlugin';
 import { AzurePlugin } from './azurePlugin';
 
 export class CIFactory {
+    private static readonly logger: Logger = LoggerFactory.getLogger(CIFactory);
+
     /**
     * Creates a CI UI plugin instance based on the CI type.
      *
@@ -26,7 +30,7 @@ export class CIFactory {
             case CIType.AZURE:
                 return new AzurePlugin(name, registryOrg);
             default:
-                console.warn(`Unsupported CI type: ${ciType}`);
+                this.logger.warn('Unsupported CI type: {}', ciType);
                 return undefined;
         }
     }

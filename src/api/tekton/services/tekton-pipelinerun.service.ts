@@ -1,6 +1,8 @@
 import { KubeClient } from '../../ocp/kubeClient';
 import { PipelineRunKind, TaskRunKind } from '@janus-idp/shared-react';
 import retry from 'async-retry';
+import { LoggerFactory } from '../../../logger/factory/loggerFactory';
+import { Logger } from '../../../logger/logger';
 
 // Type-safe interfaces for PipelineRun status structure
 interface ChildReference {
@@ -20,12 +22,14 @@ interface TaskRunReference {
 
 export class TektonPipelineRunService {
   private readonly kubeClient: KubeClient;
+  private readonly logger: Logger;
   private readonly API_GROUP = 'tekton.dev';
   private readonly API_VERSION = 'v1';
   private readonly PIPELINE_RUNS_PLURAL = 'pipelineruns';
 
   constructor(kubeClient: KubeClient) {
     this.kubeClient = kubeClient;
+    this.logger = LoggerFactory.getLogger('tekton.pipelinerun');
   }
 
   public async getPipelineRunByCommitSha(
@@ -64,9 +68,7 @@ export class TektonPipelineRunService {
             );
           }
 
-          console.log(
-            `Found Tekton PipelineRun: ${pipelineRun.metadata?.name}`,
-          );
+          this.logger.info('Found Tekton PipelineRun: {}', pipelineRun.metadata?.name);
 
           return pipelineRun;
         },
@@ -74,16 +76,12 @@ export class TektonPipelineRunService {
           retries: maxRetries,
           minTimeout: retryDelayMs,
           onRetry: (error: Error, attemptNumber) => {
-            console.log(
-              `[TEKTON-RETRY ${attemptNumber}/${maxRetries}] 🔄 SHA: ${commitSha} | Event: ${eventType} | Reason: ${error.message}`,
-            );
+            this.logger.warn('[TEKTON-RETRY {}/{}] SHA: {} | Event: {} | Reason: {}', attemptNumber, maxRetries, commitSha, eventType, error);
           },
         },
       );
     } catch (error: unknown) {
-      console.error(
-        `Failed to get pipeline run after retries: ${(error as Error).message}`,
-      );
+      this.logger.error('Failed to get pipeline run after retries: {}', (error as Error).message);
       return null;
     }
   }
@@ -114,9 +112,7 @@ export class TektonPipelineRunService {
             );
           }
 
-          console.log(
-            `Found Tekton PipelineRun: ${name} in namespace ${namespace}`,
-          );
+          this.logger.info('Found Tekton PipelineRun: {} in namespace {}', name, namespace);
 
           return pipelineRun;
         },
@@ -124,16 +120,12 @@ export class TektonPipelineRunService {
           retries: maxRetries,
           minTimeout: retryDelayMs,
           onRetry: (error: Error, attemptNumber) => {
-            console.log(
-              `[TEKTON-RETRY ${attemptNumber}/${maxRetries}] 🔄 Name: ${name} | Namespace: ${namespace} | Reason: ${error.message}`,
-            );
+            this.logger.warn('[TEKTON-RETRY {}/{}] Name: {} | Namespace: {} | Reason: {}', attemptNumber, maxRetries, name, namespace, error);
           },
         },
       );
     } catch (error: unknown) {
-      console.error(
-        `Failed to get pipeline run ${name} after retries: ${(error as Error).message}`,
-      );
+      this.logger.error('Failed to get pipeline run {} after retries: {}', name, (error as Error).message);
       return null;
     }
   }
@@ -142,52 +134,26 @@ export class TektonPipelineRunService {
     namespace: string,
     gitRepository: string,
   ): Promise<PipelineRunKind[]> {
-    const maxRetries = 2;
-    const retryDelayMs = 5000;
-
     try {
-      return await retry(
-        async () => {
-          const options = this.kubeClient.createApiOptions(
-            this.API_GROUP,
-            this.API_VERSION,
-            this.PIPELINE_RUNS_PLURAL,
-            namespace,
-            {
-              labelSelector: `pipelinesascode.tekton.dev/url-repository=${gitRepository}`,
-            },
-          );
-
-          const pipelineRuns =
-            await this.kubeClient.listResources<PipelineRunKind>(options);
-
-          if (!pipelineRuns || pipelineRuns.length === 0) {
-            throw new Error(
-              `No PipelineRuns found for repository ${gitRepository}`,
-            );
-          }
-
-          console.log(
-            `Found ${pipelineRuns.length} Tekton PipelineRuns for repository: ${gitRepository}`,
-          );
-          return pipelineRuns;
-        },
+      const options = this.kubeClient.createApiOptions(
+        this.API_GROUP,
+        this.API_VERSION,
+        this.PIPELINE_RUNS_PLURAL,
+        namespace,
         {
-          retries: maxRetries,
-          minTimeout: retryDelayMs,
-          maxTimeout: retryDelayMs,
-          onRetry: (error: Error, attemptNumber) => {
-            console.log(
-              `[TEKTON-RETRY ${attemptNumber}/${maxRetries}] 🔄 Repository: ${gitRepository} | Status: Waiting | Reason: ${error.message}`,
-            );
-          },
+          labelSelector: `pipelinesascode.tekton.dev/url-repository=${gitRepository}`,
         },
       );
+
+      const pipelineRuns =
+        await this.kubeClient.listResources<PipelineRunKind>(options);
+
+      this.logger.info('Found {} Tekton PipelineRuns for repository: {}', pipelineRuns?.length || 0, gitRepository);
+      
+      return pipelineRuns || [];
     } catch (error: unknown) {
-      console.error(
-        `Failed to get pipeline runs after retries: ${(error as Error).message}`,
-      );
-      return [];
+      this.logger.error('Failed to get pipeline runs for repository {}: {}', gitRepository, (error as Error).message);
+      throw error;
     }
   }
 
@@ -213,10 +179,10 @@ export class TektonPipelineRunService {
 
       await this.kubeClient.patchResource(options, patchData);
 
-      console.log(`Successfully cancelled PipelineRun: ${name} in namespace: ${namespace}`);
+      this.logger.info('Successfully cancelled PipelineRun: {} in namespace: {}', name, namespace);
     } catch (error: unknown) {
       const errorMessage = (error as Error).message;
-      console.error(`Failed to cancel PipelineRun ${name}: ${errorMessage}`);
+      this.logger.error('Failed to cancel PipelineRun {}: {}', name, errorMessage);
       throw new Error(`Failed to cancel PipelineRun ${name}: ${errorMessage}`);
     }
   }
@@ -240,9 +206,7 @@ export class TektonPipelineRunService {
     pipelineRunName: string,
   ): Promise<string> {
     try {
-      console.log(
-        `Retrieving logs for PipelineRun: ${pipelineRunName} in namespace: ${namespace}`,
-      );
+      this.logger.info('Retrieving logs for PipelineRun: {} in namespace: {}', pipelineRunName, namespace);
 
       const pipelineRun = await this.getPipelineRunByName(
         namespace,
@@ -250,15 +214,13 @@ export class TektonPipelineRunService {
       );
 
       if (!pipelineRun || !pipelineRun.status) {
-        console.log(
-          `PipelineRun '${pipelineRunName}' not found or has no status.`,
-        );
+        this.logger.info('PipelineRun \'{}\' not found or has no status', pipelineRunName);
         return '';
       }
 
       const taskRunReferences = this.getTaskRunReferences(pipelineRun);
       if (taskRunReferences.length === 0) {
-        console.log(`PipelineRun '${pipelineRunName}' has no TaskRuns yet.`);
+        this.logger.info('PipelineRun \'{}\' has no TaskRuns yet', pipelineRunName);
         return 'No TaskRuns found for this PipelineRun yet.\n';
       }
 
@@ -269,9 +231,7 @@ export class TektonPipelineRunService {
 
       return logs.join('\n');
     } catch (error: unknown) {
-      console.error(
-        `Error getting PipelineRun logs: ${(error as Error).message}`,
-      );
+      this.logger.error('Error getting PipelineRun logs: {}', (error as Error).message);
       return '';
     }
   }

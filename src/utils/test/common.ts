@@ -10,6 +10,10 @@ import { sleep } from '../util';
 import { expectPipelineSuccess } from './assertionHelpers';
 import { expect } from '@playwright/test';
 import retry from 'async-retry';
+import { LoggerFactory } from '../../logger/factory/loggerFactory';
+import { Logger } from '../../logger/logger';
+
+const logger: Logger = LoggerFactory.getLogger('utils.test.common');
 
 /**
  * Promotes an application to a specific environment using a pull request workflow
@@ -39,17 +43,17 @@ export async function promoteWithPRAndGetPipeline(
   environment: Environment,
   image: string
 ): Promise<Pipeline> {
-  console.log(`Promoting application to ${environment} environment with pull request...`);
+  logger.info(`Promoting application to ${environment} environment with pull request...`);
   try {
     // Step 1: Check if target environment's application exists
     const application = await cd.getApplication(environment);
     expect(application).not.toBeNull();
-    console.log(`Application exists in ${environment} environment`);
+    logger.info(`Application exists in ${environment} environment`);
 
     // Step 2: Create a promotion PR
-    console.log(`Creating promotion PR for ${environment} with image: ${image}`);
+    logger.info(`Creating promotion PR for ${environment} with image: ${image}`);
     const pr = await git.createPromotionPullRequestOnGitopsRepo(environment, image);
-    console.log(`Created promotion PR #${pr.pullNumber} in ${git.getGitOpsRepoName()} repository`);
+    logger.info(`Created promotion PR #${pr.pullNumber} in ${git.getGitOpsRepoName()} repository`);
 
     // Step 3: Wait for pipeline triggered by the promotion PR to complete
     const pipeline = await getPipelineAndWaitForCompletion(
@@ -61,18 +65,18 @@ export async function promoteWithPRAndGetPipeline(
 
     // Step 4: Merge the PR when pipeline was successful
     const mergedPR = await git.mergePullRequest(pr);
-    console.log(`Merged promotion PR #${mergedPR.pullNumber} with SHA: ${mergedPR.sha}`);
+    logger.info(`Merged promotion PR #${mergedPR.pullNumber} with SHA: ${mergedPR.sha}`);
 
     // Step 5: Sync and wait for the application to be ready
     const syncResult = await runAndWaitforAppSync(cd, environment, mergedPR.sha);
     expect(syncResult).toBe(true);
 
-    console.log(`Application successfully promoted to ${environment}`);
+    logger.info(`Application successfully promoted to ${environment}`);
 
     return pipeline;
   } catch (error) {
-    console.error(
-      `Error promoting application to ${environment}: ${error instanceof Error ? error.message : String(error)}`
+    logger.error(
+      `Error promoting application to ${environment}: ${error}`
     );
     throw error;
   }
@@ -102,17 +106,17 @@ export async function promoteWithoutPRAndGetPipeline(
   environment: Environment,
   image: string
 ): Promise<Pipeline> {
-  console.log(`Promoting application to ${environment} environment with direct commit...`);
+  logger.info(`Promoting application to ${environment} environment with direct commit...`);
 
   try {
     // Step 1: Check if target environment's application exists
     const application = await cd.getApplication(environment);
     expect(application).not.toBeNull();
-    console.log(`Application exists in ${environment} environment`);
+    logger.info(`Application exists in ${environment} environment`);
 
     // Step 2: Create a promotion commit to the gitops repository
     const commitSha = await git.createPromotionCommitOnGitOpsRepo(environment, image);
-    console.log(`Created commit with SHA: ${commitSha}`);
+    logger.info(`Created commit with SHA: ${commitSha}`);
 
         //TODO: Remove this once we are using Jenkins Plugins in the future
     if (ci.getCIType() === CIType.JENKINS) {
@@ -136,12 +140,12 @@ export async function promoteWithoutPRAndGetPipeline(
     const syncResult = await runAndWaitforAppSync(cd, environment, commitSha);
     expect(syncResult).toBe(true);
 
-    console.log(`Application successfully promoted to ${environment}`);
+    logger.info(`Application successfully promoted to ${environment}`);
 
     return pipeline;
   } catch (error) {
-    console.error(
-      `Error directly promoting application to ${environment}: ${error instanceof Error ? error.message : String(error)}`
+    logger.error(
+      `Error directly promoting application to ${environment}: ${error}`
     );
     throw error;
   }
@@ -154,19 +158,19 @@ export async function runAndWaitforAppSync(
 ): Promise<boolean> {
   try{
     // Sync and wait for the application to be ready
-    console.log(`Syncing application in ${environment} environment`);
+    logger.info(`Syncing application in ${environment} environment`);
     await cd.syncApplication(environment);
 
-    console.log(`Waiting for application to sync in ${environment} environment...`);
+    logger.info(`Waiting for application to sync in ${environment} environment...`);
     const syncResult = await cd.waitUntilApplicationIsSynced(environment, commitSha);
     if (!syncResult.synced) {
       throw new Error(`Failed to sync application. Status: ${syncResult.status}. Reason: ${syncResult.message}`);
     }
-    console.log(`Application successfully synced to ${environment}: ${syncResult.message}`);
+    logger.info(`Application successfully synced to ${environment}: ${syncResult.message}`);
     return syncResult.synced;
   } catch (error) {
-    console.error(
-      `Error syncing and waiting for application to sync to ${environment} with commitSha ${commitSha}: ${error instanceof Error ? error.message : String(error)}`
+    logger.error(
+      `Error syncing and waiting for application to sync to ${environment} with commitSha ${commitSha}: ${error}`
     );
     throw error;
   }
@@ -189,7 +193,7 @@ export async function getPipelineAndWaitForCompletion(
   const ciType = ci.getCIType();
 
   try{
-    console.log(`🔍 Getting ${ciType} pipeline for ${operationDescription}...`);
+    logger.info(`🔍 Getting ${ciType} pipeline for ${operationDescription}...`);
     const pipeline = await retry(
       async () => {
         const p = await ci.getPipeline(prReference, PipelineStatus.RUNNING, eventType);
@@ -199,32 +203,32 @@ export async function getPipelineAndWaitForCompletion(
         return p;
       },
       {
-        retries: 5,
+        retries: 10,
         minTimeout: 10000,
-        maxTimeout: 30000,
+        maxTimeout: 50000,
         onRetry: (error: Error, attempt: number) => {
-          console.error(`Attempt ${attempt} failed: ${error.message}`);
+          logger.error('Attempt {} failed: {}', attempt, error);
         },
       }
     );
 
     if (!pipeline) {
-      console.error(`No ${ciType} pipeline was triggered by ${operationDescription}`);
+      logger.error(`No ${ciType} pipeline was triggered by ${operationDescription}`);
       throw new Error('Expected a pipeline to be triggered but none was found');
     }
 
-    console.log(`Pipeline ${pipeline.getDisplayName()} was triggered by ${operationDescription}`);
+    logger.info(`Pipeline ${pipeline.getDisplayName()} was triggered by ${operationDescription}`);
 
     const pipelineStatus = await ci.waitForPipelineToFinish(pipeline);
-    console.log(`${ciType} pipeline completed with status: ${pipelineStatus}`);
+    logger.info(`${ciType} pipeline completed with status: ${pipelineStatus}`);
 
     await expectPipelineSuccess(pipeline, ci);
-    console.log(`${ciType} pipeline ${pipeline.getDisplayName()} was successful`);
+    logger.info(`${ciType} pipeline ${pipeline.getDisplayName()} was successful`);
 
     return pipeline;
   } catch (error) {
-    console.error(
-      `Error waiting for pipeline: ${error instanceof Error ? error.message : String(error)}`
+    logger.error(
+      `Error waiting for pipeline: ${error}`
     );
     throw error;
   }
@@ -265,18 +269,18 @@ export function getTestItemFromEnv(): TestItem {
  * @throws Error - If any step in the process fails
  */
 export async function handleSourceRepoCodeChanges(git: Git, ci: CI): Promise<void> {
-  console.log(
+  logger.info(
     'Starting to make changes to source repo code and build application image through pipelines...'
   );
   const ciType = ci.getCIType();
   const gitType = git.getGitType();
 
   if (ciType === CIType.GITHUB_ACTIONS || ciType === CIType.JENKINS || ciType === CIType.AZURE) {
-    console.log(`Using ${ciType} for ${gitType} repository`);
+    logger.info(`Using ${ciType} for ${gitType} repository`);
     // For GitHub Actions, we create a direct commit to the main branch
     return fastMovingToBuildApplicationImage(git, ci);
   } else {
-    console.log(`Creating a pull request on source repo on ${gitType} repository ...`);
+    logger.info(`Creating a pull request on source repo on ${gitType} repository ...`);
     // For other CI types, create a PR which triggers a pipeline
     await buildApplicationImageWithPR(git, ci);
   }
@@ -306,11 +310,11 @@ export async function handleSourceRepoCodeChanges(git: Git, ci: CI): Promise<voi
 export async function fastMovingToBuildApplicationImage(git: Git, ci: CI): Promise<void> {
   const gitType = git.getGitType();
   try {
-    console.log(`Creating a direct commit on source repo on ${gitType} repository ...`);
+    logger.info(`Creating a direct commit on source repo on ${gitType} repository ...`);
 
     // Step 1: Create a direct commit to the main branch
     const commitSha = await git.createSampleCommitOnSourceRepo();
-    console.log(`Created commit with SHA: ${commitSha}`);
+    logger.info(`Created commit with SHA: ${commitSha}`);
     await sleep(10000);
 
     //TODO: Remove this once we are using Jenkins Plugins in the future
@@ -331,8 +335,8 @@ export async function fastMovingToBuildApplicationImage(git: Git, ci: CI): Promi
       `commit ${commitSha} on main branch in ${commitRef.repository}`
     );
   } catch (error) {
-    console.error(
-      `Error handling source repo code changes: ${error instanceof Error ? error.message : String(error)}`
+    logger.error(
+      `Error handling source repo code changes: ${error}`
     );
     throw error;
   }
@@ -341,11 +345,11 @@ export async function fastMovingToBuildApplicationImage(git: Git, ci: CI): Promi
 export async function buildApplicationImageWithPR(git: Git, ci: CI): Promise<void> {
   const gitType = git.getGitType();
   try {
-    console.log(`Creating a pull request on source repo on ${gitType} repository ...`);
+    logger.info(`Creating a pull request on source repo on ${gitType} repository ...`);
 
     // Step 1: Create a PR which triggers a pipeline
     const pullRequest = await git.createSamplePullRequestOnSourceRepo();
-    console.log(`Created PR ${pullRequest.url} with SHA: ${pullRequest.sha}`);
+    logger.info(`Created PR ${pullRequest.url} with SHA: ${pullRequest.sha}`);
 
     // Step 2: Get the pipeline triggered by the PR and wait for complete
     await getPipelineAndWaitForCompletion(
@@ -367,8 +371,8 @@ export async function buildApplicationImageWithPR(git: Git, ci: CI): Promise<voi
       `on-push pipeline after merging #${mergedPR.pullNumber} in ${mergedPR.repository}`
     );
   } catch (error) {
-    console.error(
-      `Error handling source repo code changes: ${error instanceof Error ? error.message : String(error)}`
+    logger.error(
+      `Error handling source repo code changes: ${error}`
     );
     throw error;
   }
@@ -392,7 +396,7 @@ export async function handlePromotionToEnvironmentandGetPipeline(
 
 export async function getSbomIDFromCIPipelineLogs(ci: CI, pipeline: Pipeline): Promise<string> {
   try {
-    console.log(`Getting ${ci.getCIType()} Pipeline ${pipeline.id} logs to find SBOM document ID`);
+    logger.info(`Getting ${ci.getCIType()} Pipeline ${pipeline.id} logs to find SBOM document ID`);
     const pipelineLogs = await ci.getPipelineLogs(pipeline);
 
     const documentIdMatch = pipelineLogs.match(/"document_id"\s*:\s*"([^"]+)"/);
@@ -402,10 +406,10 @@ export async function getSbomIDFromCIPipelineLogs(ci: CI, pipeline: Pipeline): P
 
     // Get the value "document_id" from match string
     const documentId = documentIdMatch[1];
-    console.log(`SBOM Document ID ${documentId} found from Promotion Pipeline ${pipeline.id} logs`);
+    logger.info(`SBOM Document ID ${documentId} found from Promotion Pipeline ${pipeline.id} logs`);
     return documentId;
   } catch (error) {
-    console.error(`Error getting pipeline Logs`, error);
+    logger.error('Error getting pipeline Logs: {}', error);
     throw error;
   }
 }
@@ -439,7 +443,7 @@ export async function searchSBOMByNameAndDocIdList(
 
   // Try to find SBOM using each document ID - search all for verification
   for (const documentId of documentIdList) {
-    console.log(`Attempting to search with document ID: ${documentId}`);
+    logger.info(`Attempting to search with document ID: ${documentId}`);
 
     try {
       sbom = await tpa.searchSBOMByNameAndDocID(sbomName, documentId);
@@ -448,18 +452,18 @@ export async function searchSBOMByNameAndDocIdList(
         continue;
       }
       foundSbom.push(sbom);
-      console.log(`✅ SBOM found with document ID: ${documentId}`);
-      console.log(`SBOM details: Name: ${sbom.name}, Published: ${sbom.published}, SHA256: ${sbom.sha256}`);
+      logger.info(`✅ SBOM found with document ID: ${documentId}`);
+      logger.info(`SBOM details: Name: ${sbom.name}, Published: ${sbom.published}, SHA256: ${sbom.sha256}`);
 
     } catch (error) {
-      console.error(`❌ Error searching with document ID ${documentId}:`, error);
+      logger.error('❌ Error searching with document ID {}: {}', documentId, error);
       throw error;
     }
   }
   if (notFoundSbom.length > 0) {
-    console.error(`⚠️ Failed to find SBOM Document ID ${notFoundSbom} in TPA`);
+    logger.error(`⚠️ Failed to find SBOM Document ID ${notFoundSbom} in TPA`);
     return false;
   }
-  console.log (`✅ All SBOMS ${documentIdList} found in TPA!!!`);
+  logger.info(`✅ All SBOMS ${documentIdList} found in TPA!!!`);
   return true;
 }

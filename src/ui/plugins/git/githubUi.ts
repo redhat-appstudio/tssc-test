@@ -10,17 +10,25 @@ import { expect, Page } from '@playwright/test';
 import { loadFromEnv } from '../../../utils/util';
 import { DHLoginPO, GhLoginPO } from '../../page-objects/loginPo';
 import { GitPO } from '../../page-objects/commonPo';
-import { TOTP, createGuardrails, NobleCryptoPlugin, ScureBase32Plugin } from 'otplib';
+import { TOTP, NobleCryptoPlugin, ScureBase32Plugin } from 'otplib';
 import retry from 'async-retry';
 import { GitUi } from './gitUi';
 import { AuthUi } from '../auth/authUi';
 import { blurLocator } from '../../commonUi';
+import { LoggerFactory } from '../../../logger/logger';
+import type { Logger } from '../../../logger/logger';
+import type { Git } from '../../../rhtap/core/integration/git';
 
 export class GithubUiPlugin extends GitUi implements GitPlugin, AuthUi {
+    protected readonly logger: Logger;
+
+    constructor(git: Git) {
+        super(git);
+        this.logger = LoggerFactory.getLogger(GithubUiPlugin);
+    }
     private totp = new TOTP({
         crypto: new NobleCryptoPlugin(),
         base32: new ScureBase32Plugin(),
-        guardrails: createGuardrails({ MIN_SECRET_BYTES: 1 }),
     });
 
     /**
@@ -66,7 +74,7 @@ export class GithubUiPlugin extends GitUi implements GitPlugin, AuthUi {
                 minTimeout: timeout,
                 maxTimeout: timeout,
                 onRetry: (_error: Error, attemptNumber: number) => {
-                    console.log(`[GITHUB-RETRY ${attemptNumber}/${maxRetries}] 🔄 2FA token entry failed, waiting ${timeout}ms before retrying...`);
+                    this.logger.warn('2FA token entry failed, retrying (attempt {}/{}), waiting {}ms', attemptNumber, maxRetries, timeout);
                 },  
             }
         );
@@ -77,12 +85,12 @@ export class GithubUiPlugin extends GitUi implements GitPlugin, AuthUi {
         try {
             await authorizeButton.waitFor({ state: 'visible', timeout: 3000 });
             await authorizeButton.click();
-            console.log('Authorization button clicked successfully');
+            this.logger.info('Authorization button clicked successfully');
         } catch (error: unknown) {
             if (error instanceof Error && !error.message.includes('locator.waitFor')) {
                 throw error;
             }
-            console.log('Authorization button not found or not needed, continuing...');
+            this.logger.debug('Authorization button not found or not needed, continuing...');
         }
     }
 

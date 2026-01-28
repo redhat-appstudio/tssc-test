@@ -10,6 +10,8 @@ import { GithubWebhookService } from './services/github-webhook.service';
 import { GithubClientOptions } from './types/github.types';
 import { GithubError } from './errors/github.errors';
 import { BaseApiClient } from '../common/base-api.client';
+import { LoggerFactory } from '../../logger/logger';
+import type { Logger } from '../../logger/logger';
 
 const EnhancedOctokit = Octokit.plugin(retry, throttling);
 
@@ -112,6 +114,9 @@ export class GithubClient extends BaseApiClient {
   /** The underlying Octokit instance (private) */
   private readonly octokit: Octokit;
 
+  /** Logger instance for GitHub client operations (supports parameterized logging) */
+  protected readonly logger: Logger;
+
   /**
    * Creates a new GitHub client instance
    * 
@@ -137,6 +142,12 @@ export class GithubClient extends BaseApiClient {
    */
   constructor(options: GithubClientOptions) {
     super(options.baseUrl || 'https://api.github.com', options.timeout || 30000);
+    
+    // Initialize logger with hierarchical name
+    // Note: In tests, projectName and worker are auto-injected
+    this.logger = LoggerFactory.getLogger('github.client');
+    this.logger.info('Initializing GitHub client', { baseUrl: this.baseUrl });
+    
     this.octokit = new EnhancedOctokit({
       auth: options.token,
       baseUrl: this.baseUrl,
@@ -146,24 +157,30 @@ export class GithubClient extends BaseApiClient {
         retryAfter: 3,
       },
       throttle: {
-        onRateLimit: (retryAfter, requestOptions, octokit, retryCount): boolean => {
-          octokit.log.warn(
-            `Request quota exhausted for request ${requestOptions.method} ${requestOptions.url}`,
+        onRateLimit: (retryAfter, requestOptions, _octokit, retryCount): boolean => {
+          this.logger.warn(
+            'Request quota exhausted for request {} {}',
+            requestOptions.method,
+            requestOptions.url,
+            { retryAfter, retryCount }
           );
 
           if (retryCount < (options.throttleOptions?.maxRetries || 2)) {
-            octokit.log.info(`Retrying after ${retryAfter} seconds!`);
+            this.logger.info('Retrying after {} seconds', retryAfter, { retryCount });
             return true;
           }
           return false;
         },
-        onSecondaryRateLimit: (retryAfter, requestOptions, octokit, retryCount): boolean => {
-          octokit.log.warn(
-            `SecondaryRateLimit detected for request ${requestOptions.method} ${requestOptions.url}`,
+        onSecondaryRateLimit: (retryAfter, requestOptions, _octokit, retryCount): boolean => {
+          this.logger.warn(
+            'SecondaryRateLimit detected for request {} {}',
+            requestOptions.method,
+            requestOptions.url,
+            { retryAfter, retryCount }
           );
 
           if (retryCount < (options.throttleOptions?.maxRetries || 2)) {
-            octokit.log.info(`Retrying after ${retryAfter} seconds!`);
+            this.logger.info('Retrying after {} seconds', retryAfter, { retryCount });
             return true;
           }
           return false;
@@ -175,6 +192,7 @@ export class GithubClient extends BaseApiClient {
     this.octokit.hook.error('request', async (error) => {
       // RequestError from Octokit has a status property, but plain Error doesn't
       const status = 'status' in error ? (error as any).status : undefined;
+      this.logger.error('GitHub API error: {}', error, { status });
       throw new GithubError(error.message, status, error);
     });
 
@@ -184,6 +202,9 @@ export class GithubClient extends BaseApiClient {
     this.secrets = new GithubSecretsService(this.octokit);
     this.variables = new GithubVariablesService(this.octokit);
     this.webhooks = new GithubWebhookService(this.octokit);
+
+    // Simple log without metadata - test context (projectName, worker) auto-injected in tests
+    this.logger.info('GitHub client initialized successfully');
   }
 
   /**
@@ -207,9 +228,14 @@ export class GithubClient extends BaseApiClient {
    */
   async ping(): Promise<boolean> {
     try {
+      // Simple log - test context auto-injected
+      this.logger.debug('Pinging GitHub API');
       await this.octokit.rest.meta.get();
+      this.logger.info('GitHub API ping successful');
       return true;
-    } catch {
+    } catch (error) {
+      // Log with error details - merged with test context
+      this.logger.warn('GitHub API ping failed: {}', error);
       return false;
     }
   }

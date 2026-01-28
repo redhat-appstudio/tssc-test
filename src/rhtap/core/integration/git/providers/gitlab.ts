@@ -7,6 +7,8 @@ import { GitType } from '../gitInterface';
 import { PullRequest } from '../models';
 import { ContentModifications } from '../../../../modification/contentModification';
 import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
+import { LoggerFactory } from '../../../../../logger/factory/loggerFactory';
+import { Logger } from '../../../../../logger/logger';
 
 /**
  * GitLab provider class
@@ -14,12 +16,14 @@ import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateF
  * This class implements the Git interface for GitLab repositories.
  */
 export class GitlabProvider extends BaseGitProvider {
+  private readonly logger: Logger;
   private gitlabClient!: GitLabClient;
   private template!: ITemplate;
   private baseUrl: string = '';
 
   constructor(componentName: string, templateType: TemplateType, kubeClient: KubeClient) {
     super(componentName, GitType.GITLAB, kubeClient);
+    this.logger = LoggerFactory.getLogger('rhtap.core.integration.git.gitlab');
     this.template = TemplateFactory.createTemplate(templateType);
     // Initialization happens when initialize() is called explicitly by GitFactory
   }
@@ -115,14 +119,14 @@ export class GitlabProvider extends BaseGitProvider {
       const project = await this.gitlabClient.projects.getProject(`${owner}/${repo}`);
       const projectId = project.id;
 
-      console.log(`Getting File Contents of ${filePath} in repo ${repo}`);
+      this.logger.info(`Getting File Contents of ${filePath} in repo ${repo}`);
       // Get the current content of the deployment patch file
       const fileContent = await this.gitlabClient.repositories.getFileContent(projectId, filePath, branch);
 
       // Decode the content from base64
       return Buffer.from(fileContent.content, 'base64').toString('utf-8');
     } catch (error: any) {
-      console.error(`Error getting file contents of ${filePath} in repo ${repo}:${error.message}`);
+      this.logger.error('Error getting file contents of ${filePath} in repo ${repo}: {}', error);
       throw error;
     }
   }
@@ -153,7 +157,7 @@ export class GitlabProvider extends BaseGitProvider {
     const contentModifications: ContentModifications = {};
 
     try {
-      console.log(`Creating a direct promotion commit for environment: ${environment}`);
+      this.logger.info(`Creating a direct promotion commit for environment: ${environment}`);
 
       const currentContent = await this.getFileContentInString(
         this.getGroup(),
@@ -191,7 +195,7 @@ export class GitlabProvider extends BaseGitProvider {
         },
       ];
 
-      console.log(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
+      this.logger.info(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
 
       // Use the common commit method
       const commitSha = await this.commitChangesToRepo(
@@ -202,12 +206,12 @@ export class GitlabProvider extends BaseGitProvider {
         branch
       );
 
-      console.log(
+      this.logger.info(
         `Successfully created direct promotion commit (${commitSha.substring(0, 7)}) for ${environment} environment`
       );
       return commitSha;
     } catch (error: any) {
-      console.error(`Error creating promotion commit for ${environment}: ${error.message}`);
+      this.logger.error(`Error creating promotion commit for ${environment}: {}`);
       throw error;
     }
   }
@@ -223,11 +227,11 @@ export class GitlabProvider extends BaseGitProvider {
       throw new Error('Pull request cannot be null.');
     }
 
-    console.log(`Merging merge request #${pullRequest.pullNumber}...`);
+    this.logger.info(`Merging merge request #${pullRequest.pullNumber}...`);
 
     // if pullRequest is already merged, return it
     if (pullRequest.isMerged) {
-      console.log(`Merge request #${pullRequest.pullNumber} is already merged.`);
+      this.logger.info(`Merge request #${pullRequest.pullNumber} is already merged.`);
       return pullRequest;
     }
 
@@ -253,7 +257,7 @@ export class GitlabProvider extends BaseGitProvider {
         }
       );
 
-      console.log(
+      this.logger.info(
         `Merge request #${pullRequest.pullNumber} merged successfully with merge commit SHA: ${mergeResponse.mergeCommitSha}`
       );
 
@@ -268,7 +272,7 @@ export class GitlabProvider extends BaseGitProvider {
 
       return mergedPR;
     } catch (error: unknown) {
-      console.error(`Failed to merge merge request #${pullRequest.pullNumber}: ${error}`);
+      this.logger.error(`Failed to merge merge request #${pullRequest.pullNumber}: ${error}`);
       throw error;
     }
   }
@@ -336,8 +340,8 @@ export class GitlabProvider extends BaseGitProvider {
         },
       ];
 
-      console.log(`Creating a promotion PR for environment: ${environment}`);
-      console.log(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
+      this.logger.info(`Creating a promotion PR for environment: ${environment}`);
+      this.logger.info(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
 
       // Create a merge request with the changes
       const result = await this.gitlabClient.mergeRequests.createMergeRequest(
@@ -355,7 +359,7 @@ export class GitlabProvider extends BaseGitProvider {
 
       // Fallback: Fetch commit SHA from branch if not in MR response
       if (!commitSha) {
-        console.log(`SHA not in MR response, fetching from branch ${newBranchName}`);
+        this.logger.info(`SHA not in MR response, fetching from branch ${newBranchName}`);
         const projectId = (await this.gitlabClient.projects.getProject(
           `${this.getGroup()}/${this.gitOpsRepoName}`
         )).id;
@@ -369,13 +373,13 @@ export class GitlabProvider extends BaseGitProvider {
         }
 
         commitSha = commits[0].id;
-        console.log(`Retrieved commit SHA from branch: ${commitSha}`);
+        this.logger.info(`Retrieved commit SHA from branch: ${commitSha}`);
       }
 
-      console.log(`Successfully created promotion MR #${prNumber} for ${environment} environment`);
+      this.logger.info(`Successfully created promotion MR #${prNumber} for ${environment} environment`);
       return new PullRequest(prNumber, commitSha, this.gitOpsRepoName);
     } catch (error: any) {
-      console.error(`Error creating promotion PR for ${environment}: ${error.message}`);
+      this.logger.error(`Error creating promotion PR for ${environment}: {}`);
       throw error;
     }
   }
@@ -390,7 +394,7 @@ export class GitlabProvider extends BaseGitProvider {
     }
 
     const filePath = `components/${this.componentName}/overlays/${environment}/deployment-patch.yaml`;
-    console.log(`Extracting application image from file: ${filePath}`);
+    this.logger.info(`Extracting application image from file: ${filePath}`);
 
     try {
       // Find the GitOps project ID using direct path lookup (more efficient)
@@ -446,10 +450,10 @@ export class GitlabProvider extends BaseGitProvider {
         throw new Error(`Could not parse image value from matches in file: ${filePath}`);
       }
 
-      console.log(`Extracted image from ${filePath}: ${imageValue}`);
+      this.logger.info(`Extracted image from ${filePath}: ${imageValue}`);
       return imageValue;
     } catch (error: any) {
-      console.error(`Error extracting application image: ${error.message}`);
+      this.logger.error(`Error extracting application image: {}`);
       throw error;
     }
   }
@@ -472,9 +476,9 @@ export class GitlabProvider extends BaseGitProvider {
 
       const contentModifications = this.template.getContentModifications();
 
-      console.log(`Creating a sample merge request in GitLab with the following parameters:`);
-      console.log(`New Branch Name: ${newBranchName}`);
-      console.log(`Source Repository: ${this.sourceRepoName}`);
+      this.logger.info(`Creating a sample merge request in GitLab with the following parameters:`);
+      this.logger.info(`New Branch Name: ${newBranchName}`);
+      this.logger.info(`Source Repository: ${this.sourceRepoName}`);
 
       // Use the GitLabClient's createMergeRequest method which handles branch creation and file modifications
       const result = await this.gitlabClient.mergeRequests.createMergeRequest(
@@ -492,7 +496,7 @@ export class GitlabProvider extends BaseGitProvider {
 
       // Fallback: Fetch commit SHA from branch if not in MR response
       if (!commitSha) {
-        console.log(`SHA not in MR response, fetching from branch ${newBranchName}`);
+        this.logger.info(`SHA not in MR response, fetching from branch ${newBranchName}`);
         const projectId = (await this.gitlabClient.projects.getProject(
           `${this.getGroup()}/${this.sourceRepoName}`
         )).id;
@@ -506,18 +510,18 @@ export class GitlabProvider extends BaseGitProvider {
         }
 
         commitSha = commits[0].id;
-        console.log(`Retrieved commit SHA from branch: ${commitSha}`);
+        this.logger.info(`Retrieved commit SHA from branch: ${commitSha}`);
       }
 
       // Construct the pull request URL
       const prUrl = `${this.baseUrl}/${this.getGroup()}/${this.sourceRepoName}/merge_requests/${prNumber}`;
 
-      console.log(`Successfully created merge request #${prNumber} with commit SHA: ${commitSha}`);
+      this.logger.info(`Successfully created merge request #${prNumber} with commit SHA: ${commitSha}`);
 
       // Return a PullRequest object with the merge request details
       return new PullRequest(prNumber, commitSha, this.sourceRepoName, false, undefined, prUrl);
     } catch (error: any) {
-      console.error(`Error creating sample merge request: ${error.message}`);
+      this.logger.error(`Error creating sample merge request: {}`);
       throw error;
     }
   }
@@ -552,11 +556,11 @@ export class GitlabProvider extends BaseGitProvider {
     baseBranch: string = 'main'
   ): Promise<PullRequest> {
     try {
-      console.log(`Creating a sample pull request in GitLab with the following parameters:`);
-      console.log(`New Branch Name: ${newBranchName}`);
-      console.log(`Title: ${title}`);
-      console.log(`Description: ${description}`);
-      console.log(`Base Branch: ${baseBranch}`);
+      this.logger.info(`Creating a sample pull request in GitLab with the following parameters:`);
+      this.logger.info(`New Branch Name: ${newBranchName}`);
+      this.logger.info(`Title: ${title}`);
+      this.logger.info(`Description: ${description}`);
+      this.logger.info(`Base Branch: ${baseBranch}`);
 
       // Use GitLabClient's createMergeRequest method which already supports batch changes
       const result = await this.gitlabClient.mergeRequests.createMergeRequest(
@@ -574,7 +578,7 @@ export class GitlabProvider extends BaseGitProvider {
 
       // Fallback: Fetch commit SHA from branch if not in MR response
       if (!commitSha) {
-        console.log(`SHA not in MR response, fetching from branch ${newBranchName}`);
+        this.logger.info(`SHA not in MR response, fetching from branch ${newBranchName}`);
         const projectId = (await this.gitlabClient.projects.getProject(
           `${this.getGroup()}/${this.sourceRepoName}`
         )).id;
@@ -588,15 +592,15 @@ export class GitlabProvider extends BaseGitProvider {
         }
 
         commitSha = commits[0].id;
-        console.log(`Retrieved commit SHA from branch: ${commitSha}`);
+        this.logger.info(`Retrieved commit SHA from branch: ${commitSha}`);
       }
 
-      console.log(`Successfully created merge request #${prNumber} with commit SHA: ${commitSha}`);
+      this.logger.info(`Successfully created merge request #${prNumber} with commit SHA: ${commitSha}`);
 
       // Return a PullRequest object with the details
       return new PullRequest(prNumber, commitSha, this.sourceRepoName);
     } catch (error: any) {
-      console.error(`Error creating sample merge request: ${error.message}`);
+      this.logger.error(`Error creating sample merge request: {}`);
       throw error;
     }
   }
@@ -629,7 +633,7 @@ export class GitlabProvider extends BaseGitProvider {
         throw new Error('Commit message is required');
       }
 
-      console.log(`Committing changes directly to ${owner}/${repo} in branch ${branch}`);
+      this.logger.info(`Committing changes directly to ${owner}/${repo} in branch ${branch}`);
 
       // Find the project ID for the repository using direct path lookup (more efficient)
       let projectId;
@@ -684,7 +688,7 @@ export class GitlabProvider extends BaseGitProvider {
               } else {
                 // For existing files where pattern isn't found, log a warning and skip
                 // Don't replace the entire file content when a pattern isn't found
-                console.warn(
+                this.logger.warn(
                   `Couldn't find match for pattern in ${filePath}, skipping this modification`
                 );
               }
@@ -698,13 +702,13 @@ export class GitlabProvider extends BaseGitProvider {
             content: fileContent,
           });
         } catch (error: any) {
-          console.error(`Error preparing file modification for ${filePath}: ${error.message}`);
+          this.logger.error(`Error preparing file modification for ${filePath}: {}`);
           throw error;
         }
       }
 
       // Execute a direct batch commit to the target branch
-      console.log(`Committing ${fileActions.length} file changes in a single batch`);
+      this.logger.info(`Committing ${fileActions.length} file changes in a single batch`);
 
       // Make a direct commit to the repository - this is using the internal GitLab APIs through gitlabClient
       const commitResult = await this.gitlabClient.repositories.createCommit(
@@ -727,12 +731,12 @@ export class GitlabProvider extends BaseGitProvider {
         throw new Error(`Failed to retrieve commit SHA after committing changes`);
       }
 
-      console.log(
+      this.logger.info(
         `Successfully committed all changes directly to branch '${branch}' with SHA: ${commitSha}`
       );
       return commitSha;
     } catch (error: any) {
-      console.error(`Error creating direct commit on branch '${branch}': ${error.message}`);
+      this.logger.error(`Error creating direct commit on branch '${branch}': {}`);
       throw error;
     }
   }
@@ -745,7 +749,7 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public override async getSourceRepoCommitSha(branch: string = 'main'): Promise<string> {
     try {
-      console.log(
+      this.logger.info(
         `Getting latest commit SHA for source repo: ${this.sourceRepoName}, branch: ${branch}`
       );
 
@@ -769,11 +773,11 @@ export class GitlabProvider extends BaseGitProvider {
       }
 
       const commitSha = commits[0].id;
-      console.log(`Latest commit SHA for ${this.sourceRepoName}/${branch}: ${commitSha}`);
+      this.logger.info(`Latest commit SHA for ${this.sourceRepoName}/${branch}: ${commitSha}`);
 
       return commitSha;
     } catch (error: any) {
-      console.error(`Failed to get commit SHA for source repo: ${error.message}`);
+      this.logger.error(`Failed to get commit SHA for source repo: {}`);
       throw error;
     }
   }
@@ -786,7 +790,7 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public override async getGitOpsRepoCommitSha(branch: string = 'main'): Promise<string> {
     try {
-      console.log(
+      this.logger.info(
         `Getting latest commit SHA for GitOps repo: ${this.gitOpsRepoName}, branch: ${branch}`
       );
 
@@ -809,11 +813,11 @@ export class GitlabProvider extends BaseGitProvider {
       }
 
       const commitSha = commits[0].id;
-      console.log(`Latest commit SHA for ${this.gitOpsRepoName}/${branch}: ${commitSha}`);
+      this.logger.info(`Latest commit SHA for ${this.gitOpsRepoName}/${branch}: ${commitSha}`);
 
       return commitSha;
     } catch (error: any) {
-      console.error(`Failed to get commit SHA for GitOps repo: ${error.message}`);
+      this.logger.error(`Failed to get commit SHA for GitOps repo: {}`);
       throw error;
     }
   }
@@ -824,7 +828,7 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public override async configWebhookOnSourceRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(
+      this.logger.info(
         `Configuring webhook for source repo ${this.getGroup()}/${this.sourceRepoName} with ${webhookUrl}`
       );
 
@@ -839,11 +843,11 @@ export class GitlabProvider extends BaseGitProvider {
         }
       );
 
-      console.log(
+      this.logger.info(
         `Webhook configured successfully for source repo ${this.getGroup()}/${this.sourceRepoName} with ${webhookUrl}`
       );
     } catch (error: any) {
-      console.error(`Failed to configure webhook on source repo: ${error.message}`);
+      this.logger.error(`Failed to configure webhook on source repo: {}`);
       throw error;
     }
   }
@@ -854,7 +858,7 @@ export class GitlabProvider extends BaseGitProvider {
    */
   public override async configWebhookOnGitOpsRepo(webhookUrl: string): Promise<void> {
     try {
-      console.log(
+      this.logger.info(
         `Configuring webhook for GitOps repo ${this.getGroup()}/${this.gitOpsRepoName} with ${webhookUrl}`
       );
 
@@ -865,11 +869,11 @@ export class GitlabProvider extends BaseGitProvider {
         webhookUrl
       );
 
-      console.log(
+      this.logger.info(
         `Webhook configured successfully for GitOps repo ${this.getGroup()}/${this.gitOpsRepoName} with ${webhookUrl}`
       );
     } catch (error: any) {
-      console.error(`Failed to configure webhook on GitOps repo: ${error.message}`);
+      this.logger.error(`Failed to configure webhook on GitOps repo: {}`);
       throw error;
     }
   }
@@ -926,7 +930,7 @@ export class GitlabProvider extends BaseGitProvider {
     const repoName = repositoryName || this.componentName;
     const repoFullPath = `${groupName}/${repoName}`;
 
-    console.log(`Setting project variables for ${repoFullPath}`);
+    this.logger.info(`Setting project variables for ${repoFullPath}`);
 
     try {
       // Get project first to validate existence
@@ -935,11 +939,11 @@ export class GitlabProvider extends BaseGitProvider {
       // Process variables concurrently
       const operations = Object.entries(variables).map(async ([key, value]) => {
         try {
-          console.log(`Setting project variable '${key}' for repository ${repoFullPath}`);
+          this.logger.info(`Setting project variable '${key}' for repository ${repoFullPath}`);
           await this.gitlabClient.projects.setEnvironmentVariable(project.id, key, value);
-          console.log(`Project variable '${key}' set successfully`);
+          this.logger.info(`Project variable '${key}' set successfully`);
         } catch (error) {
-          console.error(`Error setting project variable '${key}': ${error}`);
+          this.logger.error(`Error setting project variable '${key}': ${error}`);
           // Don't throw here, just log the error and continue with other variables
         }
       });
@@ -947,9 +951,9 @@ export class GitlabProvider extends BaseGitProvider {
       // Wait for all operations to complete
       await Promise.allSettled(operations);
 
-      console.log(`Completed setting project variables for ${repoFullPath}`);
+      this.logger.info(`Completed setting project variables for ${repoFullPath}`);
     } catch (error) {
-      console.error(`Error accessing project ${repoFullPath}: ${error}`);
+      this.logger.error(`Error accessing project ${repoFullPath}: ${error}`);
       throw new Error(`Failed to set project variables for ${repoFullPath}: ${error}`);
     }
   }

@@ -1,14 +1,18 @@
 import { Component } from '../core/component';
 import { CleanupActionStrategyFactory } from './strategies/cleanupActionStrategyFactory';
+import { LoggerFactory } from '../../logger/factory/loggerFactory';
+import { Logger } from '../../logger/logger';
 
 /**
  * Handles cleanup actions for components based on CI and Git provider combinations
  * Acts as a facade to coordinate the appropriate strategy execution
  */
 export class ComponentCleanupAction {
+  private readonly logger: Logger;
   private component: Component;
 
   constructor(component: Component) {
+    this.logger = LoggerFactory.getLogger('rhtap.cleanup.facade');
     this.component = component;
   }
 
@@ -19,7 +23,7 @@ export class ComponentCleanupAction {
     const ci = this.component.getCI();
     const ciType = ci.getCIType();
 
-    console.log(`Executing cleanup actions for CI: ${ciType}`);
+    this.logger.info('Executing cleanup actions for CI: {}', ciType);
 
     try {
       // Use the factory to get the appropriate strategy for the CI type
@@ -28,15 +32,17 @@ export class ComponentCleanupAction {
       // Execute the strategy with the component
       await strategy.execute(this.component);
 
-      console.log(
-        `Cleanup-creation actions completed successfully for ${this.component.getName()}`
+      this.logger.info(
+        'Cleanup-creation actions completed successfully for {}',
+        this.component.getName()
       );
     } catch (error) {
-      console.error(
-        `Error executing cleanup-creation actions: ${error instanceof Error ? error.message : String(error)}`
+      this.logger.error(
+        'Error executing cleanup-creation actions: {}',
+        error
       );
       throw new Error(
-        `Cleanup-creation actions failed: ${error instanceof Error ? error.message : String(error)}`
+        `Cleanup-creation actions failed: ${error}`
       );
     }
   }
