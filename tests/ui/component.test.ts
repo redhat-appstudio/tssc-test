@@ -5,7 +5,6 @@ import { CommonPO } from '../../src/ui/page-objects/commonPo';
 import { hideQuickStartIfVisible } from '../../src/ui/commonUi';
 import { waitForPageLoad } from '../../src/ui/commonUi';
 import { AUTH_STORAGE_FILE } from '../../playwright.config';
-import { GithubActionsPlugin } from '../../src/ui/plugins/ci/githubActionsPlugin';
 
 /**
  * Create a basic test fixture with testItem
@@ -78,8 +77,7 @@ test.describe('Component UI Test Suite', () => {
     test('verify CI provider on CI tab', async ({ page }) => {
       const ciPlugin = component.getCI();
 
-      // Skip test for Github Actions plugin until issue is resolved: https://issues.redhat.com/browse/RHTAP-6138
-      if (ciPlugin === undefined || ciPlugin instanceof GithubActionsPlugin) {
+      if (ciPlugin === undefined) {
         console.warn(`Skipping CI test as testing ${component.getCoreComponent().getCI().getCIType()} is not supported`);
         test.skip();
         return;

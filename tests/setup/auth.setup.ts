@@ -3,9 +3,24 @@ import { Git, GitType } from '../../src/rhtap/core/integration/git';
 import { OidcUi } from '../../src/ui/plugins/auth/oidcUi';
 import { GithubUiPlugin } from '../../src/ui/plugins/git/githubUi';
 import { test as setup } from '@playwright/test';
+import { BrowserContext } from '@playwright/test';
 import yaml from 'js-yaml';
 
 const authFile = 'playwright/.auth/user.json';
+
+
+async function updateGitHubGrantedScope(context: BrowserContext): Promise<void> {
+  const cookies = await context.cookies();
+  const scopeCookie = cookies.find(c => c.name === 'github-granted-scope');
+  
+  if (scopeCookie) {
+    await context.addCookies([{
+      ...scopeCookie,
+      value: 'read%3Auser%20repo%20read%3Aorg'
+    }]);
+    console.log('Updated github-granted-scope cookie to include repo and read:org');
+  }
+}
 
 setup('authenticate', async ({ page }) => {
   console.log('Setting up authentication for UI tests');
@@ -23,8 +38,6 @@ setup('authenticate', async ({ page }) => {
   const signInPage = cfg?.signInPage;
 
   // Create GitHubUiPlugin for login (pass empty object as Git since it's not used for login)
- 
-
   switch (signInPage) {
     case 'oidc':
       { const oidcUI = new OidcUi();
@@ -33,6 +46,8 @@ setup('authenticate', async ({ page }) => {
     case GitType.GITHUB:
       { const githubUI = new GithubUiPlugin({} as Git);
       await githubUI.login(page);
+      // Update the granted scope cookie to include repo and read:org to omit the Github login page in Github UI plugin
+      await updateGitHubGrantedScope(page.context());
       break; }
     default:
       setup.skip(true, `Unsupported sign in page: ${String(signInPage)}`);
