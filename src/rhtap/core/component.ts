@@ -3,7 +3,7 @@ import { DeveloperHub } from '../../api/rhdh/developerhub';
 import { ScaffolderOptionsBuilder } from '../../api/rhdh/scaffoldOptionsBuilder';
 import { TSSC_APP_DEPLOYMENT_NAMESPACE } from '../../constants';
 import { TestItem } from '../../playwright/testItem';
-import { ArgoCD } from '../core/integration/cd/argocd';
+import { ArgoCD, Environment } from '../core/integration/cd/argocd';
 import { CI, CIFactory, CIType } from '../core/integration/ci';
 import { Git, GitType, GithubProvider, GitlabProvider } from '../core/integration/git';
 import { createGit } from '../core/integration/git';
@@ -113,6 +113,56 @@ export class Component {
     }
     console.log(`Waiting for component ${this.name} to be completed...`);
     await this.developerHub.waitUntilComponentIsCompleted(this.id);
+  }
+
+  /**
+   * Waits until the initial CI deployment is synced and healthy.
+   * This should be called after waitUntilComponentIsCompleted() to ensure
+   * the ArgoCD application has successfully deployed to the CI environment.
+   *
+   * The CI application is automatically synced during component creation,
+   * this method just waits for that sync to complete.
+   *
+   * @param maxRetries Maximum number of retry attempts (default: 12)
+   * @param retryDelayMs Delay between retries in milliseconds (default: 10000)
+   * @throws Error if the component has not been created yet or if sync fails
+   */
+  public async waitUntilInitialDeploymentIsSynced(
+    maxRetries: number = 12,
+    retryDelayMs: number = 10000
+  ): Promise<void> {
+    if (!this.isCreated) {
+      throw new Error('Component has not been created yet.');
+    }
+
+    try {
+      console.log(`Waiting for initial CI deployment of ${this.name}...`);
+
+      // Get the initial gitops commit SHA
+      const commitSha = await this.git.getGitOpsRepoCommitSha();
+      console.log(`Waiting for ArgoCD CI application to sync to commit: ${commitSha}`);
+
+      // Wait for the automatic sync to complete (no manual sync trigger needed)
+      const syncResult = await this.cd.waitUntilApplicationIsSynced(
+        Environment.CI,
+        commitSha,
+        maxRetries,
+        retryDelayMs
+      );
+
+      if (!syncResult.synced) {
+        throw new Error(
+          `Initial CI deployment failed to sync. ` +
+            `Status: ${syncResult.status}. Reason: ${syncResult.message}`
+        );
+      }
+
+      console.log(`Initial CI deployment completed successfully!`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`Failed to wait for initial CI deployment: ${errorMessage}`);
+      throw new Error(`Initial CI deployment sync failed: ${errorMessage}`);
+    }
   }
 
   /**

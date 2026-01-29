@@ -4,6 +4,7 @@ import retry from 'async-retry';
 
 // Define environment constants
 export enum Environment {
+  CI = 'ci',
   DEVELOPMENT = 'development',
   STAGE = 'stage',
   PROD = 'prod',
