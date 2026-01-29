@@ -2,9 +2,8 @@ import { KubeClient } from '../../src/api/ocp/kubeClient';
 import { Git, GitType } from '../../src/rhtap/core/integration/git';
 import { OidcUi } from '../../src/ui/plugins/auth/oidcUi';
 import { GithubUiPlugin } from '../../src/ui/plugins/git/githubUi';
-import { test as setup } from '@playwright/test';
-import { BrowserContext } from '@playwright/test';
-import yaml from 'js-yaml';
+import { getDeveloperHubConfig } from '../../src/utils/util';
+import { test as setup, BrowserContext } from '@playwright/test';
 
 const authFile = 'playwright/.auth/user.json';
 
@@ -31,11 +30,9 @@ setup('authenticate', async ({ page }) => {
   const developerHubUrl = `https://${routeHostname}`;
   await page.goto(developerHubUrl);
 
-  // Get the sign in page from the config map
-  const configMap = await kubeClient.getConfigMap('tssc-developer-hub-app-config', 'tssc-dh');
-  const raw = configMap['app-config.tssc.yaml'];
-  const cfg = yaml.load(raw) as any;
-  const signInPage = cfg?.signInPage;
+  // Get the sign in page from the Developer Hub config
+  const config = await getDeveloperHubConfig();
+  const signInPage = config.signInPage;
 
   // Create GitHubUiPlugin for login (pass empty object as Git since it's not used for login)
   switch (signInPage) {

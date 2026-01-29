@@ -8,9 +8,4 @@ export const CiPo = {
     imageScanTabName: 'Image Scan',
     imageCheckTabName: 'Image Check',
     deploymentCheckTabName: 'Deployment Check',
-
-    // GitHub Actions - Login Required dialog
-    loginRequiredDialogTitle: 'Login Required',
-    githubProviderText: 'GitHub',
-    githubLoginButtonText: 'Log in',
 };
