@@ -144,7 +144,7 @@ export class Component {
 
       // Wait for the automatic sync to complete (no manual sync trigger needed)
       const syncResult = await this.cd.waitUntilApplicationIsSynced(
-        Environment.CI,
+        Environment.DEVELOPMENT,
         commitSha,
         maxRetries,
         retryDelayMs
