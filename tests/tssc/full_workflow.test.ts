@@ -63,6 +63,10 @@ test.describe.serial('TSSC Complete Workflow', () => {
       expect(componentStatus).toBe('completed');
       console.log('Component was created successfully!');
 
+      // Wait for initial CI deployment to sync
+      await component.waitUntilInitialDeploymentIsSynced();
+      console.log('✅ Initial CI deployment synced successfully!');
+
       // Execute post-creation actions
       const postCreateAction = new ComponentPostCreateAction(component);
       await postCreateAction.execute();
