@@ -250,7 +250,9 @@ export class AzureCI extends BaseCI {
         builds = builds.filter(run => run.reason === AzurePipelineTriggerReason.INDIVIDUAL_CI);
       }
 
-      const targetBuild = builds[builds.length - 1];
+      const shaKey = eventType === EventType.PULL_REQUEST ? 'pr.sourceSha' : 'ci.sourceSha';
+      
+      const targetBuild = builds.find(run => run.triggerInfo?.[shaKey] === pullRequest.sha);
       console.log(`Retrieved build ${JSON.stringify(targetBuild)}`);
 
       if (!targetBuild) {
