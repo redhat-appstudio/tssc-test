@@ -369,6 +369,8 @@ TESTPLAN_PATH=./custom-testplan.json TESTPLAN_NAME=backend-tests npm test
 
 # Force UI test execution
 ENABLE_UI_TESTS=true npm test
+# Run import template tests (supports all Git providers)
+npm run test:import
 
 # View test report
 npm run test:report
@@ -420,6 +422,10 @@ TESTPLAN_NAME=github-tests npm test
 
 # Run UI tests
 npm run test:ui
+
+# Run import template tests (supports all Git providers)
+npm run test:import
+
 
 # View test report
 npm run test:report
