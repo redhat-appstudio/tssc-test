@@ -10,7 +10,7 @@ import { expect, Page } from '@playwright/test';
 import { loadFromEnv } from '../../../utils/util';
 import { DHLoginPO, GhLoginPO } from '../../page-objects/loginPo';
 import { GitPO } from '../../page-objects/commonPo';
-import { TOTP, NobleCryptoPlugin, ScureBase32Plugin } from 'otplib';
+import { TOTP, NobleCryptoPlugin, ScureBase32Plugin, createGuardrails } from 'otplib';
 import retry from 'async-retry';
 import { GitUi } from './gitUi';
 import { AuthUi } from '../auth/authUi';
@@ -29,6 +29,7 @@ export class GithubUiPlugin extends GitUi implements GitPlugin, AuthUi {
     private totp = new TOTP({
         crypto: new NobleCryptoPlugin(),
         base32: new ScureBase32Plugin(),
+        guardrails: createGuardrails({ MIN_SECRET_BYTES: 1 }),
     });
 
     /**
