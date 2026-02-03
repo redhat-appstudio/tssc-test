@@ -4,7 +4,7 @@
  */
 
 // Import and re-export TestContext for convenience
-import { TestContext } from '../context/testContext';
+import { TestContext } from '../context/types';
 export type { TestContext };
 
 /**
