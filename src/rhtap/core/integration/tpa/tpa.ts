@@ -75,7 +75,7 @@ export class TPA implements IntegrationSecret {
         await this.tpaClient.initAccessToken();
         this.initialized = true;
       } catch (error) {
-        this.logger.error(`Failed to initialize TPA client:`);
+        this.logger.error(`Failed to initialize TPA client: ${error}`);
         throw error;
       }
     }

@@ -56,7 +56,7 @@ class LoggerFactoryClass {
    * - worker: Worker/parallel index (e.g., 0, 1, 2...)
    * - timestamp: Automatic via Winston formatter
    *
-   * Supports two logging styles:
+   * Supports three logging styles:
    * 1. Template literals: logger.info(`User ${username} logged in from ${ipAddress}`)
    * 2. Structured metadata: logger.info('User logged in', { username, ipAddress })
    * 3. Combined: logger.info(`Processing ${count} items`, { batchId, timestamp })
