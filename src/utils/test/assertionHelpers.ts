@@ -1,8 +1,7 @@
 import { CI } from '../../rhtap/core/integration/ci';
 import { Pipeline } from '../../rhtap/core/integration/ci/pipeline';
 import { expect } from '@playwright/test';
-import { LoggerFactory } from '../../logger/factory/loggerFactory';
-import { Logger } from '../../logger/logger';
+import { LoggerFactory, Logger } from '../../logger/logger';
 
 const logger: Logger = LoggerFactory.getLogger('utils.test.assertion-helpers');
 
@@ -26,7 +25,7 @@ export async function expectPipelineSuccess(pipeline: Pipeline, ci: CI): Promise
       logger.info(logs);
       logger.info('----- END PIPELINE LOGS -----\n');
     } catch (logError) {
-      logger.error('Error retrieving pipeline logs:', logError);
+      logger.error(`Error retrieving pipeline logs: ${logError}`);
     }
 
     // Re-throw the original error so the test still fails
@@ -86,7 +85,7 @@ export async function checkTektonPipelineWithLogs(
       }
       logger.info('----- END PIPELINE DETAILS -----\n');
     } catch (logError) {
-      logger.error('Error retrieving Tekton pipeline logs:', logError);
+      logger.error(`Error retrieving Tekton pipeline logs: ${logError}`);
     }
   }
 

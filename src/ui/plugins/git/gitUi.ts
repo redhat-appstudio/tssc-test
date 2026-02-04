@@ -25,6 +25,6 @@ export class GitUi {
         const status = response.status();
         expect(status).not.toBe(404);
 
-        this.logger.debug('Checked git link: {}', linkHref);
+        this.logger.debug(`Checked git link: ${linkHref}`);
     }
 }

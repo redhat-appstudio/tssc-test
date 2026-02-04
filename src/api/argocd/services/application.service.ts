@@ -4,8 +4,7 @@ import {
   ArgoCDApplicationNotFoundError,
   ArgoCDConnectionError,
 } from '../errors/argocd.errors';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 /**
  * Service for managing ArgoCD applications
@@ -52,7 +51,7 @@ export class ArgoCDApplicationService {
       if (statusCode === 404) {
         throw new ArgoCDApplicationNotFoundError(applicationName, namespace);
       }
-      this.logger.error('Error retrieving application {}: {}', applicationName, error);
+      this.logger.error(`Error retrieving application ${applicationName}: ${error}`);
       throw new ArgoCDConnectionError(
         `Failed to get application ${applicationName}`,
         error instanceof Error ? error : new Error(String(error))
@@ -80,7 +79,7 @@ export class ArgoCDApplicationService {
 
       return applications || [];
     } catch (error) {
-      this.logger.error('Error listing applications in namespace {}: {}', namespace, error);
+      this.logger.error(`Error listing applications in namespace ${namespace}: ${error}`);
       return [];
     }
   }
@@ -188,7 +187,7 @@ export class ArgoCDApplicationService {
 
       return eventStrings.join('\n');
     } catch (error) {
-      this.logger.error('Error retrieving events for application {}: {}', applicationName, error);
+      this.logger.error(`Error retrieving events for application ${applicationName}: ${error}`);
       throw new ArgoCDConnectionError(
         `Failed to retrieve events for application ${applicationName}`,
         error instanceof Error ? error : new Error(String(error))

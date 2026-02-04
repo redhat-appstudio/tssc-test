@@ -10,8 +10,7 @@ import {
   ArgoCDConnectionError,
   ArgoCDInstanceNotFoundError,
 } from '../errors/argocd.errors';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 /**
  * Service for managing ArgoCD connections
@@ -69,7 +68,7 @@ export class ArgoCDConnectionService {
           factor: 2,
           maxTimeout: 30000,
           onRetry: (error: Error, attempt: number) => {
-            this.logger.warn('[ARGOCD-INSTANCE-RETRY {}/3] Retrying ArgoCD instance lookup for namespace {} | Reason: {}', attempt, namespace, error);
+            this.logger.warn(`[ARGOCD-INSTANCE-RETRY ${attempt}/3] Retrying ArgoCD instance lookup for namespace ${namespace} | Reason: ${error}`);
           },
         }
       );

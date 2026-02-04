@@ -1,7 +1,6 @@
 import { Component } from '../../core/component';
 import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 /**
  * A "null object" implementation of PostCreateActionStrategy
@@ -15,7 +14,7 @@ export class EmptyPostCreateActionStrategy implements ComponentActionStrategy {
    * @param component The component to process
    */
   public async execute(component: Component): Promise<void> {
-    this.logger.info('No post-creation actions needed for component: {}', component.getName());
+    this.logger.info(`No post-creation actions needed for component: ${component.getName()}`);
     // Intentionally empty implementation - no actions required
   }
 }

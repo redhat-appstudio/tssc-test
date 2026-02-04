@@ -5,8 +5,7 @@ import {
 } from '../../../modification/contentModification';
 import { JenkinsfileModifier } from '../../../modification/jenkinsfile';
 import { BaseCommand } from './baseCommand';
-import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
-import { Logger } from '../../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../../logger/logger';
 
 /**
  * Command to apply modifications to source repository
@@ -57,8 +56,8 @@ export class JenkinsfileAndEnvModificationsOnSourceRepoCommand extends BaseComma
     modifications: ContentModifications,
     message: string
   ): Promise<void> {
-    this.logger.info('Committing changes to {}...', repoName);
+    this.logger.info(`Committing changes to ${repoName}...`);
     await this.git.commitChangesToRepo(this.git.getRepoOwner(), repoName, modifications, message);
-    this.logger.info('Changes committed to {} successfully.', repoName);
+    this.logger.info(`Changes committed to ${repoName} successfully.`);
   }
 }

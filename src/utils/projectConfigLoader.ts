@@ -1,7 +1,6 @@
 import { TestItem } from '../playwright/testItem';
 import { readFileSync, existsSync } from 'fs';
-import { LoggerFactory } from '../logger/factory/loggerFactory';
-import { Logger } from '../logger/logger';
+import { LoggerFactory, Logger } from '../logger/logger';
 
 const logger: Logger = LoggerFactory.getLogger('utils.project-config-loader');
 
@@ -23,7 +22,7 @@ export function loadProjectConfigurations(): ProjectConfig[] {
   const configFilePath = './tmp/project-configs.json';
   
   if (!existsSync(configFilePath)) {
-    logger.error('Project configuration file not found: {}', configFilePath);
+    logger.error(`Project configuration file not found: ${configFilePath}`);
     logger.error('Run: npm run generate-config');
     throw new Error('Project configurations not generated. Run the generate-config script first.');
   }
@@ -31,7 +30,7 @@ export function loadProjectConfigurations(): ProjectConfig[] {
   try {
     const data = readFileSync(configFilePath, 'utf-8');
     const serializedConfigs: SerializedProjectConfig[] = JSON.parse(data);
-    
+
     const projectConfigs = serializedConfigs.map(config => ({
       name: config.name,
       testItem: TestItem.fromJSON(config.testItem)
@@ -40,7 +39,7 @@ export function loadProjectConfigurations(): ProjectConfig[] {
     return projectConfigs;
 
   } catch (error) {
-    logger.error('Failed to load project configurations: {}', error);
+    logger.error(`Failed to load project configurations: ${error}`);
     throw new Error('Failed to load project configurations from file');
   }
 }

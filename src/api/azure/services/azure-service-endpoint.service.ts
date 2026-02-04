@@ -1,7 +1,6 @@
 import { AzureHttpClient } from '../http/azure-http.client';
 import { ServiceEndpoint } from '../types/azure.types';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class AzureServiceEndpointService {
   private readonly client: AzureHttpClient;
@@ -57,7 +56,7 @@ export class AzureServiceEndpointService {
 
       return response;
     } catch (error) {
-      this.logger.error('Failed to create service connection \'{}\': {}', name, error);
+      this.logger.error(`Failed to create service connection '${name}': ${error}`);
       throw error;
     }
   }
@@ -69,7 +68,7 @@ export class AzureServiceEndpointService {
       );
       return response.value || [];
     } catch (error) {
-      this.logger.error('Failed to retrieve service connections for project \'{}\': {}', this.project, error);
+      this.logger.error(`Failed to retrieve service connections for project '${this.project}': ${error}`);
       throw error;
     }
   }
@@ -80,7 +79,7 @@ export class AzureServiceEndpointService {
       const endpoint = allEndpoints.find(e => e.name === connectionName);
       return endpoint || null;
     } catch (error) {
-      this.logger.error('Error finding service connection by name \'{}\': {}', connectionName, error);
+      this.logger.error(`Error finding service connection by name '${connectionName}': ${error}`);
       throw error;
     }
   }
@@ -91,9 +90,9 @@ export class AzureServiceEndpointService {
         `_apis/serviceendpoint/endpoints/${endpointId}?projectIds=${projectId}&${this.getApiVersionParam()}`
       );
 
-      this.logger.info('Successfully deleted service connection with ID: {}', endpointId);
+      this.logger.info(`Successfully deleted service connection with ID: ${endpointId}`);
     } catch (error) {
-      this.logger.error('Failed to delete service connection with ID {}: {}', endpointId, error);
+      this.logger.error(`Failed to delete service connection with ID ${endpointId}: ${error}`);
       throw error;
     }
   }

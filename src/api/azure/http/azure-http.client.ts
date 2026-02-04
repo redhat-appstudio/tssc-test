@@ -1,8 +1,7 @@
 import { BaseHttpClient } from '../../common/http/base-http.client';
 import { AxiosError } from 'axios';
 import { AzureApiError } from '../errors/azure.errors';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export interface AzureHttpClientConfig {
   organization: string;
@@ -33,11 +32,11 @@ export class AzureHttpClient extends BaseHttpClient {
     // Interceptors for debugging purposes
     this.client.interceptors.request.use(
       request => {
-        this.logger.info('[Request] > Sending {} to {}{}', request.method?.toUpperCase(), request.baseURL, request.url);
+        this.logger.info(`[Request] > Sending ${request.method?.toUpperCase()} to ${request.baseURL}${request.url}`);
         return request;
       },
       error => {
-        this.logger.error('[Request Error]: {}', error);
+        this.logger.error(`[Request Error]: ${error}`);
         return Promise.reject(error);
       }
     );
@@ -46,11 +45,11 @@ export class AzureHttpClient extends BaseHttpClient {
       response => response,
       (error: AxiosError) => {
         if (error.response) {
-          this.logger.error('Azure DevOps API Error: {} {} - {}', error.response.status, error.response.statusText, error.response.data);
+          this.logger.error(`Azure DevOps API Error: ${error.response.status} ${error.response.statusText} - ${error.response.data}`);
         } else if (error.request) {
-          this.logger.error('Azure DevOps API Error: No response received - {}', error.request);
+          this.logger.error(`Azure DevOps API Error: No response received - ${error.request}`);
         } else {
-          this.logger.error('Azure DevOps API Error: Request setup failed - {}', error);
+          this.logger.error(`Azure DevOps API Error: Request setup failed - ${error}`);
         }
         // Wrap AxiosError in a custom AzureApiError
         const azureError = new AzureApiError(

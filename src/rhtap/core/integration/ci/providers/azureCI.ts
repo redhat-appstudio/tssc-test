@@ -95,7 +95,7 @@ export class AzureCI extends BaseCI {
 
       this.logger.info('Azure client initialized successfully');
     } catch (error) {
-      this.logger.error('Failed to initialize Azure client:', error);
+      this.logger.error(`Failed to initialize Azure client:`);
       throw error;
     }
   }
@@ -109,7 +109,7 @@ export class AzureCI extends BaseCI {
       await this.initAzureClient();
       this.logger.info('Azure client initialized successfully');
     } catch (error) {
-      this.logger.error('Failed to initialize Azure client:', error);
+      this.logger.error(`Failed to initialize Azure client:`);
       throw error;
     }
   }
@@ -251,7 +251,7 @@ export class AzureCI extends BaseCI {
 
       return pipeline;
     } catch (error) {
-      this.logger.error('Error in getPipeline for {}: {}', this.componentName, error);
+      this.logger.error(`Error in getPipeline for ${this.componentName}: ${error}`);
       return null;
     }
   }
@@ -324,7 +324,7 @@ export class AzureCI extends BaseCI {
 
       return serviceEndpoint;
     } catch (error) {
-      this.logger.error('Failed to create service endpoint \'{}\': {}', serviceEndpointName, error);
+      this.logger.error(`Failed to create service endpoint '${serviceEndpointName}': ${error}`);
       throw error;
     }
   }
@@ -347,7 +347,7 @@ export class AzureCI extends BaseCI {
 
       return pipelineDefinition;
     } catch (error) {
-      this.logger.error('Failed to create Azure pipeline \'{}\': {}', pipelineName, error);
+      this.logger.error(`Failed to create Azure pipeline '${pipelineName}': ${error}`);
       throw error;
     }
   }
@@ -363,7 +363,7 @@ export class AzureCI extends BaseCI {
       await this.azureClient.pipelines.deletePipeline(pipelineId);
       this.logger.info(`Successfully deleted pipeline '${pipelineName}' with ID: ${pipelineId}`);
     } catch (error) {
-      this.logger.error('Failed to delete Azure pipeline \'{}\': {}', pipelineName, error);
+      this.logger.error(`Failed to delete Azure pipeline '${pipelineName}': ${error}`);
       throw error;
     }
   }
@@ -388,7 +388,7 @@ export class AzureCI extends BaseCI {
         azureVariables
       );
     } catch (error) {
-      this.logger.error('Failed to create or update variable group \'{}\': {}', groupName, error);
+      this.logger.error(`Failed to create or update variable group '${groupName}': ${error}`);
       throw error;
     }
   }
@@ -411,7 +411,7 @@ export class AzureCI extends BaseCI {
         `Successfully deleted variable group '${groupName}' with ID: ${variableGroup.id}`
       );
     } catch (error) {
-      this.logger.error('Failed to delete variable group \'{}\': {}', groupName, error);
+      this.logger.error(`Failed to delete variable group '${groupName}': ${error}`);
       throw error;
     }
   }
@@ -514,7 +514,7 @@ export class AzureCI extends BaseCI {
       });
 
     } catch (error: any) {
-      this.logger.error('[Azure] Error in cancelAllPipelines: {}', error);
+      this.logger.error(`[Azure] Error in cancelAllPipelines: ${error}`);
       throw new Error(`Failed to cancel pipelines: {}`);
     }
 
@@ -569,7 +569,7 @@ export class AzureCI extends BaseCI {
       return builds;
 
     } catch (error: any) {
-      this.logger.error('[Azure] Failed to fetch builds: {}', error);
+      this.logger.error(`[Azure] Failed to fetch builds: ${error}`);
       throw error;
     }
   }
@@ -755,7 +755,7 @@ export class AzureCI extends BaseCI {
 
       result.errors.push(cancelError);
 
-      this.logger.error('❌ [Azure] Failed to cancel build {}: {}', build.id, error);
+      this.logger.error(`❌ [Azure] Failed to cancel build ${build.id}: ${error}`);
     }
 
     // Add detail to results

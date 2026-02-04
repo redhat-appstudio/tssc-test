@@ -3,8 +3,7 @@ import { GitType } from '../../core/integration/git';
 import { Command } from './commands/command';
 import { CreateWebhookCommand } from './commands/createWebhookCommand';
 import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 /**
  * Implementation of PostCreateActionStrategy for Tekton CI
@@ -52,8 +51,7 @@ export class TektonPostCreateActionStrategy implements ComponentActionStrategy {
     const componentName = component.getName();
     //TODO: Update the log message to be more descriptive
     this.logger.info(
-      'No post-creation actions needed for component: {} (GitHub + Tekton CI)',
-      componentName
+      `No post-creation actions needed for component: ${componentName} (GitHub + Tekton CI)`
     );
   }
 
@@ -68,21 +66,17 @@ export class TektonPostCreateActionStrategy implements ComponentActionStrategy {
     const componentName = component.getName();
 
     this.logger.info(
-      'Post-creation actions needed for component: {} ({})',
-      componentName,
-      gitProviderType
+      `Post-creation actions needed for component: ${componentName} (${gitProviderType})`
     );
 
     try {
       const commands = this.createCommandsForProvider(component);
       await this.executeCommands(commands);
       this.logger.info(
-        '{} post-creation actions completed successfully for {}',
-        gitProviderType,
-        componentName
+        `${gitProviderType} post-creation actions completed successfully for ${componentName}`
       );
     } catch (error) {
-      this.logger.error('Error executing {} post-creation actions: {}', gitProviderType, error);
+      this.logger.error(`Error executing ${gitProviderType} post-creation actions: ${error}`);
       throw new Error(
         `${gitProviderType} post-creation actions failed: ${error}`
       );

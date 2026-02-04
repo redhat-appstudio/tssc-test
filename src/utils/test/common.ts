@@ -10,8 +10,7 @@ import { sleep } from '../util';
 import { expectPipelineSuccess } from './assertionHelpers';
 import { expect } from '@playwright/test';
 import retry from 'async-retry';
-import { LoggerFactory } from '../../logger/factory/loggerFactory';
-import { Logger } from '../../logger/logger';
+import { LoggerFactory, Logger } from '../../logger/logger';
 
 const logger: Logger = LoggerFactory.getLogger('utils.test.common');
 
@@ -207,7 +206,7 @@ export async function getPipelineAndWaitForCompletion(
         minTimeout: 10000,
         maxTimeout: 50000,
         onRetry: (error: Error, attempt: number) => {
-          logger.error('Attempt {} failed: {}', attempt, error);
+          logger.error(`Attempt ${attempt} failed: ${error}`);
         },
       }
     );
@@ -409,7 +408,7 @@ export async function getSbomIDFromCIPipelineLogs(ci: CI, pipeline: Pipeline): P
     logger.info(`SBOM Document ID ${documentId} found from Promotion Pipeline ${pipeline.id} logs`);
     return documentId;
   } catch (error) {
-    logger.error('Error getting pipeline Logs: {}', error);
+    logger.error(`Error getting pipeline Logs: ${error}`);
     throw error;
   }
 }
@@ -456,7 +455,7 @@ export async function searchSBOMByNameAndDocIdList(
       logger.info(`SBOM details: Name: ${sbom.name}, Published: ${sbom.published}, SHA256: ${sbom.sha256}`);
 
     } catch (error) {
-      logger.error('❌ Error searching with document ID {}: {}', documentId, error);
+      logger.error(`❌ Error searching with document ID ${documentId}: ${error}`);
       throw error;
     }
   }

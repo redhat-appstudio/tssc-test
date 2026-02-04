@@ -159,28 +159,24 @@ export class GithubClient extends BaseApiClient {
       throttle: {
         onRateLimit: (retryAfter, requestOptions, _octokit, retryCount): boolean => {
           this.logger.warn(
-            'Request quota exhausted for request {} {}',
-            requestOptions.method,
-            requestOptions.url,
+            `Request quota exhausted for request ${requestOptions.method} ${requestOptions.url}`,
             { retryAfter, retryCount }
           );
 
           if (retryCount < (options.throttleOptions?.maxRetries || 2)) {
-            this.logger.info('Retrying after {} seconds', retryAfter, { retryCount });
+            this.logger.info(`Retrying after ${retryAfter} seconds`, { retryCount });
             return true;
           }
           return false;
         },
         onSecondaryRateLimit: (retryAfter, requestOptions, _octokit, retryCount): boolean => {
           this.logger.warn(
-            'SecondaryRateLimit detected for request {} {}',
-            requestOptions.method,
-            requestOptions.url,
+            `SecondaryRateLimit detected for request ${requestOptions.method} ${requestOptions.url}`,
             { retryAfter, retryCount }
           );
 
           if (retryCount < (options.throttleOptions?.maxRetries || 2)) {
-            this.logger.info('Retrying after {} seconds', retryAfter, { retryCount });
+            this.logger.info(`Retrying after ${retryAfter} seconds`, { retryCount });
             return true;
           }
           return false;
@@ -192,7 +188,7 @@ export class GithubClient extends BaseApiClient {
     this.octokit.hook.error('request', async (error) => {
       // RequestError from Octokit has a status property, but plain Error doesn't
       const status = 'status' in error ? (error as any).status : undefined;
-      this.logger.error('GitHub API error: {}', error, { status });
+      this.logger.error(`GitHub API error: ${error}`, { status });
       throw new GithubError(error.message, status, error);
     });
 
@@ -235,7 +231,7 @@ export class GithubClient extends BaseApiClient {
       return true;
     } catch (error) {
       // Log with error details - merged with test context
-      this.logger.warn('GitHub API ping failed: {}', error);
+      this.logger.warn(`GitHub API ping failed: ${error}`);
       return false;
     }
   }

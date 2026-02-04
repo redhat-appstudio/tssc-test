@@ -2,8 +2,7 @@ import { Octokit } from '@octokit/rest';
 import { Buffer } from 'buffer';
 import { ContentModifications } from '../../../rhtap/modification/contentModification';
 import { GithubApiError, GithubNotFoundError } from '../errors/github.errors';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 /**
  * GitHub Pull Request Service
@@ -86,7 +85,7 @@ export class GithubPullRequestService {
       });
       return data;
     } catch (error: any) {
-      this.logger.error('Failed to list pull requests for {}/{}: {}', owner, repo, error);
+      this.logger.error(`Failed to list pull requests for ${owner}/${repo}: ${error}`);
       throw new GithubApiError(`Failed to list pull requests for ${owner}/${repo}`, error.status, error);
     }
   }
@@ -101,10 +100,10 @@ export class GithubPullRequestService {
       return data;
     } catch (error: any) {
       if (error.status === 404 || (error.response && error.response.status === 404)) {
-        this.logger.error('Pull request #{} not found in {}/{}', pullNumber, owner, repo);
+        this.logger.error(`Pull request #${pullNumber} not found in ${owner}/${repo}`);
         throw new GithubNotFoundError('pull request', `#${pullNumber} in ${owner}/${repo}`, error.status || 404);
       }
-      this.logger.error('Failed to get pull request #{} for {}/{}: {}', pullNumber, owner, repo, error);
+      this.logger.error(`Failed to get pull request #${pullNumber} for ${owner}/${repo}: ${error}`);
       throw new GithubApiError(`Failed to get pull request #${pullNumber} for ${owner}/${repo}`, error.status, error);
     }
   }
@@ -205,9 +204,9 @@ export class GithubPullRequestService {
           ref: `refs/heads/${newBranchName}`,
           sha: newCommitSha,
         });
-        this.logger.info('Successfully created branch: {} in your fork', newBranchName);
+        this.logger.info(`Successfully created branch: ${newBranchName} in your fork`);
       } catch (error: any) {
-        this.logger.warn('Branch {} might already exist in your fork: {}', newBranchName, error);
+        this.logger.warn(`Branch ${newBranchName} might already exist in your fork: ${error}`);
       }
 
       const createPullResponse = await this.octokit.rest.pulls.create({
@@ -219,13 +218,13 @@ export class GithubPullRequestService {
         body: pullRequestBody,
       });
 
-      this.logger.info('Successfully created pull request: {}', createPullResponse.data.html_url);
+      this.logger.info(`Successfully created pull request: ${createPullResponse.data.html_url}`);
       return {
         prNumber: createPullResponse.data.number,
         commitSha: newCommitSha,
       };
     } catch (error: any) {
-      this.logger.error('Error creating pull request and updating files: {}', error);
+      this.logger.error(`Error creating pull request and updating files: ${error}`);
       throw new GithubApiError(`Failed to create pull request and update files`, error.status, error);
     }
   }
@@ -248,7 +247,7 @@ export class GithubPullRequestService {
         message: response.data.message,
       };
     } catch (error: any) {
-      this.logger.error('Failed to merge pull request #{}: {}', pullNumber, error);
+      this.logger.error(`Failed to merge pull request #${pullNumber}: ${error}`);
       throw new GithubApiError(`Failed to merge pull request #${pullNumber}`, error.status, error);
     }
   }

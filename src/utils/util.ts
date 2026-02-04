@@ -1,5 +1,4 @@
-import { LoggerFactory } from '../logger/factory/loggerFactory';
-import { Logger } from '../logger/logger';
+import { LoggerFactory, Logger } from '../logger/logger';
 
 const logger: Logger = LoggerFactory.getLogger('utils.util');
 
@@ -151,7 +150,7 @@ export async function extractYamlByRegex(content: string, pattern: RegExp): Prom
         try {
           return yaml.parse(block);
         } catch (err) {
-          logger.warn('Failed to parse YAML block: {}', err);
+          logger.warn(`Failed to parse YAML block: ${err}`);
           return null;
         }
       })
@@ -159,7 +158,7 @@ export async function extractYamlByRegex(content: string, pattern: RegExp): Prom
 
     return parsedYaml.length > 0 ? parsedYaml : null;
   } catch (err) {
-    logger.error('Error extracting YAML content: {}', err);
+    logger.error(`Error extracting YAML content: ${err}`);
     return null;
   }
 }
@@ -175,7 +174,7 @@ export function loadFromEnv(name: string): string {
   if (!value || value.trim() === '') {
     throw new Error(`Environment variable ${name} is not defined or is empty`);
   }
-  logger.info('Loaded environment variable {}', name);
+  logger.info(`Loaded environment variable ${name}`);
   return value;
 }
 
@@ -220,7 +219,7 @@ export function base64Decode(base64Str: string, isUrlSafe: boolean = false): str
     const buffer = Buffer.from(str, 'base64');
     return buffer.toString('utf-8');
   } catch (err) {
-    logger.error('Error decoding base64 string: {}', err);
+    logger.error(`Error decoding base64 string: ${err}`);
     throw new Error(`Failed to decode base64 string: ${err}`);
   }
 }
@@ -241,12 +240,12 @@ export function getRunnerImageFromCIFile(fileContent: string): string {
     throw new Error(`Runner image not found in the CI file content`);
   }
   if (matches.length > 1) {
-    logger.warn('Multiple runner images found ({}). Using the first match: {}', matches.length, matches[0]);
+    logger.warn(`Multiple runner images found (${matches.length}). Using the first match: ${matches[0]}`);
   }
 
   // Get the matched image value directly
   const imageValue = matches[0];
-  logger.info('Existing Image Value: {}', imageValue);
+  logger.info(`Existing Image Value: ${imageValue}`);
   return imageValue;
 }
 

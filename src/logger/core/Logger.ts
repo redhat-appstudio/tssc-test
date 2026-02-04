@@ -1,113 +1,91 @@
 /**
- * Logger - Composite Pattern Implementation
+ * Logger - Simplified Implementation
  *
- * Main logger class that composes feature components:
- * - Message formatter (supports parameterized logging)
- * - Context injector (injects test context from AsyncLocalStorage)
- * - Transport (delegates to Winston or other logging libraries)
- *
- * This design decouples the logger from specific implementations,
- * making features independently testable and swappable.
+ * Main logger class that provides logging with automatic context injection.
+ * Uses Winston directly for transport.
+ * Uses template literals for message formatting (no {} placeholders).
  */
 
-import { IMessageFormatter } from '../features/formatting/IMessageFormatter';
-import { IContextInjector } from '../features/context/IContextInjector';
-import { ILogTransport } from '../adapters/ILogTransport';
+import * as winston from 'winston';
+import { AsyncContextInjector } from '../features/context/AsyncContextInjector';
 
 /**
  * Logger Class
  *
- * Orchestrates message formatting, context injection, and transport
- * to provide a clean, composable logging interface.
+ * Provides logging methods with automatic test context injection.
+ * Use template literals for dynamic messages: logger.info(`User ${username} logged in`)
  */
 export class Logger {
-  constructor(
-    private readonly transport: ILogTransport,
-    private readonly formatter: IMessageFormatter,
-    private readonly contextInjector: IContextInjector
-  ) {}
+  private contextInjector = new AsyncContextInjector();
+
+  constructor(private readonly winstonLogger: winston.Logger) {}
 
   /**
-   * Log at trace level with optional placeholders
+   * Log at trace level
    *
    * @example
-   * logger.trace("User {} accessed resource {}", userId, resourceId);
-   * logger.trace("Processing request", { requestId, method });
-   * logger.trace("User {} accessed {}", userId, resource, { timestamp, ipAddress });
+   * logger.trace(`User ${userId} accessed resource ${resourceId}`);
+   * logger.trace('Processing request', { requestId, method });
    */
-  trace(message: string, ...params: any[]): void {
-    // 1. Format message (handle {} placeholders)
-    const { message: formattedMessage, metadata: formatterMetadata } = this.formatter.format(message, params);
-    
-    // 2. Enrich with context (projectName, worker, etc.)
-    const enrichedMetadata = this.contextInjector.enrichMetadata(formatterMetadata);
-    
-    // 3. Delegate to transport (winston)
-    this.transport.log('trace', formattedMessage, enrichedMetadata);
+  trace(message: string, metadata?: object): void {
+    const enriched = this.contextInjector.enrichMetadata(metadata);
+    this.winstonLogger.log('trace', message, enriched);
   }
 
   /**
-   * Log at debug level with optional placeholders
+   * Log at debug level
    *
    * @example
-   * logger.debug("Fetching data for user {}", userId);
-   * logger.debug("Cache hit", { key, ttl });
-   * logger.debug("Query {} returned {} rows", query, rowCount, { executionTime });
+   * logger.debug(`Fetching data for user ${userId}`);
+   * logger.debug('Cache hit', { key, ttl });
    */
-  debug(message: string, ...params: any[]): void {
-    const { message: formattedMessage, metadata: formatterMetadata } = this.formatter.format(message, params);
-    const enrichedMetadata = this.contextInjector.enrichMetadata(formatterMetadata);
-    this.transport.log('debug', formattedMessage, enrichedMetadata);
+  debug(message: string, metadata?: object): void {
+    const enriched = this.contextInjector.enrichMetadata(metadata);
+    this.winstonLogger.log('debug', message, enriched);
   }
 
   /**
-   * Log at info level with optional placeholders
+   * Log at info level
    *
    * @example
-   * logger.info("User {} logged in from {}", username, ipAddress);
+   * logger.info(`User ${username} logged in from ${ipAddress}`);
    * logger.info('Component created', { componentName, repository });
-   * logger.info("Processing {} items from {}", count, source, { batchId });
    */
-  info(message: string, ...params: any[]): void {
-    const { message: formattedMessage, metadata: formatterMetadata } = this.formatter.format(message, params);
-    const enrichedMetadata = this.contextInjector.enrichMetadata(formatterMetadata);
-    this.transport.log('info', formattedMessage, enrichedMetadata);
+  info(message: string, metadata?: object): void {
+    const enriched = this.contextInjector.enrichMetadata(metadata);
+    this.winstonLogger.log('info', message, enriched);
   }
 
   /**
-   * Log at warn level with optional placeholders
+   * Log at warn level
    *
    * @example
-   * logger.warn("Retry attempt {} of {}", currentAttempt, maxAttempts);
+   * logger.warn(`Retry attempt ${currentAttempt} of ${maxAttempts}`);
    * logger.warn('Rate limit approaching', { currentRate, limit });
-   * logger.warn("Slow query detected: {}ms", duration, { query, threshold });
    */
-  warn(message: string, ...params: any[]): void {
-    const { message: formattedMessage, metadata: formatterMetadata } = this.formatter.format(message, params);
-    const enrichedMetadata = this.contextInjector.enrichMetadata(formatterMetadata);
-    this.transport.log('warn', formattedMessage, enrichedMetadata);
+  warn(message: string, metadata?: object): void {
+    const enriched = this.contextInjector.enrichMetadata(metadata);
+    this.winstonLogger.log('warn', message, enriched);
   }
 
   /**
-   * Log at error level with optional placeholders
+   * Log at error level
    *
    * @example
-   * logger.error("Failed to connect to {}", host);
+   * logger.error(`Failed to connect to ${host}`);
    * logger.error('Operation failed', { error: err.message, retryCount });
-   * logger.error("Timeout after {}ms waiting for {}", timeout, resource, { requestId });
    */
-  error(message: string, ...params: any[]): void {
-    const { message: formattedMessage, metadata: formatterMetadata } = this.formatter.format(message, params);
-    const enrichedMetadata = this.contextInjector.enrichMetadata(formatterMetadata);
-    this.transport.log('error', formattedMessage, enrichedMetadata);
+  error(message: string, metadata?: object): void {
+    const enriched = this.contextInjector.enrichMetadata(metadata);
+    this.winstonLogger.log('error', message, enriched);
   }
 
   /**
-   * Get the underlying logger instance (escape hatch for advanced use cases)
+   * Get the underlying Winston logger instance (escape hatch for advanced use cases)
    *
-   * @returns The underlying logger implementation (e.g., Winston logger)
+   * @returns The underlying Winston logger instance
    */
-  getUnderlyingLogger(): any {
-    return this.transport.getUnderlyingLogger();
+  getUnderlyingLogger(): winston.Logger {
+    return this.winstonLogger;
   }
 }

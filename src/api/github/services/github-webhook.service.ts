@@ -1,7 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import { GithubApiError } from '../errors/github.errors';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export interface WebhookConfig {
   /** Webhook URL endpoint */
@@ -35,7 +34,7 @@ export class GithubWebhookService {
         throw new Error('Webhook secret is required for security. Please provide a secret for payload verification.');
       }
 
-      this.logger.info('Configuring webhook for {}/{} at {}', repoOwner, repoName, config.url);
+      this.logger.info(`Configuring webhook for ${repoOwner}/${repoName} at ${config.url}`);
 
       const webhookConfig = {
         url: config.url,
@@ -57,9 +56,9 @@ export class GithubWebhookService {
         active: config.active !== false, // Default to true
       });
       
-      this.logger.info('Webhook configured successfully for {}/{} with secure settings', repoOwner, repoName);
+      this.logger.info(`Webhook configured successfully for ${repoOwner}/${repoName} with secure settings`);
     } catch (error: any) {
-      this.logger.error('Failed to configure webhook for {}/{}: {}', repoOwner, repoName, error);
+      this.logger.error(`Failed to configure webhook for ${repoOwner}/${repoName}: ${error}`);
       throw new GithubApiError(`Failed to configure webhook for ${repoOwner}/${repoName}`, error.status, error);
     }
   }

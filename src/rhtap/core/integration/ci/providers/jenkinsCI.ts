@@ -133,7 +133,7 @@ export class JenkinsCI extends BaseCI {
       await this.initJenkinsClient();
       this.logger.info('Jenkins client initialized successfully');
     } catch (error) {
-      this.logger.error('Failed to initialize Jenkins client:', error);
+      this.logger.error(`Failed to initialize Jenkins client:`);
       throw error;
     }
   }
@@ -152,7 +152,7 @@ export class JenkinsCI extends BaseCI {
       await this.jenkinsClient.jobs.createFolder(folderConfig);
       this.logger.info(`Folder ${folderName} created successfully`);
     } catch (error) {
-      this.logger.error('Failed to create folder: {}', error);
+      this.logger.error(`Failed to create folder: ${error}`);
       throw error;
     }
   }
@@ -169,7 +169,7 @@ export class JenkinsCI extends BaseCI {
       await this.jenkinsClient.jobs.createJob({ jobName, repoUrl, folderName });
       this.logger.info(`Job ${jobName} created successfully in folder ${folderName}`);
     } catch (error) {
-      this.logger.error('Failed to create job: {}', error);
+      this.logger.error(`Failed to create job: ${error}`);
       throw error;
     }
   }
@@ -200,7 +200,7 @@ export class JenkinsCI extends BaseCI {
 
       this.logger.info(`Credential ${key} successfully added/updated in folder ${folderName}`);
     } catch (error) {
-      this.logger.error('Failed to apply credentials: {}', error);
+      this.logger.error(`Failed to apply credentials: ${error}`);
       throw error;
     }
   }
@@ -223,7 +223,7 @@ export class JenkinsCI extends BaseCI {
 
       this.logger.info('Jenkins client initialized successfully');
     } catch (error) {
-      this.logger.error('Failed to initialize Jenkins client:', error);
+      this.logger.error(`Failed to initialize Jenkins client:`);
       throw error;
     }
   }
@@ -333,7 +333,7 @@ export class JenkinsCI extends BaseCI {
           commitSha
         );
       } catch (error) {
-        this.logger.error('Error fetching Jenkins pipeline for commit SHA {}: {}', commitSha, error);
+        this.logger.error(`Error fetching Jenkins pipeline for commit SHA ${commitSha}: ${error}`);
         return null;
       }
     };
@@ -534,8 +534,7 @@ export class JenkinsCI extends BaseCI {
       return logs;
     } catch (error) {
       this.logger.error(
-        `Error getting pipeline logs for ${pipeline.jobName} #${pipeline.buildNumber}:`,
-        error
+        `Error getting pipeline logs for ${pipeline.jobName} #${pipeline.buildNumber}: ${error}`
       );
       throw new Error(`Failed to get pipeline logs: ${error}`);
     }
@@ -575,7 +574,7 @@ export class JenkinsCI extends BaseCI {
       return pipeline;
 
     } catch (error) {
-      this.logger.error('Failed to trigger Jenkins pipeline for job: {}', error);
+      this.logger.error(`Failed to trigger Jenkins pipeline for job: ${error}`);
       throw error;
     }
   }
@@ -648,7 +647,7 @@ export class JenkinsCI extends BaseCI {
       });
 
     } catch (error: any) {
-      this.logger.error('[Jenkins] Error in cancelAllPipelines: {}', error);
+      this.logger.error(`[Jenkins] Error in cancelAllPipelines: ${error}`);
       throw new Error(`Failed to cancel pipelines: {}`);
     }
 
@@ -695,7 +694,7 @@ export class JenkinsCI extends BaseCI {
       return allBuilds;
 
     } catch (error: any) {
-      this.logger.error('[Jenkins] Failed to fetch builds: {}', error);
+      this.logger.error(`[Jenkins] Failed to fetch builds: ${error}`);
       throw error;
     }
   }
@@ -879,7 +878,7 @@ export class JenkinsCI extends BaseCI {
 
       result.errors.push(cancelError);
 
-      this.logger.error('❌ [Jenkins] Failed to cancel build {}: {}', build.number, error);
+      this.logger.error(`❌ [Jenkins] Failed to cancel build ${build.number}: ${error}`);
     }
 
     // Add detail to results

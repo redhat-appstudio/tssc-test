@@ -1,7 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import { GithubApiError } from '../errors/github.errors';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class GithubVariablesService {
   private readonly logger: Logger;
@@ -26,11 +25,7 @@ export class GithubVariablesService {
       };
     } catch (error: any) {
       this.logger.error(
-        'Failed to get public key for repository {}/{}: {}',
-        repoOwner,
-        repoName,
-        error,
-
+        `Failed to get public key for repository ${repoOwner}/${repoName}: ${error}`
       );
       throw new GithubApiError(`Failed to get public key for repository ${repoOwner}/${repoName}`, error.status, error);
     }
@@ -41,7 +36,7 @@ export class GithubVariablesService {
     repo: string,
     variables: Record<string, string>,
   ): Promise<{ created: string[]; updated: string[]; failed: string[] }> {
-    this.logger.info('Setting repo variables for {}/{}', owner, repo);
+    this.logger.info(`Setting repo variables for ${owner}/${repo}`);
     const created: string[] = [];
     const updated: string[] = [];
     const failed: string[] = [];
@@ -63,7 +58,7 @@ export class GithubVariablesService {
         page++;
       }
     } catch (error: any) {
-      this.logger.error('Error listing variables: {}', error);
+      this.logger.error(`Error listing variables: ${error}`);
       throw new GithubApiError(`Failed to list variables for ${owner}/${repo}`, error.status, error);
     }
 
@@ -71,7 +66,7 @@ export class GithubVariablesService {
       try {
         if (name in existingVariables) {
           if (existingVariables[name] === value) {
-            this.logger.info('Variable "{}" already set to desired value, skipping', name);
+            this.logger.info(`Variable "${name}" already set to desired value, skipping`);
             continue;
           }
           await this.octokit.actions.updateRepoVariable({
@@ -81,7 +76,7 @@ export class GithubVariablesService {
             value,
           });
           updated.push(name);
-          this.logger.info('Updated variable: {}', name);
+          this.logger.info(`Updated variable: ${name}`);
         } else {
           await this.octokit.actions.createRepoVariable({
             owner,
@@ -90,11 +85,11 @@ export class GithubVariablesService {
             value,
           });
           created.push(name);
-          this.logger.info('Created variable: {}', name);
+          this.logger.info(`Created variable: ${name}`);
         }
       } catch (error: any) {
         failed.push(name);
-        this.logger.error('Error setting variable "{}": {}', name, error);
+        this.logger.error(`Error setting variable "${name}": ${error}`);
       }
     }
     return { created, updated, failed };
@@ -106,7 +101,7 @@ export class GithubVariablesService {
     name: string,
     value: string,
   ): Promise<'created' | 'updated'> {
-    this.logger.info('Setting repo variable "{}" for {}/{}', name, owner, repo);
+    this.logger.info(`Setting repo variable "${name}" for ${owner}/${repo}`);
 
     try {
       const existingVariables: Record<string, string> = {};
@@ -122,7 +117,7 @@ export class GithubVariablesService {
 
       if (name in existingVariables) {
         if (existingVariables[name] === value) {
-          this.logger.info('Variable "{}" already set to desired value, skipping', name);
+          this.logger.info(`Variable "${name}" already set to desired value, skipping`);
           return 'updated';
         }
 
@@ -132,7 +127,7 @@ export class GithubVariablesService {
           name,
           value,
         });
-        this.logger.info('Updated variable: {}', name);
+        this.logger.info(`Updated variable: ${name}`);
         return 'updated';
       } else {
         await this.octokit.actions.createRepoVariable({
@@ -141,11 +136,11 @@ export class GithubVariablesService {
           name,
           value,
         });
-        this.logger.info('Created variable: {}', name);
+        this.logger.info(`Created variable: ${name}`);
         return 'created';
       }
     } catch (error: any) {
-      this.logger.error('Error setting variable "{}": {}', name, error);
+      this.logger.error(`Error setting variable "${name}": ${error}`);
       throw new GithubApiError(`Failed to set variable "${name}" for ${owner}/${repo}`, error.status, error);
     }
   }

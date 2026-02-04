@@ -30,7 +30,7 @@ export class CIFactory {
             case CIType.AZURE:
                 return new AzurePlugin(name, registryOrg);
             default:
-                this.logger.warn('Unsupported CI type: {}', ciType);
+                this.logger.warn(`Unsupported CI type: ${ciType}`);
                 return undefined;
         }
     }

@@ -6,8 +6,7 @@ import { AzureServiceEndpointService } from './services/azure-service-endpoint.s
 import { AzureProjectService } from './services/azure-project.service';
 import { AzurePipelinesClientConfig } from './types/azure.types';
 import { AZURE_API_VERSIONS } from './constants/api-versions';
-import { LoggerFactory } from '../../logger/factory/loggerFactory';
-import { Logger } from '../../logger/logger';
+import { LoggerFactory, Logger } from '../../logger/logger';
 
 export class AzureClient {
   public readonly pipelines: AzurePipelineService;

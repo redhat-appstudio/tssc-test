@@ -1,8 +1,7 @@
 import { KubeClient } from '../../ocp/kubeClient';
 import { PipelineRunKind, TaskRunKind } from '@janus-idp/shared-react';
 import retry from 'async-retry';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 // Type-safe interfaces for PipelineRun status structure
 interface ChildReference {
@@ -68,7 +67,7 @@ export class TektonPipelineRunService {
             );
           }
 
-          this.logger.info('Found Tekton PipelineRun: {}', pipelineRun.metadata?.name);
+          this.logger.info(`Found Tekton PipelineRun: ${pipelineRun.metadata?.name}`);
 
           return pipelineRun;
         },
@@ -76,12 +75,12 @@ export class TektonPipelineRunService {
           retries: maxRetries,
           minTimeout: retryDelayMs,
           onRetry: (error: Error, attemptNumber) => {
-            this.logger.warn('[TEKTON-RETRY {}/{}] SHA: {} | Event: {} | Reason: {}', attemptNumber, maxRetries, commitSha, eventType, error);
+            this.logger.warn(`[TEKTON-RETRY ${attemptNumber}/${maxRetries}] SHA: ${commitSha} | Event: ${eventType} | Reason: ${error}`);
           },
         },
       );
     } catch (error: unknown) {
-      this.logger.error('Failed to get pipeline run after retries: {}', (error as Error).message);
+      this.logger.error(`Failed to get pipeline run after retries: ${(error as Error).message}`);
       return null;
     }
   }
@@ -112,7 +111,7 @@ export class TektonPipelineRunService {
             );
           }
 
-          this.logger.info('Found Tekton PipelineRun: {} in namespace {}', name, namespace);
+          this.logger.info(`Found Tekton PipelineRun: ${name} in namespace ${namespace}`);
 
           return pipelineRun;
         },
@@ -120,12 +119,12 @@ export class TektonPipelineRunService {
           retries: maxRetries,
           minTimeout: retryDelayMs,
           onRetry: (error: Error, attemptNumber) => {
-            this.logger.warn('[TEKTON-RETRY {}/{}] Name: {} | Namespace: {} | Reason: {}', attemptNumber, maxRetries, name, namespace, error);
+            this.logger.warn(`[TEKTON-RETRY ${attemptNumber}/${maxRetries}] Name: ${name} | Namespace: ${namespace} | Reason: ${error}`);
           },
         },
       );
     } catch (error: unknown) {
-      this.logger.error('Failed to get pipeline run {} after retries: {}', name, (error as Error).message);
+      this.logger.error(`Failed to get pipeline run ${name} after retries: ${(error as Error).message}`);
       return null;
     }
   }
@@ -148,11 +147,11 @@ export class TektonPipelineRunService {
       const pipelineRuns =
         await this.kubeClient.listResources<PipelineRunKind>(options);
 
-      this.logger.info('Found {} Tekton PipelineRuns for repository: {}', pipelineRuns?.length || 0, gitRepository);
+      this.logger.info(`Found ${pipelineRuns?.length || 0} Tekton PipelineRuns for repository: ${gitRepository}`);
       
       return pipelineRuns || [];
     } catch (error: unknown) {
-      this.logger.error('Failed to get pipeline runs for repository {}: {}', gitRepository, (error as Error).message);
+      this.logger.error(`Failed to get pipeline runs for repository ${gitRepository}: ${(error as Error).message}`);
       throw error;
     }
   }
@@ -179,10 +178,10 @@ export class TektonPipelineRunService {
 
       await this.kubeClient.patchResource(options, patchData);
 
-      this.logger.info('Successfully cancelled PipelineRun: {} in namespace: {}', name, namespace);
+      this.logger.info(`Successfully cancelled PipelineRun: ${name} in namespace: ${namespace}`);
     } catch (error: unknown) {
       const errorMessage = (error as Error).message;
-      this.logger.error('Failed to cancel PipelineRun {}: {}', name, errorMessage);
+      this.logger.error(`Failed to cancel PipelineRun ${name}: ${errorMessage}`);
       throw new Error(`Failed to cancel PipelineRun ${name}: ${errorMessage}`);
     }
   }
@@ -206,7 +205,7 @@ export class TektonPipelineRunService {
     pipelineRunName: string,
   ): Promise<string> {
     try {
-      this.logger.info('Retrieving logs for PipelineRun: {} in namespace: {}', pipelineRunName, namespace);
+      this.logger.info(`Retrieving logs for PipelineRun: ${pipelineRunName} in namespace: ${namespace}`);
 
       const pipelineRun = await this.getPipelineRunByName(
         namespace,
@@ -214,13 +213,13 @@ export class TektonPipelineRunService {
       );
 
       if (!pipelineRun || !pipelineRun.status) {
-        this.logger.info('PipelineRun \'{}\' not found or has no status', pipelineRunName);
+        this.logger.info(`PipelineRun \'${pipelineRunName}\' not found or has no status`);
         return '';
       }
 
       const taskRunReferences = this.getTaskRunReferences(pipelineRun);
       if (taskRunReferences.length === 0) {
-        this.logger.info('PipelineRun \'{}\' has no TaskRuns yet', pipelineRunName);
+        this.logger.info(`PipelineRun \'${pipelineRunName}\' has no TaskRuns yet`);
         return 'No TaskRuns found for this PipelineRun yet.\n';
       }
 
@@ -231,7 +230,7 @@ export class TektonPipelineRunService {
 
       return logs.join('\n');
     } catch (error: unknown) {
-      this.logger.error('Error getting PipelineRun logs: {}', (error as Error).message);
+      this.logger.error(`Error getting PipelineRun logs: ${(error as Error).message}`);
       return '';
     }
   }

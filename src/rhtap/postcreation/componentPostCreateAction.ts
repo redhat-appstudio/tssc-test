@@ -1,7 +1,6 @@
 import { Component } from '../core/component';
 import { PostCreateActionStrategyFactory } from './strategies/postCreateActionStrategyFactory';
-import { LoggerFactory } from '../../logger/factory/loggerFactory';
-import { Logger } from '../../logger/logger';
+import { LoggerFactory, Logger } from '../../logger/logger';
 
 /**
  * Handles post-creation actions for components based on CI and Git provider combinations
@@ -23,7 +22,7 @@ export class ComponentPostCreateAction {
     const ci = this.component.getCI();
     const ciType = ci.getCIType();
 
-    this.logger.info('Executing post-creation actions for CI: {}', ciType);
+    this.logger.info(`Executing post-creation actions for CI: ${ciType}`);
 
     try {
       // Use the factory to get the appropriate strategy for the CI type
@@ -32,12 +31,9 @@ export class ComponentPostCreateAction {
       // Execute the strategy with the component
       await strategy.execute(this.component);
 
-      this.logger.info('Post-creation actions completed successfully for {}', this.component.getName());
+      this.logger.info(`Post-creation actions completed successfully for ${this.component.getName()}`);
     } catch (error) {
-      this.logger.error(
-        'Error executing post-creation actions: {}',
-        error
-      );
+      this.logger.error(`Error executing post-creation actions: ${error}`);
       throw new Error(
         `Post-creation actions failed: ${error}`
       );

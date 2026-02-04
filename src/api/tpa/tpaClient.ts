@@ -1,7 +1,6 @@
 import retry from 'async-retry';
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
-import { LoggerFactory } from '../../logger/factory/loggerFactory';
-import { Logger } from '../../logger/logger';
+import { LoggerFactory, Logger } from '../../logger/logger';
 
 /**
  * Custom error class for TPA API errors
@@ -126,7 +125,7 @@ export class TPAClient {
       this.token = response.data.access_token;
     } catch (error) {
       const message = 'Error getting TPA token';
-      this.logger.error('{}: {}', message, error);
+      this.logger.error(`${message}: ${error}`);
       throw new TPAError(message, error instanceof Error ? error : new Error(String(error)));
     }
   }
@@ -209,7 +208,7 @@ export class TPAClient {
    */
   public async findSBOMsByName(name: string): Promise<SBOMResult[]> {
     const searchUrl = `${this.config.bombasticApiUrl}/api/v2/sbom`;
-    this.logger.info('Searching for SBOM with name: {} at {}', name, searchUrl);
+    this.logger.info(`Searching for SBOM with name: ${name} at ${searchUrl}`);
 
     // Define the operation to retry
     const operation = async (): Promise<SBOMResult[]> => {
@@ -246,11 +245,11 @@ export class TPAClient {
         }
         allItems.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
         if (allItems.length > 0) {
-          this.logger.info('SBOM search for \'{}\' successful. Found {} result(s).', name, allItems.length);
+          this.logger.info(`SBOM search for '${name}' successful. Found ${allItems.length} result(s).`);
           const sbomResponse = allItems.map(item => this.normalizeSBOMResult(item));
           return sbomResponse;
         }
-        this.logger.info('No SBOMs found for \'{}\'.', name);
+        this.logger.info(`No SBOMs found for '${name}'.`);
         return [];
       } catch (error) {
         if (axios.isAxiosError(error)) {
@@ -258,13 +257,13 @@ export class TPAClient {
 
           // Don't retry for 404 (not found) responses - they're expected
           if (axiosError.response?.status === 404) {
-            this.logger.info('No SBOMs found for \'{}\'.', name);
+            this.logger.info(`No SBOMs found for '${name}'.`);
             return [];
           }
 
           // For server errors (5xx), retry by re-throwing
           if (axiosError.response && axiosError.response.status >= 500) {
-            this.logger.error('Server error ({}). Retrying...', axiosError.response.status);
+            this.logger.error(`Server error (${axiosError.response.status}). Retrying...`);
             throw axiosError;
           }
         }
@@ -278,7 +277,7 @@ export class TPAClient {
       return await retry(operation, this.retryOptions);
     } catch (error) {
       const message = `All ${this.retryOptions.retries} attempts to find SBOMs for '${name}' have failed`;
-      this.logger.error('{}: {}', message, error);
+      this.logger.error(`${message}: ${error}`);
       throw new TPAError(message, error instanceof Error ? error : new Error(String(error)));
     }
   }
@@ -292,7 +291,7 @@ export class TPAClient {
   public async findAllSBOMs(): Promise<SBOMResult[]> {
     this.logger.info('Finding all SBOMs...');
     const sboms = await this.findSBOMsByName('');
-    this.logger.info('Found {} SBOM(s).', sboms.length);
+    this.logger.info(`Found ${sboms.length} SBOM(s).`);
     return sboms;
   }
 
@@ -304,7 +303,7 @@ export class TPAClient {
    * @throws {TPAError} if all retries fail
    */
   public async findSBOMBySha256(sha256: string): Promise<SBOMResult | null> {
-    this.logger.info('Searching for SBOM with SHA256: {}', sha256);
+    this.logger.info(`Searching for SBOM with SHA256: ${sha256}`);
     if (!sha256) {
       throw new TPAError('SHA256 cannot be empty');
     }
@@ -313,7 +312,7 @@ export class TPAClient {
       sbom.described_by?.some(component => component.version.includes(sha256))
     );
     if (!sbom) {
-      this.logger.info('No SBOM found with SHA256: {}', sha256);
+      this.logger.info(`No SBOM found with SHA256: ${sha256}`);
     }
 
     return sbom || null;
@@ -332,9 +331,7 @@ export class TPAClient {
     documentId: string,
   ): Promise<SBOMResult | null> {
     this.logger.info(
-      'Searching for SBOM with name: {} and document ID: {}',
-      name,
-      documentId
+      `Searching for SBOM with name: ${name} and document ID: ${documentId}`
     );
 
     const sboms = await this.findSBOMsByName(name);
@@ -345,9 +342,7 @@ export class TPAClient {
 
     if (!sbom) {
       this.logger.info(
-        'No SBOM found with name: {} and document ID: {}',
-        name,
-        documentId
+        `No SBOM found with name: ${name} and document ID: ${documentId}`
       );
     }
     return sbom || null;

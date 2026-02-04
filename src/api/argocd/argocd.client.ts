@@ -2,8 +2,7 @@ import { KubeClient } from '../ocp/kubeClient';
 import { ArgoCDConnectionService } from './services/connection.service';
 import { ArgoCDApplicationService } from './services/application.service';
 import { ArgoCDSyncService } from './services/sync.service';
-import { LoggerFactory } from '../../logger/factory/loggerFactory';
-import { Logger } from '../../logger/logger';
+import { LoggerFactory, Logger } from '../../logger/logger';
 
 /**
  * Main ArgoCD client implementation following the Facade pattern

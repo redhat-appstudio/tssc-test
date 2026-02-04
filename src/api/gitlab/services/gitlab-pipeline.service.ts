@@ -7,8 +7,7 @@ import {
   GitLabJob
 } from '../types/gitlab.types';
 import { createGitLabErrorFromResponse } from '../errors/gitlab.errors';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class GitLabPipelineService implements IGitLabPipelineService {
   private readonly logger: Logger;
@@ -25,16 +24,13 @@ export class GitLabPipelineService implements IGitLabPipelineService {
       const pipelines =
         (await this.gitlabClient.Pipelines.all(projectPath, params as any)) || [];
 
-      this.logger.info('Found {} GitLab pipelines for project: {}', pipelines.length, projectPath);
+      this.logger.info(`Found ${pipelines.length} GitLab pipelines for project: ${projectPath}`);
       
       return pipelines as GitLabPipeline[];
     } catch (error: unknown) {
       const errorMessage = error;
       this.logger.error(
-        'Failed to get GitLab pipelines for project {}: {}',
-        projectPath,
-        errorMessage,
-
+        `Failed to get GitLab pipelines for project ${projectPath}: ${errorMessage}`
       );
       throw new Error(`Failed to get GitLab pipelines for project ${projectPath}: ${errorMessage}`);
     }
@@ -50,11 +46,7 @@ export class GitLabPipelineService implements IGitLabPipelineService {
       return pipeline as GitLabPipeline;
     } catch (error) {
       this.logger.error(
-        'Failed to get GitLab pipeline {} for project {}: {}',
-        pipelineId,
-        projectPath,
-        error,
-
+        `Failed to get GitLab pipeline ${pipelineId} for project ${projectPath}: ${error}`
       );
       throw createGitLabErrorFromResponse(
         'getPipelineById',
@@ -69,11 +61,11 @@ export class GitLabPipelineService implements IGitLabPipelineService {
     try {
       const jobsInfo = await this.gitlabClient.Jobs.all(projectPath, { pipelineId });
       
-      this.logger.info('Found {} jobs for pipeline {} in project: {}', jobsInfo?.length || 0, pipelineId, projectPath);
+      this.logger.info(`Found ${jobsInfo?.length || 0} jobs for pipeline ${pipelineId} in project: ${projectPath}`);
       
       return (jobsInfo as GitLabJob[]) || [];
     } catch (error) {
-      this.logger.error('Failed to get jobs for pipeline {} in project {}: {}', pipelineId, projectPath, error);
+      this.logger.error(`Failed to get jobs for pipeline ${pipelineId} in project ${projectPath}: ${error}`);
       throw error;
     }
   }
@@ -91,9 +83,7 @@ export class GitLabPipelineService implements IGitLabPipelineService {
 
             if (!jobTrace || !jobTrace.body) {
               this.logger.info(
-                'Got empty job log on attempt {} for job {}, will retry if attempts remain',
-                attempt,
-                jobId
+                `Got empty job log on attempt ${attempt} for job ${jobId}, will retry if attempts remain`
               );
               throw new Error('Empty job log received');
             }
@@ -110,12 +100,7 @@ export class GitLabPipelineService implements IGitLabPipelineService {
           maxTimeout: 15000,
           onRetry: (error: Error, attempt: number) => {
             this.logger.warn(
-              'Retry attempt {}/{} for logs job {} project {}: {}',
-              attempt,
-              10,
-              jobId,
-              projectPath,
-              error.message
+              `Retry attempt ${attempt}/10 for logs job ${jobId} project ${projectPath}: ${error.message}`
             );
           },
         },
@@ -124,13 +109,11 @@ export class GitLabPipelineService implements IGitLabPipelineService {
       const errorMessage = error;
       if (errorMessage === 'Empty job log received') {
         this.logger.warn(
-          'Job {} in project {} has an empty log after multiple retries. Continuing without its logs.',
-          jobId,
-          projectPath
+          `Job ${jobId} in project ${projectPath} has an empty log after multiple retries. Continuing without its logs.`
         );
         return `${log} Log is empty`;
       }
-      this.logger.error('Failed to get logs for job {} in project {} after multiple retries: {}', jobId, projectPath, error);
+      this.logger.error(`Failed to get logs for job ${jobId} in project ${projectPath} after multiple retries: ${error}`);
       throw error;
     }
   }
@@ -148,9 +131,7 @@ export class GitLabPipelineService implements IGitLabPipelineService {
       const jobLogPromises = (allJobs as GitLabJob[]).map((job) => {
         if (!job.id && !job.name) {
           this.logger.error(
-            'Job in pipeline {} is missing an ID or name. Skipping Job: {}',
-            pipelineId,
-            JSON.stringify(job)
+            `Job in pipeline ${pipelineId} is missing an ID or name. Skipping Job: ${JSON.stringify(job)}`
           );
           return Promise.resolve('');
         }
@@ -160,7 +141,7 @@ export class GitLabPipelineService implements IGitLabPipelineService {
       const logs = await Promise.all(jobLogPromises);
       return logs.join('');
     } catch (error) {
-      this.logger.error('Failed to get logs for pipeline {} in project {}: {}', pipelineId, projectPath, error);
+      this.logger.error(`Failed to get logs for pipeline ${pipelineId} in project ${projectPath}: ${error}`);
       return 'Failed to retrieve job logs';
     }
   }
@@ -168,15 +149,11 @@ export class GitLabPipelineService implements IGitLabPipelineService {
   public async cancelPipeline(projectPath: string, pipelineId: number): Promise<GitLabPipeline> {
     try {
       const cancelledPipeline = await this.gitlabClient.Pipelines.cancel(projectPath, pipelineId);
-      this.logger.info('Cancelled pipeline {} for project {}', pipelineId, projectPath);
+      this.logger.info(`Cancelled pipeline ${pipelineId} for project ${projectPath}`);
       return cancelledPipeline as GitLabPipeline;
     } catch (error) {
       this.logger.error(
-        'Failed to cancel GitLab pipeline {} for project {}: {}',
-        pipelineId,
-        projectPath,
-        error,
-
+        `Failed to cancel GitLab pipeline ${pipelineId} for project ${projectPath}: ${error}`
       );
       throw createGitLabErrorFromResponse(
         'cancelPipeline',

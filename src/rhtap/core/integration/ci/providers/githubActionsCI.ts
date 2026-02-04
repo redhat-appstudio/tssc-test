@@ -433,7 +433,7 @@ export class GitHubActionsCI extends BaseCI {
       });
 
     } catch (error: any) {
-      this.logger.error('[GitHubActions] Error in cancelAllPipelines: {}', error);
+      this.logger.error(`[GitHubActions] Error in cancelAllPipelines: ${error}`);
       throw new Error(`Failed to cancel pipelines: {}`);
     }
 
@@ -486,7 +486,7 @@ export class GitHubActionsCI extends BaseCI {
       return allWorkflowRuns;
 
     } catch (error: any) {
-      this.logger.error('[GitHubActions] Failed to fetch workflow runs: {}', error);
+      this.logger.error(`[GitHubActions] Failed to fetch workflow runs: ${error}`);
       throw error;
     }
   }
@@ -674,7 +674,7 @@ export class GitHubActionsCI extends BaseCI {
 
       result.errors.push(cancelError);
 
-      this.logger.error('❌ [GitHubActions] Failed to cancel workflow run {}: {}', workflowRun.id, error);
+      this.logger.error(`❌ [GitHubActions] Failed to cancel workflow run ${workflowRun.id}: ${error}`);
     }
 
     // Add detail to results
@@ -792,7 +792,7 @@ export class GitHubActionsCI extends BaseCI {
 
       return logs;
     } catch (error) {
-      this.logger.error('Error getting comprehensive workflow logs for {}: {}', pipeline.id, error);
+      this.logger.error(`Error getting comprehensive workflow logs for ${pipeline.id}: ${error}`);
 
       // Fallback to basic job summary if comprehensive logs fail
       try {

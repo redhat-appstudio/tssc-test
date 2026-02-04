@@ -7,8 +7,7 @@ import {
   CreateVariableOptions,
 } from '../types/gitlab.types';
 import { createGitLabErrorFromResponse } from '../errors/gitlab.errors';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class GitLabProjectService implements IGitLabProjectService {
   private readonly logger: Logger;
@@ -59,14 +58,11 @@ export class GitLabProjectService implements IGitLabProjectService {
         variableOptions
       );
 
-      this.logger.info('Environment variable \'{}\' set successfully in project {}', key, projectId);
+      this.logger.info(`Environment variable '${key}' set successfully in project ${projectId}`);
       return response as GitLabVariable;
     } catch (error) {
       this.logger.error(
-        'Error setting environment variable \'{}\' in project {}: {}',
-        key,
-        projectId,
-        error
+        `Error setting environment variable '${key}' in project ${projectId}: ${error}`
       );
       throw createGitLabErrorFromResponse(
         'setEnvironmentVariable',

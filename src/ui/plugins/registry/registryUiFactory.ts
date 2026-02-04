@@ -36,7 +36,7 @@ export class RegistryUiFactory {
             case ImageRegistryType.ARTIFACTORY:
                 return new ArtifactoryUiPlugin(registry);
             default:
-                this.logger.warn('Unsupported Registry type: {}', registryType);
+                this.logger.warn(`Unsupported Registry type: ${registryType}`);
                 return undefined;
         }
     }

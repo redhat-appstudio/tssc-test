@@ -7,8 +7,7 @@ import { GitType } from '../gitInterface';
 import { PullRequest } from '../models';
 import { ContentModifications } from '../../../../modification/contentModification';
 import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
-import { LoggerFactory } from '../../../../../logger/factory/loggerFactory';
-import { Logger } from '../../../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../../../logger/logger';
 
 /**
  * GitLab provider class
@@ -126,7 +125,7 @@ export class GitlabProvider extends BaseGitProvider {
       // Decode the content from base64
       return Buffer.from(fileContent.content, 'base64').toString('utf-8');
     } catch (error: any) {
-      this.logger.error('Error getting file contents of ${filePath} in repo ${repo}: {}', error);
+      this.logger.error(`Error getting file contents of ${filePath} in repo ${repo}: ${error}`);
       throw error;
     }
   }

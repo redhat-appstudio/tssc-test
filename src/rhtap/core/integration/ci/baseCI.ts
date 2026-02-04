@@ -10,8 +10,7 @@ import {
   CancelResult,
 } from './ciInterface';
 import retry from 'async-retry';
-import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
-import { Logger } from '../../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../../logger/logger';
 
 /**
  * Base class for all CI implementations with common functionality
@@ -96,7 +95,7 @@ export abstract class BaseCI implements CI {
     pipeline: Pipeline,
     timeoutMs: number = 900000
   ): Promise<PipelineStatus> {
-    this.logger.info('Waiting for pipeline {} to finish...', pipeline.getDisplayName());
+    this.logger.info(`Waiting for pipeline ${pipeline.getDisplayName()} to finish...`);
 
     let status: PipelineStatus = PipelineStatus.UNKNOWN;
     const startTime = Date.now();
@@ -105,7 +104,7 @@ export abstract class BaseCI implements CI {
       const checkPipelineStatus = async (bail: (e: Error) => void): Promise<PipelineStatus> => {
         // Check if timeout has been reached
         if (Date.now() - startTime >= timeoutMs) {
-          this.logger.warn('Timed out waiting for pipeline {} to finish', pipeline.getDisplayName());
+          this.logger.warn(`Timed out waiting for pipeline ${pipeline.getDisplayName()} to finish`);
           bail(new Error('Timeout reached'));
           return PipelineStatus.UNKNOWN;
         }
@@ -114,7 +113,7 @@ export abstract class BaseCI implements CI {
         status = await this.checkPipelinerunStatus(pipeline);
         pipeline.updateStatus(status);
 
-        this.logger.info('Pipeline {} status: {}', pipeline.getDisplayName(), status);
+        this.logger.info(`Pipeline ${pipeline.getDisplayName()} status: ${status}`);
 
         // If pipeline is not yet complete, throw error to trigger retry
         if (!pipeline.isCompleted()) {
@@ -133,11 +132,7 @@ export abstract class BaseCI implements CI {
         factor: 1, // No backoff
         onRetry: (error: Error, attempt: number) => {
           this.logger.info(
-            '[RETRY {}] 🔄 Pipeline: {} | Status: {} | Reason: {}',
-            attempt,
-            pipeline.getDisplayName(),
-            status,
-            error.message
+            `[RETRY ${attempt}] 🔄 Pipeline: ${pipeline.getDisplayName()} | Status: ${status} | Reason: ${error.message}`
           );
         },
       });
@@ -149,9 +144,7 @@ export abstract class BaseCI implements CI {
         return PipelineStatus.UNKNOWN;
       }
       this.logger.error(
-        'Error while waiting for pipeline {}: {}',
-        pipeline.getDisplayName(),
-        errorMessage
+        `Error while waiting for pipeline ${pipeline.getDisplayName()}: ${errorMessage}`
       );
       //TODO: Print out pipeline logs if available
       // This is a placeholder for actual log retrieval logic

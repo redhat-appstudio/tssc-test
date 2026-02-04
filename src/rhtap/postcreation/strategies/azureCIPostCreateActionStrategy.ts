@@ -5,8 +5,7 @@ import { CreateAzurePipelines } from './commands/createAzurePipelines';
 import { ModifyAzureFiles } from './commands/modifyAzureFiles';
 import { UpdateCIRunnerImage } from './commands/updateCIRunnerImage';
 import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 /**
  * Azure-specific implementation of post-creation action strategy
@@ -23,7 +22,7 @@ export class AzureCIPostCreateActionStrategy implements ComponentActionStrategy 
    */
   public async execute(component: Component): Promise<void> {
     const folderName = component.getName();
-    this.logger.info('Executing Azure post-creation actions for component: {}', folderName);
+    this.logger.info(`Executing Azure post-creation actions for component: ${folderName}`);
 
     try {
       // Create command instances
@@ -42,9 +41,9 @@ export class AzureCIPostCreateActionStrategy implements ComponentActionStrategy 
       // Wait for all changes to be processed
       // await sleep(60000);
 
-      this.logger.info('Azure post-creation actions completed successfully for {}', folderName);
+      this.logger.info(`Azure post-creation actions completed successfully for ${folderName}`);
     } catch (error) {
-      this.logger.error('Error executing Azure post-creation actions: {}', error);
+      this.logger.error(`Error executing Azure post-creation actions: ${error}`);
       throw new Error(
         `Azure post-creation actions failed: ${error}`
       );

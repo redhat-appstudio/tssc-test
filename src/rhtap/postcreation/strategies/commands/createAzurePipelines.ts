@@ -1,8 +1,7 @@
 import { Component } from '../../../core/component';
 import { AzureCI } from '../../../core/integration/ci/providers/azureCI';
 import { BaseCommand } from './baseCommand';
-import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
-import { Logger } from '../../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../../logger/logger';
 
 const AZURE_PIPELINES_FILE_PATH = 'azure-pipelines.yml';
 
@@ -45,7 +44,7 @@ export class CreateAzurePipelines extends BaseCommand {
 
       this.logComplete('Azure source pipeline creation');
     } catch (error) {
-      this.logger.error('Azure source pipeline creation failed: {}', error);
+      this.logger.error(`Azure source pipeline creation failed: ${error}`);
       throw error;
     }
   }
@@ -71,7 +70,7 @@ export class CreateAzurePipelines extends BaseCommand {
 
       this.logComplete('Azure gitops pipeline creation');
     } catch (error) {
-      this.logger.error('Azure gitops pipeline creation failed: {}', error);
+      this.logger.error(`Azure gitops pipeline creation failed: ${error}`);
       throw error;
     }
   }

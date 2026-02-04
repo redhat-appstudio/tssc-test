@@ -36,7 +36,7 @@ export class GitUiFactory {
             case GitType.BITBUCKET:
                 return new BitbucketUiPlugin(git);
             default:
-                this.logger.warn('Unsupported Git type: {}', gitType);
+                this.logger.warn(`Unsupported Git type: ${gitType}`);
                 return undefined;
         }
     }

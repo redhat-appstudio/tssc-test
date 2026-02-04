@@ -9,8 +9,7 @@ import {
 } from '../types/gitlab.types';
 import { ContentModifications } from '../../../rhtap/modification/contentModification';
 import { createGitLabErrorFromResponse } from '../errors/gitlab.errors';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class GitLabMergeRequestService implements IGitLabMergeRequestService {
   private readonly logger: Logger;
@@ -37,18 +36,18 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
       try {
         await this.repositoryService.getBranch(projectId, sourceBranch);
         sourceBranchExists = true;
-        this.logger.info('Source branch \'{}\' already exists', sourceBranch);
+        this.logger.info(`Source branch '${sourceBranch}' already exists`);
       } catch (error: any) {
         if (error.message && error.message.toLowerCase().includes('not found')) {
           // Branch doesn't exist
-          this.logger.info('Source branch \'{}\' doesn\'t exist', sourceBranch);
+          this.logger.info(`Source branch '${sourceBranch}' doesn't exist`);
           sourceBranchExists = false;
 
           // Only create empty branch if we DON'T have content modifications
           // If we have content modifications, processContentModifications will create it atomically
           if (!contentModifications) {
             await this.repositoryService.createBranch(projectId, sourceBranch, targetBranch);
-            this.logger.info('Created new branch \'{}\' from \'{}\'', sourceBranch, targetBranch);
+            this.logger.info(`Created new branch '${sourceBranch}' from '${targetBranch}'`);
           }
         } else {
           throw error;
@@ -57,7 +56,7 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
 
       // Handle content modifications if provided
       if (contentModifications) {
-        this.logger.info('Processing file modifications for merge request in project {}', projectId);
+        this.logger.info(`Processing file modifications for merge request in project ${projectId}`);
         await this.processContentModifications(
           projectId,
           sourceBranch,
@@ -83,10 +82,10 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
         mergeRequestOptions
       );
 
-      this.logger.info('Successfully created merge request "{}" in project {} (#{} {} -> {})', title, projectId, mergeRequest.iid, sourceBranch, targetBranch);
+      this.logger.info(`Successfully created merge request "${title}" in project ${projectId} (#${mergeRequest.iid} ${sourceBranch} -> ${targetBranch})`);
       return mergeRequest as GitLabMergeRequest;
     } catch (error) {
-      this.logger.error('Error creating merge request: {}', error);
+      this.logger.error(`Error creating merge request: ${error}`);
       throw createGitLabErrorFromResponse('createMergeRequest', error);
     }
   }
@@ -98,7 +97,7 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
     options: MergeMergeRequestOptions = {}
   ): Promise<MergeResult> {
     try {
-      this.logger.info('Merging merge request #{} in project {}', mergeRequestId, projectId);
+      this.logger.info(`Merging merge request #${mergeRequestId} in project ${projectId}`);
 
       // Convert options if provided
       let mergeOptions: any = {};
@@ -116,7 +115,7 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
         mergeOptions
       );
 
-      this.logger.info('Successfully merged merge request #{}', mergeRequestId);
+      this.logger.info(`Successfully merged merge request #${mergeRequestId}`);
 
       // If merge_commit_sha is not available, fetch it separately
       let mergeCommitSha = response.merge_commit_sha;
@@ -131,9 +130,9 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
             mergeRequestId
           );
           mergeCommitSha = mergeRequestDetails.merge_commit_sha;
-          this.logger.info('Fetched merge commit SHA: {}', mergeCommitSha);
+          this.logger.info(`Fetched merge commit SHA: ${mergeCommitSha}`);
         } catch (detailsError) {
-          this.logger.error('Failed to fetch merge request details: {}', detailsError instanceof Error ? detailsError.message : String(detailsError));
+          this.logger.error(`Failed to fetch merge request details: ${detailsError instanceof Error ? detailsError.message : String(detailsError)}`);
         }
       }
 
@@ -161,7 +160,7 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
 
           // If MR is actually merged, treat as success
           if (mrDetails.state === 'merged' && mrDetails.merge_commit_sha) {
-            this.logger.info('MR #{} successfully merged (despite 405)', mergeRequestId);
+            this.logger.info(`MR #${mergeRequestId} successfully merged (despite 405)`);
             return {
               id: String(mrDetails.id || mergeRequestId),
               sha: String(mrDetails.sha || ''),
@@ -169,12 +168,12 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
             };
           }
         } catch (verifyError) {
-          this.logger.error('Failed to verify MR state: {}', verifyError instanceof Error ? verifyError.message : String(verifyError));
+          this.logger.error(`Failed to verify MR state: ${verifyError instanceof Error ? verifyError.message : String(verifyError)}`);
         }
       }
 
       // Re-throw for genuine failures
-      this.logger.error('Failed to merge merge request #{}: {}', mergeRequestId, error);
+      this.logger.error(`Failed to merge merge request #${mergeRequestId}: ${error}`);
       throw createGitLabErrorFromResponse('mergeMergeRequest', error);
     }
   }
@@ -230,7 +229,7 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
           content: fileContent,
         });
       } catch (error: any) {
-        this.logger.error('Error preparing file modification for {}: {}', filePath, error);
+        this.logger.error(`Error preparing file modification for ${filePath}: ${error}`);
         throw error;
       }
     }
@@ -238,9 +237,7 @@ export class GitLabMergeRequestService implements IGitLabMergeRequestService {
     // Create a commit with all file modifications in a single batch
     if (fileModifications.length > 0) {
       this.logger.info(
-        'Committing {} file changes to branch {}',
-        fileModifications.length,
-        sourceBranch
+        `Committing ${fileModifications.length} file changes to branch ${sourceBranch}`
       );
 
       // If source branch doesn't exist, use startBranch to create branch + commit atomically

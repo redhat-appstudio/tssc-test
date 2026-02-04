@@ -8,8 +8,7 @@ import { JenkinsfileAndEnvModificationsOnSourceRepoCommand } from './commands/je
 import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
 import { UpdateCIRunnerImage } from './commands/updateCIRunnerImage';
 import { UncommentCustomRootCA } from './commands/uncommentCustomRootCA';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 /**
  * Jenkins-specific implementation of post-creation action strategy
@@ -26,7 +25,7 @@ export class JenkinsPostCreateActionStrategy implements ComponentActionStrategy 
    */
   public async execute(component: Component): Promise<void> {
     const folderName = component.getName();
-    this.logger.info('Executing Jenkins post-creation actions for component: {}', folderName);
+    this.logger.info(`Executing Jenkins post-creation actions for component: ${folderName}`);
 
     try {
       // Create command instances
@@ -49,9 +48,9 @@ export class JenkinsPostCreateActionStrategy implements ComponentActionStrategy 
         await command.execute();
       }
 
-      this.logger.info('Jenkins post-creation actions completed successfully for {}', folderName);
+      this.logger.info(`Jenkins post-creation actions completed successfully for ${folderName}`);
     } catch (error) {
-      this.logger.error('Error executing Jenkins post-creation actions: {}', error);
+      this.logger.error(`Error executing Jenkins post-creation actions: ${error}`);
       throw new Error(
         `Jenkins post-creation actions failed: ${error}`
       );

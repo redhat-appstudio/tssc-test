@@ -9,8 +9,7 @@ import {
   WorkflowJobsResponse,
 } from '../types/github.types';
 import { GithubApiError, GithubNotFoundError, GithubWorkflowError } from '../errors/github.errors';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 type ListWorkflowRunsForRepoParams =
   Endpoints['GET /repos/{owner}/{repo}/actions/runs']['parameters'];
@@ -179,10 +178,7 @@ export class GithubActionsService {
       .join(', ');
 
     this.logger.info(
-      'Fetching workflow runs for {}/{}{}',
-      owner,
-      repo,
-      filterDescription ? ` with filters: ${filterDescription}` : ''
+      `Fetching workflow runs for ${owner}/${repo}${filterDescription ? ` with filters: ${filterDescription}` : ''}`
     );
 
     try {
@@ -201,10 +197,7 @@ export class GithubActionsService {
                 : []
             ) as WorkflowRun[];
             this.logger.info(
-              'Successfully fetched {} workflow runs for {}/{}',
-              workflowRuns.length,
-              owner,
-              repo
+              `Successfully fetched ${workflowRuns.length} workflow runs for ${owner}/${repo}`
             );
 
             const filteredRuns = this.applyPostApiFilters(
@@ -220,7 +213,7 @@ export class GithubActionsService {
             };
           } catch (error: any) {
             if (error.status === 404 || (error.response && error.response.status === 404)) {
-              this.logger.error('Repository {}/{} not found', owner, repo);
+              this.logger.error(`Repository ${owner}/${repo} not found`);
               bail(new GithubNotFoundError('repository', `${owner}/${repo}`, error.status || 404));
             }
             this.logger.warn(
@@ -237,12 +230,7 @@ export class GithubActionsService {
           factor: this.factor,
           onRetry: (err, attempt) => {
             this.logger.warn(
-              'Retry attempt {}/{} for workflow runs in {}/{}: {}',
-              attempt,
-              this.maxRetries,
-              owner,
-              repo,
-              err
+              `Retry attempt ${attempt}/${this.maxRetries} for workflow runs in ${owner}/${repo}: ${err}`
             );
           },
         },
@@ -266,7 +254,7 @@ export class GithubActionsService {
     repo: string,
     runId: number,
   ): Promise<{ data: WorkflowRun }> {
-    this.logger.info('Fetching workflow run #{} for {}/{}', runId, owner, repo);
+    this.logger.info(`Fetching workflow run #${runId} for ${owner}/${repo}`);
 
     try {
       return await retry(
@@ -279,23 +267,18 @@ export class GithubActionsService {
             });
 
             this.logger.info(
-              'Successfully fetched workflow run #{} for {}/{}',
-              runId,
-              owner,
-              repo
+              `Successfully fetched workflow run #${runId} for ${owner}/${repo}`
             );
             return {
               data: response.data as unknown as WorkflowRun,
             };
           } catch (error: any) {
             if (error.status === 404 || (error.response && error.response.status === 404)) {
-              this.logger.error('Workflow run #{} not found for {}/{}', runId, owner, repo);
+              this.logger.error(`Workflow run #${runId} not found for ${owner}/${repo}`);
               bail(new GithubNotFoundError('workflow run', `#${runId}`, error.status || 404));
             }
             this.logger.warn(
-              'Error fetching workflow run #{}: {}. Retrying...',
-              runId,
-              error
+              `Error fetching workflow run #${runId}: ${error}. Retrying...`
             );
             throw new GithubApiError(`Failed to fetch workflow run #${runId} for ${owner}/${repo}`, error.status, error);
           }
@@ -307,10 +290,7 @@ export class GithubActionsService {
           factor: this.factor,
           onRetry: (err, attempt) => {
             this.logger.warn(
-              'Retry attempt {} for workflow run #{}: {}',
-              attempt,
-              runId,
-              err
+              `Retry attempt ${attempt} for workflow run #${runId}: ${err}`
             );
           },
         },
@@ -330,10 +310,7 @@ export class GithubActionsService {
     runId: number,
   ): Promise<{ data: WorkflowJobsResponse }> {
     this.logger.info(
-      'Fetching jobs for workflow run #{} for {}/{}',
-      runId,
-      owner,
-      repo
+      `Fetching jobs for workflow run #${runId} for ${owner}/${repo}`
     );
 
     try {
@@ -348,9 +325,7 @@ export class GithubActionsService {
             });
 
             this.logger.info(
-              'Successfully fetched {} jobs for workflow run #{}',
-              res.data.jobs?.length || 0,
-              runId
+              `Successfully fetched ${res.data.jobs?.length || 0} jobs for workflow run #${runId}`
             );
             return res;
           } catch (error: any) {
@@ -358,13 +333,11 @@ export class GithubActionsService {
               error.status === 404 ||
               (error.response && error.response.status === 404)
             ) {
-              this.logger.error('Jobs for workflow run #{} not found', runId);
+              this.logger.error(`Jobs for workflow run #${runId} not found`);
               bail(new GithubWorkflowError('job retrieval', `run #${runId}`, error.status || 404, error));
             }
             this.logger.warn(
-              'Error fetching jobs for workflow run #{}: {}. Retrying...',
-              runId,
-              error
+              `Error fetching jobs for workflow run #${runId}: ${error}. Retrying...`
             );
             throw error;
           }
@@ -376,10 +349,7 @@ export class GithubActionsService {
           factor: this.factor,
           onRetry: (err, attempt) => {
             this.logger.warn(
-              'Retry attempt {} for jobs of workflow run #{}: {}',
-              attempt,
-              runId,
-              err
+              `Retry attempt ${attempt} for jobs of workflow run #${runId}: ${err}`
             );
           },
         },
@@ -397,9 +367,7 @@ export class GithubActionsService {
       };
     } catch (error: any) {
       this.logger.error(
-        'Failed to fetch jobs for workflow run #{} after retries: {}',
-        runId,
-        error
+        `Failed to fetch jobs for workflow run #${runId} after retries: ${error}`
       );
       throw new GithubApiError(`Failed to fetch jobs for workflow run #${runId} after retries`, error.status, error);
     }
@@ -410,7 +378,7 @@ export class GithubActionsService {
     repo: string,
     jobId: number,
   ): Promise<string> {
-    this.logger.info('Fetching logs for job #{} for {}/{}', jobId, owner, repo);
+    this.logger.info(`Fetching logs for job #${jobId} for ${owner}/${repo}`);
 
     try {
       return await retry(
@@ -432,26 +400,24 @@ export class GithubActionsService {
             }
             
             const logs = await logResponse.text();
-            this.logger.info('Successfully fetched logs for job #{}', jobId);
+            this.logger.info(`Successfully fetched logs for job #${jobId}`);
             return logs;
           } catch (error: any) {
             // Handle GitHub API errors (don't retry these)
             if (error.status === 404 || (error.response && error.response.status === 404)) {
-              this.logger.error('Logs for job #{} not found', jobId);
+              this.logger.error(`Logs for job #${jobId} not found`);
               bail(new GithubWorkflowError('job logs retrieval', `#${jobId}`, error.status || 404));
             }
 
             // Handle fetch/network errors (these can be retried)
             if (error.message && error.message.includes('Failed to fetch logs: HTTP')) {
-              this.logger.warn('Network error fetching logs for job #{}: {}. Retrying...', jobId, error);
+              this.logger.warn(`Network error fetching logs for job #${jobId}: ${error}. Retrying...`);
               throw error; // Let retry mechanism handle this
             }
 
             // Handle other errors
             this.logger.warn(
-              'Error fetching logs for job #{}: {}. Retrying...',
-              jobId,
-              error
+              `Error fetching logs for job #${jobId}: ${error}. Retrying...`
             );
             throw new GithubApiError(`Failed to fetch logs for job #${jobId} for ${owner}/${repo}`, error.status, error);
           }
@@ -463,19 +429,14 @@ export class GithubActionsService {
           factor: this.factor,
           onRetry: (err, attempt) => {
             this.logger.warn(
-              'Retry attempt {} for logs of job #{}: {}',
-              attempt,
-              jobId,
-              err
+              `Retry attempt ${attempt} for logs of job #${jobId}: ${err}`
             );
           },
         },
       );
     } catch (error: any) {
       this.logger.error(
-        'Failed to fetch logs for job #{} after retries: {}',
-        jobId,
-        error
+        `Failed to fetch logs for job #${jobId} after retries: ${error}`
       );
       throw error;
     }
@@ -487,10 +448,7 @@ export class GithubActionsService {
     runId: number,
   ): Promise<string> {
     this.logger.info(
-      'Fetching comprehensive logs for workflow run #{} for {}/{}',
-      runId,
-      owner,
-      repo
+      `Fetching comprehensive logs for workflow run #${runId} for ${owner}/${repo}`
     );
 
     try {
@@ -498,7 +456,7 @@ export class GithubActionsService {
       const jobs = jobsResponse.data.jobs;
 
       if (jobs.length === 0) {
-        this.logger.info('No jobs found for workflow run #{}', runId);
+        this.logger.info(`No jobs found for workflow run #${runId}`);
         return `No jobs found for workflow run #${runId}`;
       }
 
@@ -538,9 +496,7 @@ export class GithubActionsService {
       return allLogs;
     } catch (error: any) {
       this.logger.error(
-        'Failed to fetch comprehensive logs for workflow run #{}: {}',
-        runId,
-        error
+        `Failed to fetch comprehensive logs for workflow run #${runId}: ${error}`
       );
       throw new GithubApiError(`Failed to fetch comprehensive logs for workflow run #${runId}`, error.status, error);
     }
@@ -551,7 +507,7 @@ export class GithubActionsService {
     repo: string,
     jobId: number,
   ): Promise<{ data: WorkflowJob }> {
-    this.logger.info('Fetching workflow job #{} for {}/{}', jobId, owner, repo);
+    this.logger.info(`Fetching workflow job #${jobId} for ${owner}/${repo}`);
 
     try {
       const response = await retry(
@@ -562,17 +518,15 @@ export class GithubActionsService {
               repo,
               job_id: jobId,
             });
-            this.logger.info('Successfully fetched workflow job #{}', jobId);
+            this.logger.info(`Successfully fetched workflow job #${jobId}`);
             return res;
           } catch (error: any) {
             if (error.status === 404 || (error.response && error.response.status === 404)) {
-              this.logger.error('Workflow job #{} not found', jobId);
+              this.logger.error(`Workflow job #${jobId} not found`);
               bail(new GithubNotFoundError('workflow job', `#${jobId}`, error.status || 404));
             }
             this.logger.warn(
-              'Error fetching workflow job #{}: {}. Retrying...',
-              jobId,
-              error
+              `Error fetching workflow job #${jobId}: ${error}. Retrying...`
             );
             throw new GithubApiError(`Failed to fetch workflow job #${jobId} for ${owner}/${repo}`, error.status, error);
           }
@@ -584,10 +538,7 @@ export class GithubActionsService {
           factor: this.factor,
           onRetry: (err, attempt) => {
             this.logger.warn(
-              'Retry attempt {} for workflow job #{}: {}',
-              attempt,
-              jobId,
-              err
+              `Retry attempt ${attempt} for workflow job #${jobId}: ${err}`
             );
           },
         },
@@ -595,9 +546,7 @@ export class GithubActionsService {
       return { data: response.data as WorkflowJob };
     } catch (error: any) {
       this.logger.error(
-        'Failed to fetch workflow job #{} after retries: {}',
-        jobId,
-        error
+        `Failed to fetch workflow job #${jobId} after retries: ${error}`
       );
       throw error;
     }
@@ -613,10 +562,7 @@ export class GithubActionsService {
       return null;
     }
     this.logger.info(
-      'Finding workflow run for commit {} in {}/{}',
-      sha.substring(0, 7),
-      owner,
-      repo
+      `Finding workflow run for commit ${sha.substring(0, 7)} in ${owner}/${repo}`
     );
 
     try {
@@ -630,19 +576,15 @@ export class GithubActionsService {
       if (runs.length > 0) {
         const matchingRun = runs[0];
         this.logger.info(
-          'Found workflow run #{} for commit {}',
-          matchingRun.id,
-          sha.substring(0, 7)
+          `Found workflow run #${matchingRun.id} for commit ${sha.substring(0, 7)}`
         );
         return matchingRun;
       }
-      this.logger.info('No workflow run found for commit {}', sha.substring(0, 7));
+      this.logger.info(`No workflow run found for commit ${sha.substring(0, 7)}`);
       return null;
     } catch (error: any) {
       this.logger.error(
-        'Error finding workflow run for commit {}: {}',
-        sha.substring(0, 7),
-        error
+        `Error finding workflow run for commit ${sha.substring(0, 7)}: ${error}`
       );
       throw new GithubApiError(`Error finding workflow run for commit ${sha.substring(0, 7)}`, error.status, error);
     }
@@ -679,17 +621,13 @@ export class GithubActionsService {
           factor: this.factor,
           onRetry: (error: Error, attempt: number) => {
             this.logger.warn(
-              '[GitHub Actions] Retry {}/{} - Cancelling workflow run {}: {}',
-              attempt,
-              this.maxRetries,
-              runId,
-              error.message
+              `[GitHub Actions] Retry ${attempt}/${this.maxRetries} - Cancelling workflow run ${runId}: ${error.message}`
             );
           },
         }
       );
 
-      this.logger.info('[GitHub Actions] Successfully cancelled workflow run {}', runId);
+      this.logger.info(`[GitHub Actions] Successfully cancelled workflow run ${runId}`);
     } catch (error: any) {
       // Handle specific error cases
       if (error.status === 404) {

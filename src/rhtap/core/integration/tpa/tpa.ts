@@ -1,8 +1,7 @@
 import { KubeClient } from '../../../../../src/api/ocp/kubeClient';
 import { SBOMResult, TPAClient } from '../../../../../src/api/tpa/tpaClient';
 import { IntegrationSecret } from '../../integrationSecret';
-import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
-import { Logger } from '../../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../../logger/logger';
 
 /**
  * TPA (Trustification) singleton class
@@ -76,7 +75,7 @@ export class TPA implements IntegrationSecret {
         await this.tpaClient.initAccessToken();
         this.initialized = true;
       } catch (error) {
-        this.logger.error('Failed to initialize TPA client:', error);
+        this.logger.error(`Failed to initialize TPA client:`);
         throw error;
       }
     }
@@ -108,7 +107,7 @@ export class TPA implements IntegrationSecret {
    * @returns A promise that resolves to an array of SBOM results
    */
   public async searchSBOMByName(name: string): Promise<SBOMResult[]> {
-    this.logger.info('Searching for SBOM with name: {}', name);
+    this.logger.info(`Searching for SBOM with name: ${name}`);
 
     if (!this.initialized) {
       await this.initClient();
@@ -122,7 +121,7 @@ export class TPA implements IntegrationSecret {
       this.logger.info(`Found ${results.length} SBOM results for: ${name}`);
       return results;
     } catch (error) {
-      this.logger.error('Failed to search for SBOM: {}. Error: {}', name, error);
+      this.logger.error(`Failed to search for SBOM: ${name}. Error: ${error}`);
       throw error;
     }
   }
@@ -146,7 +145,7 @@ export class TPA implements IntegrationSecret {
       const result = await this.tpaClient.findSBOMBySha256(sha256);
       return result;
     } catch (error) {
-      this.logger.error('Failed to get SBOM by SHA: {}. Error: {}', sha256, error);
+      this.logger.error(`Failed to get SBOM by SHA: ${sha256}. Error: ${error}`);
       throw error;
     }
   }
@@ -170,7 +169,7 @@ export class TPA implements IntegrationSecret {
       const result = await this.tpaClient.findSBOMsByNameAndDocID(name, documentId);
       return result;
     } catch (error) {
-      this.logger.error('Failed to get SBOM by document ID: {}. Error: {}', documentId, error);
+      this.logger.error(`Failed to get SBOM by document ID: ${documentId}. Error: ${error}`);
       throw error;
     }
   }

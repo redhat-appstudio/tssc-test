@@ -7,8 +7,7 @@ import {
 } from '../types/azure.types';
 import retry from 'async-retry';
 import axios from 'axios';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class AzurePipelineService {
   private readonly client: AzureHttpClient;
@@ -44,7 +43,7 @@ export class AzurePipelineService {
         return null;
       }
     } catch (error) {
-      this.logger.error('Failed to find pipeline definition for \'{}\': {}', pipelineName, error);
+      this.logger.error(`Failed to find pipeline definition for '${pipelineName}': ${error}`);
       throw error;
     }
   }
@@ -56,7 +55,7 @@ export class AzurePipelineService {
       );
       return runInfo as AzurePipelineRun;
     } catch (error) {
-      this.logger.error('Failed to get pipeline run ID {} for pipeline ID {}: {}', runId, pipelineId, error);
+      this.logger.error(`Failed to get pipeline run ID ${runId} for pipeline ID ${pipelineId}: ${error}`);
       throw error;
     }
   }
@@ -69,12 +68,12 @@ export class AzurePipelineService {
       const logs = logsResponse.logs;
 
       if (!logs || logs.length === 0) {
-        this.logger.error('No logs available for pipeline run #{}-{}', pipelineId, runId);
+        this.logger.error(`No logs available for pipeline run #${pipelineId}-${runId}`);
         throw new Error(`No logs available for pipeline run #${pipelineId}-${runId}`);
       }
       return logs;
     } catch (error) {
-      this.logger.error('Failed to get logs info for pipeline run ID {} for pipeline ID {}: {}', runId, pipelineId, error);
+      this.logger.error(`Failed to get logs info for pipeline run ID ${runId} for pipeline ID ${pipelineId}: ${error}`);
       throw error;
     }
   }
@@ -95,7 +94,7 @@ export class AzurePipelineService {
             });
 
             if (!logContentResponse.data) {
-              this.logger.error('Got empty log content on attempt {} for log {}, will retry if attempts remain', attempt, logId);
+              this.logger.error(`Got empty log content on attempt ${attempt} for log ${logId}, will retry if attempts remain`);
               throw new Error('Empty log content received');
             }
 
@@ -110,16 +109,16 @@ export class AzurePipelineService {
           minTimeout: 5000,
           maxTimeout: 15000,
           onRetry: (error: Error, attempt: number) => {
-            this.logger.warn('[AZURE-RETRY {}/6] Pipeline: {}, Log: {} | Status: Failed | Reason: {}', attempt, pipelineRunID, logId, error);
+            this.logger.warn(`[AZURE-RETRY ${attempt}/6] Pipeline: ${pipelineRunID}, Log: ${logId} | Status: Failed | Reason: ${error}`);
           },
         });
     } catch (error) {
       const errorMessage = error;
       if (errorMessage === 'Empty log content received') {
-        this.logger.warn('Log {} for pipeline run {} has empty content after multiple retries. Continuing without its content', logId, pipelineRunID);
+        this.logger.warn(`Log ${logId} for pipeline run ${pipelineRunID} has empty content after multiple retries. Continuing without its content`);
         return `${logHeader}\nLog is empty\n`;
       }
-      this.logger.error('Failed to get log {} for pipeline run {} after multiple retries: {}', logId, pipelineRunID, error);
+      this.logger.error(`Failed to get log ${logId} for pipeline run ${pipelineRunID} after multiple retries: ${error}`);
       return `${logHeader}\nFailed to retrieve log ${logId}: ${errorMessage}\n`;
     }
   }
@@ -134,7 +133,7 @@ export class AzurePipelineService {
       // Process all logs in parallel using Promise.allSettled for better error handling
       const logPromises = sortedLogs.map((log) => {
         if (!log.signedContent?.url) {
-          this.logger.error('Log Info for pipeline {}-{} is missing an log url. Skipping Log for {}', pipelineId, runId, log.id);
+          this.logger.error(`Log Info for pipeline ${pipelineId}-${runId} is missing an log url. Skipping Log for ${log.id}`);
           return Promise.resolve('');
         }
         return this.getPipelineRunLogsFromLogId(`${pipelineId}-${runId}`, log.id, log.signedContent!.url)
@@ -144,7 +143,7 @@ export class AzurePipelineService {
       const logResults = await Promise.all(logPromises);
       return logResults.join('');
     } catch (error) {
-      this.logger.error('Failed to get logs for pipeline run ID {} for pipeline ID {}: {}', runId, pipelineId, error);
+      this.logger.error(`Failed to get logs for pipeline run ID ${runId} for pipeline ID ${pipelineId}: ${error}`);
       throw error;
     }
   }
@@ -156,7 +155,7 @@ export class AzurePipelineService {
       );
       return runInfo as AzureBuild;
     } catch (error) {
-      this.logger.error('Failed to get build with id {}: {}', buildId, error);
+      this.logger.error(`Failed to get build with id ${buildId}: ${error}`);
       throw error;
     }
   }
@@ -175,12 +174,12 @@ export class AzurePipelineService {
           minTimeout: 1000,
           maxTimeout: 5000,
           onRetry: (error: Error, attempt: number) => {
-            this.logger.warn('[Azure] Retry {}/3 - Cancelling build {}: {}', attempt, buildId, error);
+            this.logger.warn(`[Azure] Retry ${attempt}/3 - Cancelling build ${buildId}: ${error}`);
           },
         }
       );
 
-      this.logger.info('[Azure] Successfully cancelled build {}', buildId);
+      this.logger.info(`[Azure] Successfully cancelled build ${buildId}`);
     } catch (error: any) {
       // Handle specific error cases
       if (error.response?.status === 404) {
@@ -203,13 +202,13 @@ export class AzurePipelineService {
       );
       return pipelines.value;
     } catch (error) {
-      this.logger.error('Failed to retrieve all pipelines: {}', error);
+      this.logger.error(`Failed to retrieve all pipelines: ${error}`);
       throw error;
     }
   }
 
   public async getPipelineIdByName(pipelineName: string): Promise<number | null> {
-    this.logger.info('Retrieving id for pipeline with name {}', pipelineName);
+    this.logger.info(`Retrieving id for pipeline with name ${pipelineName}`);
     const pipelines = await this.getAllPipelines();
 
     const pipeline = pipelines.find(pipeline => pipeline.name === pipelineName);
@@ -219,15 +218,15 @@ export class AzurePipelineService {
 
   public async listPipelineRuns(pipelineId: number): Promise<AzurePipelineRun[]> {
     try {
-      this.logger.info('Listing all pipelineruns for pipeline with id {}', pipelineId);
+      this.logger.info(`Listing all pipelineruns for pipeline with id ${pipelineId}`);
 
       const response = await this.client.get<{ count: number; value: AzurePipelineRun[] }>(
         `${this.project}/_apis/pipelines/${pipelineId}/runs?${this.getApiVersionParam()}`
       );
-      this.logger.info('Found {} total runs for pipeline with id {}', response.count, pipelineId);
+      this.logger.info(`Found ${response.count} total runs for pipeline with id ${pipelineId}`);
       return response.value || [];
     } catch (error) {
-      this.logger.error('Failed to list runs for pipeline ID {}: {}', pipelineId, error);
+      this.logger.error(`Failed to list runs for pipeline ID ${pipelineId}: ${error}`);
       throw error;
     }
   }
@@ -240,7 +239,7 @@ export class AzurePipelineService {
     serviceConnectionId: string,
     folderPath?: string
   ): Promise<AzurePipelineDefinition> {
-    this.logger.info('Creating pipeline: repository={} type={} name={}', repositoryId, repositoryType, pipelineName);
+    this.logger.info(`Creating pipeline: repository=${repositoryId} type=${repositoryType} name=${pipelineName}`);
     try {
       const payload = {
         folder: folderPath,
@@ -273,7 +272,7 @@ export class AzurePipelineService {
       await this.disablePipelineTriggerOverride(response.id);
       return response;
     } catch (error) {
-      this.logger.error('Failed to create pipeline definition \'{}\': {}', pipelineName, error);
+      this.logger.error(`Failed to create pipeline definition '${pipelineName}': ${error}`);
       throw error;
     }
   }
@@ -283,9 +282,9 @@ export class AzurePipelineService {
       await this.client.delete(
         `${this.project}/_apis/pipelines/${pipelineId}?${this.getApiVersionParam()}`
       );
-      this.logger.info('Successfully deleted modern pipeline with ID: {}', pipelineId);
+      this.logger.info(`Successfully deleted modern pipeline with ID: ${pipelineId}`);
     } catch (error) {
-      this.logger.error('Failed to delete modern pipeline with ID {}: {}', pipelineId, error);
+      this.logger.error(`Failed to delete modern pipeline with ID ${pipelineId}: ${error}`);
       throw error;
     }
   }
@@ -313,12 +312,12 @@ export class AzurePipelineService {
         },
       ];
 
-      this.logger.info('Updating trigger settings for pipeline ID: {}...', pipelineId);
+      this.logger.info(`Updating trigger settings for pipeline ID: ${pipelineId}...`);
       const updateResponse = await this.client.put<AzurePipelineDefinition>(definitionUrl, existingDefinition);
 
       this.logger.info('Successfully updated trigger for pipeline "{}".', updateResponse.name);
     } catch (error) {
-      this.logger.error('Failed to update trigger for pipeline ID {}: {}', pipelineId, error);
+      this.logger.error(`Failed to update trigger for pipeline ID ${pipelineId}: ${error}`);
       throw error;
     }
   }
