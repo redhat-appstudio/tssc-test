@@ -133,8 +133,7 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
       );
 
       this.logger.info(
-        'Successfully created commit: {}',
-        JSON.stringify(
+        `Successfully created commit: ${JSON.stringify(
           {
             id: response.id,
             short_id: response.short_id,
@@ -142,7 +141,7 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
           },
           null,
           2
-        )
+        )}`
       );
 
       return { id: response.id };

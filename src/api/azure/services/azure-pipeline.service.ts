@@ -39,7 +39,7 @@ export class AzurePipelineService {
       if (foundPipeline) {
         return foundPipeline;
       } else {
-        this.logger.warn('Pipeline with name \'{}\' not found in project', pipelineName);
+        this.logger.warn(`Pipeline with name \'${pipelineName}\' not found in project`);
         return null;
       }
     } catch (error) {
@@ -315,7 +315,7 @@ export class AzurePipelineService {
       this.logger.info(`Updating trigger settings for pipeline ID: ${pipelineId}...`);
       const updateResponse = await this.client.put<AzurePipelineDefinition>(definitionUrl, existingDefinition);
 
-      this.logger.info('Successfully updated trigger for pipeline "{}".', updateResponse.name);
+      this.logger.info(`Successfully updated trigger for pipeline "${updateResponse.name}".`);
     } catch (error) {
       this.logger.error(`Failed to update trigger for pipeline ID ${pipelineId}: ${error}`);
       throw error;

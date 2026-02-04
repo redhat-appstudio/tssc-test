@@ -514,8 +514,8 @@ export class AzureCI extends BaseCI {
       });
 
     } catch (error: any) {
-      this.logger.error(`[Azure] Error in cancelAllPipelines: ${error}`);
-      throw new Error(`Failed to cancel pipelines: {}`);
+      this.logger.error(`[Azure] Error in cancelAllPipelines: ${error.message}`);
+      throw new Error(`Failed to cancel pipelines: ${error.message}`);
     }
 
     return result;

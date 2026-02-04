@@ -433,8 +433,8 @@ export class GitHubActionsCI extends BaseCI {
       });
 
     } catch (error: any) {
-      this.logger.error(`[GitHubActions] Error in cancelAllPipelines: ${error}`);
-      throw new Error(`Failed to cancel pipelines: {}`);
+      this.logger.error(`[GitHubActions] Error in cancelAllPipelines: ${error.message}`);
+      throw new Error(`Failed to cancel pipelines: ${error.message}`);
     }
 
     return result;
@@ -847,7 +847,7 @@ export class GitHubActionsCI extends BaseCI {
         return logSummary;
       } catch (fallbackError) {
         const errorMessage = `Failed to get pipeline logs for workflow ${pipeline.id}`;
-        this.logger.error(`${errorMessage}:`, fallbackError);
+        this.logger.error(`${errorMessage}: ${fallbackError}`);
 
         return `${errorMessage}\n\nPrimary error: ${error}\nFallback error: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}\n\nPlease visit the workflow URL to view logs: ${pipeline.url}`;
       }

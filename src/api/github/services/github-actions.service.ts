@@ -217,8 +217,7 @@ export class GithubActionsService {
               bail(new GithubNotFoundError('repository', `${owner}/${repo}`, error.status || 404));
             }
             this.logger.warn(
-              'Error fetching workflow runs: {}. Retrying...',
-              error
+              `Error fetching workflow runs: ${error}. Retrying...`
             );
             throw new GithubApiError(`Failed to fetch workflow runs for ${owner}/${repo}`, error.status, error);
           }
@@ -237,8 +236,7 @@ export class GithubActionsService {
       );
     } catch (error: any) {
       this.logger.error(
-        'Failed to fetch workflow runs after retries: {}',
-        error
+        `Failed to fetch workflow runs after retries: ${error}`
       );
       return {
         data: {
@@ -297,8 +295,7 @@ export class GithubActionsService {
       );
     } catch (error: any) {
       this.logger.error(
-        'Failed to fetch workflow run after retries: {}',
-        error
+        `Failed to fetch workflow run after retries: ${error}`
       );
       throw error;
     }
