@@ -13,8 +13,7 @@ import {
 } from '../types/gitlab.types';
 import retry from 'async-retry';
 import { createGitLabErrorFromResponse, isRetryableError } from '../errors/gitlab.errors';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class GitLabRepositoryService implements IGitLabRepositoryService {
   private readonly logger: Logger;
@@ -49,7 +48,7 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
   ): Promise<GitLabBranch> {
     try {
       const branch = await this.gitlabClient.Branches.create(projectId, branchName, ref);
-      this.logger.info('Created new branch \'{}\' from \'{}\'', branchName, ref);
+      this.logger.info(`Created new branch '${branchName}' from '${ref}'`);
       return branch as GitLabBranch;
     } catch (error) {
       throw createGitLabErrorFromResponse('createBranch', error, 'branch', branchName);
@@ -78,10 +77,7 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
   ): Promise<CommitResult> {
     try {
       this.logger.info(
-        'Creating direct commit to branch {} with {} file actions{}',
-        branch,
-        actions.length,
-        startBranch ? ` (branching from ${startBranch})` : ''
+        `Creating direct commit to branch ${branch} with ${actions.length} file actions${startBranch ? ` (branching from ${startBranch})` : ''}`
       );
 
       // Convert file_path to filePath as required by the GitLab API
@@ -111,20 +107,13 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
               // Let retry mechanism handle it
               const errorMessage = error;
               this.logger.warn(
-                'Retry attempt {}/{} for commit to {}: {}',
-                attempt,
-                3,
-                branch,
-                errorMessage
+                `Retry attempt ${attempt}/3 for commit to ${branch}: ${errorMessage}`
               );
               throw error;
             } else {
               // Non-retryable errors should fail immediately
               this.logger.error(
-                'Non-retryable error on branch {}: {}',
-                branch,
-                error,
-
+                `Non-retryable error on branch ${branch}: ${error}`
               );
               bail(error as Error);
               return null as any; // TypeScript requirement, never reached
@@ -137,11 +126,7 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
           maxTimeout: 10000,
           onRetry: (error: Error, attempt: number) => {
             this.logger.warn(
-              'Retry attempt {}/{} for commit to {}: {}',
-              attempt,
-              3,
-              branch,
-              error.message
+              `Retry attempt ${attempt}/3 for commit to ${branch}: ${error.message}`
             );
           },
         }
@@ -162,7 +147,7 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
 
       return { id: response.id };
     } catch (error) {
-      this.logger.error('Failed to create commit on branch {}: {}', branch, error);
+      this.logger.error(`Failed to create commit on branch ${branch}: ${error}`);
       throw createGitLabErrorFromResponse('createCommit', error, 'commit', branch);
     }
   }
@@ -189,7 +174,7 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
         encoding: fileContent.encoding || 'base64',
       };
     } catch (error) {
-      this.logger.error('Error getting file content from {}: {}', filePath, error);
+      this.logger.error(`Error getting file content from ${filePath}: ${error}`);
       throw createGitLabErrorFromResponse('getFileContent', error, 'file', filePath);
     }
   }
@@ -244,10 +229,7 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
   ): Promise<ContentExtractionResult> {
     try {
       this.logger.info(
-        'Searching for pattern {} in file {} ({} branch)',
-        searchPattern,
-        filePath,
-        branch
+        `Searching for pattern ${searchPattern} in file ${filePath} (${branch} branch)`
       );
 
       // Get the file content
@@ -258,7 +240,7 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
       );
 
       if (!fileContent || !fileContent.content) {
-        this.logger.info('Could not retrieve content for file: {}', filePath);
+        this.logger.info(`Could not retrieve content for file: ${filePath}`);
         return [];
       }
 
@@ -269,14 +251,14 @@ export class GitLabRepositoryService implements IGitLabRepositoryService {
       const matches = content.match(searchPattern);
 
       if (!matches) {
-        this.logger.info('No matches found in file {}', filePath);
+        this.logger.info(`No matches found in file ${filePath}`);
         return [];
       }
 
-      this.logger.info('Found {} matches in {}', matches.length, filePath);
+      this.logger.info(`Found ${matches.length} matches in ${filePath}`);
       return matches;
     } catch (error) {
-      this.logger.error('Error extracting content with regex from {}: {}', filePath, error);
+      this.logger.error(`Error extracting content with regex from ${filePath}: ${error}`);
       return [];
     }
   }

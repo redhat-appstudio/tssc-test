@@ -10,8 +10,7 @@ import { createGit } from '../core/integration/git';
 import { BitbucketProvider } from '../core/integration/git';
 import { ImageRegistry, createRegistry } from '../core/integration/registry';
 import { ScaffolderScaffoldOptions } from '@backstage/plugin-scaffolder-react';
-import { LoggerFactory } from '../../logger/factory/loggerFactory';
-import { Logger } from '../../logger/logger';
+import { LoggerFactory, Logger } from '../../logger/logger';
 
 export class Component {
   private readonly logger: Logger;
@@ -94,9 +93,7 @@ export class Component {
 
         component.id = response.id;
         component.logger.info(
-          'Component creation started. Component Name: {}, ID: {}',
-          component.name,
-          component.id
+          `Component creation started. Component Name: ${component.name}, ID: ${component.id}`
         );
       }
 
@@ -104,7 +101,7 @@ export class Component {
       return component;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      component.logger.error('Failed to create component \'{}\': {}', name, errorMessage);
+      component.logger.error(`Failed to create component '${name}': ${errorMessage}`);
       throw new Error(`Component creation failed: ${errorMessage}`);
     }
   }
@@ -117,7 +114,7 @@ export class Component {
     if (!this.isCreated) {
       throw new Error('Component has not been created yet.');
     }
-    this.logger.info('Waiting for component {} to be completed...', this.name);
+    this.logger.info(`Waiting for component ${this.name} to be completed...`);
     await this.developerHub.waitUntilComponentIsCompleted(this.id);
   }
 
@@ -186,7 +183,7 @@ export class Component {
     const developerHubUrl = `https://${routeHostname}`;
     const developerHub = new DeveloperHub(developerHubUrl);
 
-    this.logger.info('Connected to Developer Hub at: {}', developerHub.getUrl());
+    this.logger.info(`Connected to Developer Hub at: ${developerHub.getUrl()}`);
     return developerHub;
   }
 

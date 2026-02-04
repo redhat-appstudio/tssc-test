@@ -165,7 +165,7 @@ export class GitLabCI extends BaseCI {
         latestPipeline.sha
       );
     } catch (error) {
-      this.logger.error('Error fetching GitLab pipelines: {}', error);
+      this.logger.error(`Error fetching GitLab pipelines: ${error}`);
       return null;
     }
   }
@@ -208,7 +208,7 @@ export class GitLabCI extends BaseCI {
       const mappedStatus = this.mapPipelineStatus(gitlabStatus);
       return mappedStatus;
     } catch (error) {
-      this.logger.error('Error checking pipeline status for {}: {}', pipeline.id, error);
+      this.logger.error(`Error checking pipeline status for ${pipeline.id}: ${error}`);
       return PipelineStatus.UNKNOWN;
     }
   }
@@ -278,7 +278,7 @@ export class GitLabCI extends BaseCI {
         );
       }
     } catch (error) {
-      this.logger.error('Error waiting for GitLab CI pipelines to finish: {}', error);
+      this.logger.error(`Error waiting for GitLab CI pipelines to finish: ${error}`);
       throw new Error(`Failed to wait for pipelines: ${error}`);
     }
   }
@@ -353,7 +353,7 @@ export class GitLabCI extends BaseCI {
       });
 
     } catch (error: any) {
-      this.logger.error('[GitLabCI] Error in cancelAllPipelines: {}', error);
+      this.logger.error(`[GitLabCI] Error in cancelAllPipelines: ${error}`);
       throw new Error(`Failed to cancel pipelines: {}`);
     }
 
@@ -404,7 +404,7 @@ export class GitLabCI extends BaseCI {
       return allPipelines;
 
     } catch (error: any) {
-      this.logger.error('[GitLabCI] Failed to fetch pipelines: {}', error);
+      this.logger.error(`[GitLabCI] Failed to fetch pipelines: ${error}`);
       throw error;
     }
   }
@@ -591,7 +591,7 @@ export class GitLabCI extends BaseCI {
 
       result.errors.push(cancelError);
 
-      this.logger.error('❌ [GitLabCI] Failed to cancel pipeline {}: {}', pipeline.id, error);
+      this.logger.error(`❌ [GitLabCI] Failed to cancel pipeline ${pipeline.id}: ${error}`);
     }
 
     // Add detail to results

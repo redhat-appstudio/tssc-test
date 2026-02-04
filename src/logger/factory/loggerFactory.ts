@@ -10,9 +10,6 @@ import { mergeConfig, DEFAULT_LOGGER_CONFIG } from '../config/loggerConfig';
 import { createConsoleTransport } from '../transports/consoleTransport';
 import { createRotatingFileTransport } from '../transports/rotatingFileTransport';
 import { Logger } from '../core/Logger';
-import { ParameterizedFormatter } from '../features/formatting/ParameterizedFormatter';
-import { AsyncContextInjector } from '../features/context/AsyncContextInjector';
-import { WinstonTransport } from '../adapters/WinstonTransport';
 
 /**
  * LoggerFactory singleton class
@@ -99,12 +96,9 @@ class LoggerFactoryClass {
       ...combinedMetadata,
     });
 
-    // Compose Logger with feature components
-    const formatter = new ParameterizedFormatter();
-    const contextInjector = new AsyncContextInjector();
-    const transport = new WinstonTransport(winstonLogger);
-
-    const logger = new Logger(transport, formatter, contextInjector);
+    // Create Logger with Winston instance directly
+    // Logger now handles formatter and context injector internally
+    const logger = new Logger(winstonLogger);
 
     // NOTE: Caching disabled to support dynamic context injection
     // Each logger instance can pick up fresh context from AsyncLocalStorage

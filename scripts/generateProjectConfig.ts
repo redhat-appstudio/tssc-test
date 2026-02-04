@@ -22,7 +22,7 @@ function generateProjectConfig(): void {
   try {
     // Load test plan
     const testPlanPath = process.env.TESTPLAN_PATH || path.resolve(process.cwd(), 'testplan.json');
-    logger.info('Using test plan: {}', testPlanPath);
+    logger.info(`Using test plan: ${testPlanPath}`);
     
     if (!existsSync(testPlanPath)) {
       throw new Error(`Test plan file not found: ${testPlanPath}`);
@@ -39,7 +39,7 @@ function generateProjectConfig(): void {
     if (requestedPlan && testPlan.getTestPlans().length > 0) {
       // New format: filter by specific test plan(s) - support comma-separated values
       requestedPlans = requestedPlan.split(',').map(name => name.trim()).filter(name => name.length > 0);
-      logger.info('Filtering test items for plan(s): {}', requestedPlans.join(', '));
+      logger.info(`Filtering test items for plan(s): ${requestedPlans.join(', ')}`);
       
       // Collect test items from all requested plans
       const allTestItems: any[] = [];
@@ -56,14 +56,14 @@ function generateProjectConfig(): void {
       // Generate all project configurations (legacy behavior or all plans)
       projectConfigs = testPlan.getProjectConfigs();
     }
-    
-    logger.info('Generated {} project configurations', projectConfigs.length);
+
+    logger.info(`Generated ${projectConfigs.length} project configurations`);
 
     // Log test plan information
     if (testPlan.getTestPlans().length > 0) {
-      logger.info('Available test plans: {}', testPlan.getTestPlanNames().join(', '));
+      logger.info(`Available test plans: ${testPlan.getTestPlanNames().join(', ')}`);
       if (requestedPlan) {
-        logger.info('Using test plan: {}', requestedPlan);
+        logger.info(`Using test plan: ${requestedPlan}`);
       } else {
         logger.info('Using all test plans (no TESTPLAN_NAME specified)');
       }
@@ -113,12 +113,12 @@ function generateProjectConfig(): void {
     // Log test filtering information
     const testsToShow = requestedPlan ? testPlan.getTestsForPlans(requestedPlans) : testPlan.getTests();
     const testMatchPattern = requestedPlan ? testPlan.getTestMatchPatternsForPlans(requestedPlans) : testPlan.getTestMatchPattern();
-    logger.info('Test filtering: {}', testsToShow.length > 0 ? testsToShow.join(', ') : 'All tests');
-    logger.info('Test match pattern: {}', testMatchPattern);
+    logger.info(`Test filtering: ${testsToShow.length > 0 ? testsToShow.join(', ') : 'All tests'}`);
+    logger.info(`Test match pattern: ${testMatchPattern}`);
     logger.info('Project configuration generation completed successfully!');
 
   } catch (error) {
-    logger.error('Failed to generate project configurations: {}', error);
+    logger.error(`Failed to generate project configurations: ${error}`);
     process.exit(1);
   }
 }

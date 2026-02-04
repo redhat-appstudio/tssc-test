@@ -1,7 +1,5 @@
 import { KubeClient } from '../../../api/ocp/kubeClient';
 import { base64Encode } from '../../../utils/util';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
 
 /**
  * Service for managing credentials and secrets across the application
@@ -9,11 +7,9 @@ import { Logger } from '../../../logger/logger';
  */
 export class CredentialService {
   private static instance: CredentialService | null = null;
-  private readonly logger: Logger;
   private kubeClient: KubeClient;
 
   private constructor(kubeClient: KubeClient) {
-    this.logger = LoggerFactory.getLogger('postcreation.service.credential');
     this.kubeClient = kubeClient;
   }
 

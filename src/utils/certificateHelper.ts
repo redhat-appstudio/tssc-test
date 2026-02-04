@@ -1,7 +1,6 @@
 import * as https from 'https';
 import { URL } from 'url';
-import { LoggerFactory } from '../logger/factory/loggerFactory';
-import { Logger } from '../logger/logger';
+import { LoggerFactory, Logger } from '../logger/logger';
 
 const logger: Logger = LoggerFactory.getLogger('utils.certificate-helper');
 
@@ -95,7 +94,7 @@ export async function isSelfSignedCluster(clusterUrl: string): Promise<boolean> 
     const certInfo = await checkCertificateTrust(clusterUrl);
     return !certInfo.isTrusted;
   } catch (error) {
-    logger.warn('Failed to check certificate trust for {}: {}', clusterUrl, error);
+    logger.warn(`Failed to check certificate trust for ${clusterUrl}: ${error}`);
     return false; // Assume trusted if we can't determine
   }
 }

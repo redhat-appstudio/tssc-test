@@ -7,8 +7,7 @@ import { ContentModifications } from '../../../../modification/contentModificati
 
 import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
-import { LoggerFactory } from '../../../../../logger/factory/loggerFactory';
-import { Logger } from '../../../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../../../logger/logger';
 
 /**
  * Bitbucket provider class

@@ -21,8 +21,7 @@ import {
   JenkinsBuildTimeoutError,
   JenkinsJobNotFoundError 
 } from '../errors/jenkins.errors';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 /**
  * Service for Jenkins build-related operations
@@ -231,7 +230,7 @@ export class JenkinsBuildService {
     try {
       // Normalize commitSha by trimming and lowercasing
       const normalizedCommitSha = commitSha.trim().toLowerCase();
-      this.logger.info('Looking for build with commit SHA: {} in job: {}', normalizedCommitSha, jobName);
+      this.logger.info(`Looking for build with commit SHA: ${normalizedCommitSha} in job: ${jobName}`);
 
       // Get job info to access the builds list
       const path = JenkinsPathBuilder.buildJobPath(jobName, folderName);
@@ -241,11 +240,11 @@ export class JenkinsBuildService {
       );
 
       if (!jobInfo.builds || jobInfo.builds.length === 0) {
-        this.logger.info('No builds found for job: {}', jobName);
+        this.logger.info(`No builds found for job: ${jobName}`);
         return null;
       }
 
-      this.logger.info('Found {} builds, checking up to {}', jobInfo.builds.length, maxBuildsToCheck);
+      this.logger.info(`Found ${jobInfo.builds.length} builds, checking up to ${maxBuildsToCheck}`);
 
       // Limit the number of builds to check
       const buildsToCheck = jobInfo.builds.slice(0, maxBuildsToCheck);
@@ -253,7 +252,7 @@ export class JenkinsBuildService {
 
       // Check each build for the commit SHA
       for (const buildRef of buildsToCheck) {
-        this.logger.info('Checking build #{}', buildRef.number);
+        this.logger.info(`Checking build #${buildRef.number}`);
         const buildInfo = await this.getBuild(jobName, buildRef.number, folderName, false);
         
         if (this.buildMatchesCommit(buildInfo, normalizedCommitSha)) {
@@ -263,14 +262,14 @@ export class JenkinsBuildService {
 
       // If no matching build was found
       if (matchingBuilds.length === 0) {
-        this.logger.info('No builds found matching commit SHA: {} after checking {} builds', normalizedCommitSha, buildsToCheck.length);
+        this.logger.info(`No builds found matching commit SHA: ${normalizedCommitSha} after checking ${buildsToCheck.length} builds`);
         return null;
       }
 
       // Sort matching builds by build number in descending order to get the latest one first
       matchingBuilds.sort((a, b) => b.number - a.number);
 
-      this.logger.info('Found {} builds matching commit SHA: {}, returning the latest: #{}', matchingBuilds.length, normalizedCommitSha, matchingBuilds[0].number);
+      this.logger.info(`Found ${matchingBuilds.length} builds matching commit SHA: ${normalizedCommitSha}, returning the latest: #${matchingBuilds[0].number}`);
       return matchingBuilds[0];
     } catch (error) {
       throw new JenkinsJobNotFoundError(jobName, folderName);
@@ -324,7 +323,7 @@ export class JenkinsBuildService {
         if (action._class?.includes('hudson.plugins.git') && action.lastBuiltRevision?.SHA1) {
           const buildSha = action.lastBuiltRevision.SHA1.toLowerCase();
           if (this.commitShasMatch(buildSha, normalizedCommitSha)) {
-            this.logger.info('Found matching commit in lastBuiltRevision: {}', buildSha);
+            this.logger.info(`Found matching commit in lastBuiltRevision: ${buildSha}`);
             return true;
           }
         }
@@ -335,7 +334,7 @@ export class JenkinsBuildService {
             if (action.buildsByBranchName[branch].revision?.SHA1) {
               const branchSha = action.buildsByBranchName[branch].revision.SHA1.toLowerCase();
               if (this.commitShasMatch(branchSha, normalizedCommitSha)) {
-                this.logger.info('Found matching commit in buildsByBranchName for branch {}: {}', branch, branchSha);
+                this.logger.info(`Found matching commit in buildsByBranchName for branch ${branch}: ${branchSha}`);
                 return true;
               }
             }
@@ -348,7 +347,7 @@ export class JenkinsBuildService {
             if ((param.name === 'GIT_COMMIT' || param.name === 'ghprbActualCommit') && param.value) {
               const paramSha = param.value.toLowerCase();
               if (this.commitShasMatch(paramSha, normalizedCommitSha)) {
-                this.logger.info('Found matching commit in build parameter {}: {}', param.name, paramSha);
+                this.logger.info(`Found matching commit in build parameter ${param.name}: ${paramSha}`);
                 return true;
               }
             }
@@ -359,7 +358,7 @@ export class JenkinsBuildService {
         if (action._class?.includes('pull-request') && action.pullRequest?.source?.commit) {
           const prSha = action.pullRequest.source.commit.toLowerCase();
           if (this.commitShasMatch(prSha, normalizedCommitSha)) {
-            this.logger.info('Found matching commit in pull request info: {}', prSha);
+            this.logger.info(`Found matching commit in pull request info: ${prSha}`);
             return true;
           }
         }
@@ -370,7 +369,7 @@ export class JenkinsBuildService {
     if (build.causes) {
       for (const cause of build.causes) {
         if (cause.shortDescription && cause.shortDescription.includes(normalizedCommitSha)) {
-          this.logger.info('Found matching commit in build causes: {}', cause.shortDescription);
+          this.logger.info(`Found matching commit in build causes: ${cause.shortDescription}`);
           return true;
         }
       }
@@ -378,10 +377,10 @@ export class JenkinsBuildService {
 
     // Method 6: Check in build display name or description
     if (build.displayName && build.displayName.includes(normalizedCommitSha)) {
-      this.logger.info('Found matching commit in build display name: {}', build.displayName);
+      this.logger.info(`Found matching commit in build display name: ${build.displayName}`);
       return true;
     } else if (build.description && build.description.includes(normalizedCommitSha)) {
-      this.logger.info('Found matching commit in build description: {}', build.description);
+      this.logger.info(`Found matching commit in build description: ${build.description}`);
       return true;
     }
 
@@ -427,7 +426,7 @@ export class JenkinsBuildService {
   async getMultipleJobsActivityStatus(jobNames: string[], folderName?: string): Promise<JobActivityStatus[]> {
     const statusPromises = jobNames.map(jobName => 
       this.getJobActivityStatus(jobName, folderName).catch(error => {
-        this.logger.warn('Failed to get status for job {}: {}', jobName, error);
+        this.logger.warn(`Failed to get status for job ${jobName}: ${error}`);
         return {
           jobName,
           folderName,
@@ -454,7 +453,7 @@ export class JenkinsBuildService {
 
     const startTime = Date.now();
     
-    this.logger.info('Waiting for {} Jenkins jobs to complete: {}', jobNames.length, jobNames.join(', '));
+    this.logger.info(`Waiting for ${jobNames.length} Jenkins jobs to complete: ${jobNames.join(', ')}`);
 
     while (Date.now() - startTime < timeoutMs) {
       try {
@@ -483,12 +482,12 @@ export class JenkinsBuildService {
           return `${status.jobName}: ${parts.join(', ')}`;
         }).filter(Boolean);
 
-        this.logger.info('Active jobs ({}/{}): {}', activeJobs.length, jobNames.length, statusMessages.join(' | '));
+        this.logger.info(`Active jobs (${activeJobs.length}/${jobNames.length}): ${statusMessages.join(' | ')}`);
         
         // Wait before next poll
         await JenkinsPollingUtils.sleep(pollIntervalMs);
       } catch (error) {
-        this.logger.warn('Error checking job statuses: {}. Retrying...', error);
+        this.logger.warn(`Error checking job statuses: ${error}. Retrying...`);
         await JenkinsPollingUtils.sleep(pollIntervalMs);
       }
     }
@@ -510,7 +509,7 @@ export class JenkinsBuildService {
       
       return jobInfo;
     } catch (error) {
-      this.logger.warn('Could not get job info for {}: {}', jobName, error);
+      this.logger.warn(`Could not get job info for ${jobName}: ${error}`);
       return null;
     }
   }

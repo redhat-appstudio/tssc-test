@@ -1,8 +1,7 @@
 import { KubeClient } from '../../../../../src/api/ocp/kubeClient';
 import { ApplicationKind, ArgoCDClient } from '../../../../api/argocd';
 import retry from 'async-retry';
-import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
-import { Logger } from '../../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../../logger/logger';
 
 // Define environment constants
 export enum Environment {
@@ -165,7 +164,7 @@ export class ArgoCD {
     } catch (error) {
       // If we reach here, all retries were exhausted
       // Get detailed application details for debugging
-      this.logger.error('Failed to sync application {} after {} retries: {}', environment, maxRetries, error);
+      this.logger.error(`Failed to sync application ${environment} after ${maxRetries} retries: ${error}`);
       this.logger.error(
         `Final sync status: ${finalSyncStatus}, Health status: ${finalHealthStatus}, Revision: ${finalRevision}`
       );

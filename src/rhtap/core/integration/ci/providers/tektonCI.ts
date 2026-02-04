@@ -278,7 +278,7 @@ export class TektonCI extends BaseCI {
       // Default to unknown if no mapping is found
       return PipelineStatus.UNKNOWN;
     } catch (error) {
-      this.logger.error('Error checking pipeline status for {}: {}', pipeline.name, error);
+      this.logger.error(`Error checking pipeline status for ${pipeline.name}: ${error}`);
       throw new Error(`Failed to check pipeline status: ${error}`);
     }
   }
@@ -408,7 +408,7 @@ export class TektonCI extends BaseCI {
       }
       return logs;
     } catch (error) {
-      this.logger.error('Error getting pipeline logs for {}: {}', pipeline.name, error);
+      this.logger.error(`Error getting pipeline logs for ${pipeline.name}: ${error}`);
       throw new Error(`Failed to get pipeline logs: ${error}`);
     }
   }
@@ -480,7 +480,7 @@ export class TektonCI extends BaseCI {
       });
 
     } catch (error: any) {
-      this.logger.error('[Tekton] Error in cancelAllPipelines: {}', error);
+      this.logger.error(`[Tekton] Error in cancelAllPipelines: ${error}`);
       const errMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to cancel pipelines: ${errMsg}`);
     }
@@ -533,7 +533,7 @@ export class TektonCI extends BaseCI {
       return allPipelineRuns;
 
     } catch (error: any) {
-      this.logger.error('[Tekton] Failed to fetch PipelineRuns: {}', error);
+      this.logger.error(`[Tekton] Failed to fetch PipelineRuns: ${error}`);
       throw error;
     }
   }
@@ -722,7 +722,7 @@ export class TektonCI extends BaseCI {
 
       result.errors.push(cancelError);
 
-      this.logger.error('❌ [Tekton] Failed to cancel PipelineRun {}: {}', prName, error);
+      this.logger.error(`❌ [Tekton] Failed to cancel PipelineRun ${prName}: ${error}`);
     }
 
     // Add detail to results

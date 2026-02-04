@@ -1,6 +1,5 @@
 import { AzureHttpClient } from '../http/azure-http.client';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class AzureProjectService {
   private readonly client: AzureHttpClient;
@@ -24,7 +23,7 @@ export class AzureProjectService {
       );
       return response.id;
     } catch (error) {
-      this.logger.error('Failed to get project ID for project \'{}\': {}', projectName, error);
+      this.logger.error(`Failed to get project ID for project '${projectName}': ${error}`);
       throw error;
     }
   }

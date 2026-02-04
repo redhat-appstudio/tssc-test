@@ -5,8 +5,7 @@ import { BitbucketProvider } from './providers/bitbucket';
 import { GithubProvider } from './providers/github';
 import { GitlabProvider } from './providers/gitlab';
 import { TemplateType } from './templates/templateFactory';
-import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
-import { Logger } from '../../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../../logger/logger';
 
 export class GitFactory {
   private static readonly logger: Logger = LoggerFactory.getLogger('rhtap.core.integration.git.factory');
@@ -46,7 +45,7 @@ export class GitFactory {
           throw new Error(`Unsupported Git type: ${type}`);
       }
     } catch (error) {
-      GitFactory.logger.error('Failed to create Git instance of type {}: {}', type, error);
+      GitFactory.logger.error(`Failed to create Git instance of type ${type}: ${error}`);
       throw new Error(
         `Failed to create Git instance: ${error}`
       );

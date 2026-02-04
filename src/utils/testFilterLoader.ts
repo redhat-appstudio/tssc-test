@@ -1,7 +1,6 @@
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
-import { LoggerFactory } from '../logger/factory/loggerFactory';
-import { Logger } from '../logger/logger';
+import { LoggerFactory, Logger } from '../logger/logger';
 
 const logger: Logger = LoggerFactory.getLogger('utils.test-filter-loader');
 
@@ -32,7 +31,7 @@ export function loadTestFilterInfo(): TestFilterInfo | null {
     
     return null;
   } catch (error) {
-    logger.error('Failed to load test filtering information: {}', error);
+    logger.error(`Failed to load test filtering information: ${error}`);
     return null;
   }
 }

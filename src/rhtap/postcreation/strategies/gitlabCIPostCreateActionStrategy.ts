@@ -4,8 +4,7 @@ import { AddGitlabProjectVariablesCommand } from './commands/addGitlabProjectVar
 import { Command } from './commands/command';
 import { UpdateCIRunnerImage } from './commands/updateCIRunnerImage';
 import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 /**
  * GitLab-specific implementation of post-creation action strategy
@@ -60,14 +59,14 @@ export class GitlabCIPostCreateActionStrategy implements ComponentActionStrategy
    */
   private async handleGitLabActions(component: Component): Promise<void> {
     const componentName = component.getName();
-    this.logger.info('Executing post-creation actions for component: {} (GitLab CI)', componentName);
+    this.logger.info(`Executing post-creation actions for component: ${componentName} (GitLab CI)`);
 
     try {
       const commands = this.createCommandsForGitLab(component);
       await this.executeCommands(commands);
-      this.logger.info('GitLab CI post-creation actions completed successfully for {}', componentName);
+      this.logger.info(`GitLab CI post-creation actions completed successfully for ${componentName}`);
     } catch (error) {
-      this.logger.error('Error executing GitLab CI post-creation actions: {}', error);
+      this.logger.error(`Error executing GitLab CI post-creation actions: ${error}`);
       throw new Error(
         `GitLab CI post-creation actions failed: ${error}`
       );

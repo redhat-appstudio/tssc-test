@@ -1,7 +1,6 @@
 import { Component } from '../core/component';
 import { CleanupActionStrategyFactory } from './strategies/cleanupActionStrategyFactory';
-import { LoggerFactory } from '../../logger/factory/loggerFactory';
-import { Logger } from '../../logger/logger';
+import { LoggerFactory, Logger } from '../../logger/logger';
 
 /**
  * Handles cleanup actions for components based on CI and Git provider combinations
@@ -23,7 +22,7 @@ export class ComponentCleanupAction {
     const ci = this.component.getCI();
     const ciType = ci.getCIType();
 
-    this.logger.info('Executing cleanup actions for CI: {}', ciType);
+    this.logger.info(`Executing cleanup actions for CI: ${ciType}`);
 
     try {
       // Use the factory to get the appropriate strategy for the CI type
@@ -32,15 +31,9 @@ export class ComponentCleanupAction {
       // Execute the strategy with the component
       await strategy.execute(this.component);
 
-      this.logger.info(
-        'Cleanup-creation actions completed successfully for {}',
-        this.component.getName()
-      );
+      this.logger.info(`Cleanup-creation actions completed successfully for ${this.component.getName()}`);
     } catch (error) {
-      this.logger.error(
-        'Error executing cleanup-creation actions: {}',
-        error
-      );
+      this.logger.error(`Error executing cleanup-creation actions: ${error}`);
       throw new Error(
         `Cleanup-creation actions failed: ${error}`
       );

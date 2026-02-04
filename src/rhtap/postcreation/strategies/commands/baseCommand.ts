@@ -9,8 +9,7 @@ import { TPA } from '../../../core/integration/tpa';
 import { CredentialService } from '../../services/credentialService';
 import { isSelfSignedCluster } from '../../../../utils/certificateHelper';
 import { Command } from './command';
-import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
-import { Logger } from '../../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../../logger/logger';
 
 /**
  * Base class for all Jenkins commands
@@ -60,7 +59,7 @@ export abstract class BaseCommand implements Command {
    * @param action Description of the action being performed
    */
   protected logStart(action: string): void {
-    this.logger.info('Starting {} for component {}...', action, this.folderName);
+    this.logger.info(`Starting ${action} for component ${this.folderName}...`);
   }
 
   /**
@@ -68,7 +67,7 @@ export abstract class BaseCommand implements Command {
    * @param action Description of the action that was performed
    */
   protected logComplete(action: string): void {
-    this.logger.info('Completed {} for component {}', action, this.folderName);
+    this.logger.info(`Completed ${action} for component ${this.folderName}`);
   }
 
   /**
@@ -87,7 +86,7 @@ export abstract class BaseCommand implements Command {
         return await this.kubeClient.getClusterRootCA();
       }
     } catch (error) {
-      this.logger.warn('Failed to detect certificate trust, skipping CUSTOM_ROOT_CA: {}', error);
+      this.logger.warn(`Failed to detect certificate trust, skipping CUSTOM_ROOT_CA: ${error}`);
     }
     
     return null;

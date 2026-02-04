@@ -7,8 +7,7 @@ import { PullRequest } from '../models';
 import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
 import sodium from 'sodium-native';
 import { ContentModifications } from '../../../../modification/contentModification';
-import { LoggerFactory } from '../../../../../logger/factory/loggerFactory';
-import { Logger } from '../../../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../../../logger/logger';
 
 export class GithubProvider extends BaseGitProvider {
   private readonly logger: Logger;
@@ -182,7 +181,7 @@ export class GithubProvider extends BaseGitProvider {
       // Decode the content from base64
       return Buffer.from(fileContent.content, 'base64').toString('utf-8');
     } catch (error: any) {
-      this.logger.error('Error getting file contents of {} in repo {}: {}', filePath, repo, error);
+      this.logger.error(`Error getting file contents of ${filePath} in repo ${repo}: ${error}`);
       throw error;
     }
   }
@@ -436,7 +435,7 @@ export class GithubProvider extends BaseGitProvider {
       );
       return commitSha;
     } catch (error: any) {
-      this.logger.error(`Error creating promotion commit for {}: {}`, environment, error);
+      this.logger.error(`Error creating promotion commit for ${environment}: ${error}`);
       throw error;
     }
   }

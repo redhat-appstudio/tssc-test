@@ -5,8 +5,7 @@ import { Command } from './commands/command';
 import { UpdateCIRunnerImage } from './commands/updateCIRunnerImage';
 import { UncommentCustomRootCA } from './commands/uncommentCustomRootCA';
 import { ComponentActionStrategy } from '../../common/strategies/componentActionStrategy';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class GithubActionsPostCreateActionStrategy implements ComponentActionStrategy {
   private readonly logger: Logger = LoggerFactory.getLogger('postcreation.strategy.github-actions');
@@ -41,8 +40,7 @@ export class GithubActionsPostCreateActionStrategy implements ComponentActionStr
       await command.execute();
     }
     this.logger.info(
-      'No post-creation actions needed for component: {} (GitHub + GitHub Actions)',
-      componentName
+      `No post-creation actions needed for component: ${componentName} (GitHub + GitHub Actions)`
     );
   }
 }

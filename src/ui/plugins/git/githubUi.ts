@@ -74,7 +74,7 @@ export class GithubUiPlugin extends GitUi implements GitPlugin, AuthUi {
                 minTimeout: timeout,
                 maxTimeout: timeout,
                 onRetry: (_error: Error, attemptNumber: number) => {
-                    this.logger.warn('2FA token entry failed, retrying (attempt {}/{}), waiting {}ms', attemptNumber, maxRetries, timeout);
+                    this.logger.warn(`2FA token entry failed, retrying (attempt ${attemptNumber}/${maxRetries}), waiting ${timeout}ms`);
                 },  
             }
         );

@@ -3,7 +3,7 @@ import { TestItem } from './src/playwright/testItem';
 import { loadProjectConfigurations, ProjectConfig } from './src/utils/projectConfigLoader';
 import { getTestMatchPattern } from './src/utils/testFilterLoader';
 import { TestPlan } from './src/playwright/testplan';
-import { LoggerFactory } from './src/logger/factory/loggerFactory';
+import { LoggerFactory } from './src/logger/logger';
 import path from 'path';
 
 const logger = LoggerFactory.getLogger('playwright.config');
@@ -41,11 +41,11 @@ try {
     logger.info('Running UI tests with existing project configuration');
   } else {
     const testPlanPath = process.env.TESTPLAN_PATH || path.resolve(process.cwd(), 'testplan.json');
-    logger.info('Checking for UI tests in test plan: {}', testPlanPath);
-    
+    logger.info(`Checking for UI tests in test plan: ${testPlanPath}`);
+
     // Check if test plan file exists first
     if (!require('fs').existsSync(testPlanPath)) {
-      logger.warn('Test plan file not found at {}, defaulting to E2E tests', testPlanPath);
+      logger.warn(`Test plan file not found at ${testPlanPath}, defaulting to E2E tests`);
     } else {
       try {
         const testPlanData = JSON.parse(require('fs').readFileSync(testPlanPath, 'utf-8'));
@@ -59,20 +59,20 @@ try {
           test.toLowerCase().includes('component') ||
           test.toLowerCase().includes('page')
         );
-        logger.info('UI test detection completed for {}: {}', testPlanPath, hasUITests ? 'UI tests found' : 'No UI tests detected');
+        logger.info(`UI test detection completed for ${testPlanPath}: ${hasUITests ? 'UI tests found' : 'No UI tests detected'}`);
       } catch (error) {
         if (error instanceof SyntaxError) {
-          logger.error('Failed to parse JSON from test plan file {}: {}', testPlanPath, error);
+          logger.error(`Failed to parse JSON from test plan file ${testPlanPath}: ${error}`);
           if (error instanceof Error) {
-            logger.error('JSON parse error stack: {}', error);
+            logger.error(`JSON parse error stack: ${error}`);
           } else {
             logger.error('JSON parse error stack: <unknown error type>');
           }
         } else if (error instanceof Error) {
-          logger.error('IO error reading test plan file {}: {}', testPlanPath, error);
-          logger.error('IO error stack: {}', error);
+          logger.error(`IO error reading test plan file ${testPlanPath}: ${error}`);
+          logger.error(`IO error stack: ${error}`);
         } else {
-          logger.error('IO error reading test plan file {}: <unknown error>', testPlanPath);
+          logger.error(`IO error reading test plan file ${testPlanPath}: <unknown error>`);
           logger.error('IO error stack: <unknown error type>');
         }
         logger.warn('Defaulting to E2E tests due to test plan parsing error');

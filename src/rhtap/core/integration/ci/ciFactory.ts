@@ -6,8 +6,7 @@ import { GitHubActionsCI } from './providers/githubActionsCI';
 import { GitLabCI } from './providers/gitlabCI';
 import { JenkinsCI } from './providers/jenkinsCI';
 import { TektonCI } from './providers/tektonCI';
-import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
-import { Logger } from '../../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../../logger/logger';
 
 export class CIFactory {
   // Private static instance for singleton pattern
@@ -87,7 +86,7 @@ export class CIFactory {
           throw new Error(`Unsupported CI type: ${type}`);
       }
     } catch (error) {
-      this.logger.error('Failed to create CI instance of type {}: {}', type, error);
+      this.logger.error(`Failed to create CI instance of type ${type}: ${error}`);
       throw new Error(
         `Failed to create CI instance: ${error}`
       );

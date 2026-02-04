@@ -2,8 +2,7 @@ import { Gitlab } from '@gitbeaker/rest';
 import { IGitLabWebhookService, IGitLabProjectService } from '../interfaces/gitlab.interfaces';
 import { GitLabWebhook, CreateWebhookOptions } from '../types/gitlab.types';
 import { createGitLabErrorFromResponse } from '../errors/gitlab.errors';
-import { LoggerFactory } from '../../../logger/factory/loggerFactory';
-import { Logger } from '../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class GitLabWebhookService implements IGitLabWebhookService {
   private readonly logger: Logger;
@@ -47,7 +46,7 @@ export class GitLabWebhookService implements IGitLabWebhookService {
       const existingHook = existingHooks.find((hook: any) => hook.url === webhookUrl);
 
       if (existingHook) {
-        this.logger.info('Webhook already exists for {}, updating configuration', webhookUrl);
+        this.logger.info(`Webhook already exists for ${webhookUrl}, updating configuration`);
         // Update existing webhook to ensure configuration matches
         const updatedWebhook = await this.gitlabClient.ProjectHooks.edit(
           projectId,
@@ -59,7 +58,7 @@ export class GitLabWebhookService implements IGitLabWebhookService {
       }
 
       // Create new webhook if it doesn't exist
-      this.logger.info('Creating new webhook for {}', webhookUrl);
+      this.logger.info(`Creating new webhook for ${webhookUrl}`);
       const webhook = await this.gitlabClient.ProjectHooks.add(
         projectId,
         webhookUrl,

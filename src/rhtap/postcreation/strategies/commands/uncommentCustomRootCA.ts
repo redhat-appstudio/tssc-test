@@ -1,8 +1,7 @@
 import { CIType } from '../../../core/integration/ci/ciInterface';
 import { ContentModifications } from '../../../modification/contentModification';
 import { BaseCommand } from './baseCommand';
-import { LoggerFactory } from '../../../../logger/factory/loggerFactory';
-import { Logger } from '../../../../logger/logger';
+import { LoggerFactory, Logger } from '../../../../logger/logger';
 
 /**
  * Command to uncomment CUSTOM_ROOT_CA lines in CI configuration files
@@ -33,7 +32,7 @@ export class UncommentCustomRootCA extends BaseCommand {
         await this.uncommentCustomRootCAInGithubActions(ciFilePathInRepo);
         break;
       default:
-        this.logger.info('Skipping CUSTOM_ROOT_CA uncomment for CI type: {}', ciType);
+        this.logger.info(`Skipping CUSTOM_ROOT_CA uncomment for CI type: ${ciType}`);
         return;
     }
 
@@ -78,7 +77,7 @@ export class UncommentCustomRootCA extends BaseCommand {
     const match = fileContent.match(commentedPattern);
 
     if (!match) {
-      this.logger.info('CUSTOM_ROOT_CA line not found or already uncommented in {} Jenkinsfile', repoName);
+      this.logger.info(`CUSTOM_ROOT_CA line not found or already uncommented in ${repoName} Jenkinsfile`);
       return;
     }
 
@@ -156,7 +155,7 @@ export class UncommentCustomRootCA extends BaseCommand {
     }
 
     if (modifications.length === 0) {
-      this.logger.info('CUSTOM_ROOT_CA lines not found or already uncommented in {} GitHub Actions workflow', repoName);
+      this.logger.info(`CUSTOM_ROOT_CA lines not found or already uncommented in ${repoName} GitHub Actions workflow`);
       return;
     }
 
@@ -195,6 +194,6 @@ export class UncommentCustomRootCA extends BaseCommand {
       branch
     );
 
-    this.logger.info('Uncommented CUSTOM_ROOT_CA in {}/{}', repoName, filePath);
+    this.logger.info(`Uncommented CUSTOM_ROOT_CA in ${repoName}/${filePath}`);
   }
 }
