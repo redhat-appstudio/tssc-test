@@ -126,7 +126,7 @@ export class BitbucketProvider extends BaseGitProvider {
 
       return fileContent;
     } catch (error: any) {
-      this.logger.error(`Error getting file contents of ${filePath} in repo ${repo}:{}`);
+      this.logger.error(`Error getting file contents of ${filePath} in repo ${repo}:${error}`);
       throw error;
     }
   }
@@ -230,7 +230,7 @@ export class BitbucketProvider extends BaseGitProvider {
 
       return new PullRequest(prNumber, commitSha, repository, false, undefined, prUrl);
     } catch (error: any) {
-      this.logger.error(`Error creating sample pull request: {}`);
+      this.logger.error(`Error creating sample pull request: ${error}`);
       throw error;
     }
   }
@@ -325,7 +325,7 @@ export class BitbucketProvider extends BaseGitProvider {
 
             this.logger.info(`Updated file ${filePath} on branch ${newBranchName}`);
           } catch (error: any) {
-            this.logger.error(`Error updating file ${filePath}: {}`);
+            this.logger.error(`Error updating file ${filePath}: ${error}`);
             throw error;
           }
         }
@@ -360,7 +360,7 @@ export class BitbucketProvider extends BaseGitProvider {
 
       return new PullRequest(prNumber, commitSha, this.sourceRepoName, false, undefined, prUrl);
     } catch (error: any) {
-      this.logger.error(`Error creating sample pull request: {}`);
+      this.logger.error(`Error creating sample pull request: ${error}`);
       throw error;
     }
   }
@@ -438,7 +438,7 @@ export class BitbucketProvider extends BaseGitProvider {
               fileContent = newContent;
             }
           } catch (error: any) {
-            this.logger.error(`Error modifying file ${filePath}: {}`);
+            this.logger.error(`Error modifying file ${filePath}: ${error}`);
             throw error;
           }
         }
@@ -476,7 +476,7 @@ export class BitbucketProvider extends BaseGitProvider {
       );
       return commitSha;
     } catch (error: any) {
-      this.logger.error(`Error creating batch commit on branch '${branch}': {}`);
+      this.logger.error(`Error creating batch commit on branch '${branch}': ${error}`);
       throw error;
     }
   }
@@ -504,7 +504,7 @@ export class BitbucketProvider extends BaseGitProvider {
 
       return commitSha;
     } catch (error: any) {
-      this.logger.error(`Failed to get commit SHA for source repo: {}`);
+      this.logger.error(`Failed to get commit SHA for source repo: ${error}`);
       throw error;
     }
   }
@@ -532,7 +532,7 @@ export class BitbucketProvider extends BaseGitProvider {
 
       return commitSha;
     } catch (error: any) {
-      this.logger.error(`Failed to get commit SHA for GitOps repo: {}`);
+      this.logger.error(`Failed to get commit SHA for GitOps repo: ${error}`);
       throw error;
     }
   }
@@ -611,7 +611,7 @@ export class BitbucketProvider extends BaseGitProvider {
       );
       return commitSha;
     } catch (error: any) {
-      this.logger.error(`Error creating promotion commit for ${environment}: {}`);
+      this.logger.error(`Error creating promotion commit for ${environment}: ${error}`);
       throw error;
     }
   }
@@ -818,7 +818,7 @@ export class BitbucketProvider extends BaseGitProvider {
 
       return new PullRequest(prNumber, commitSha, this.gitOpsRepoName, false, undefined, prUrl);
     } catch (error: any) {
-      this.logger.error(`Error creating promotion PR for ${environment}: {}`);
+      this.logger.error(`Error creating promotion PR for ${environment}: ${error}`);
       throw error;
     }
   }
@@ -880,7 +880,7 @@ export class BitbucketProvider extends BaseGitProvider {
       this.logger.info(`Extracted image from ${filePath}: ${imageValue}`);
       return imageValue;
     } catch (error: any) {
-      this.logger.error(`Error extracting application image: {}`);
+      this.logger.error(`Error extracting application image: ${error}`);
       throw error;
     }
   }
@@ -917,7 +917,7 @@ export class BitbucketProvider extends BaseGitProvider {
         `Successfully configured webhook for source repo ${this.workspace}/${this.sourceRepoName} with ID: ${response.uuid}`
       );
     } catch (error: any) {
-      this.logger.error(`Failed to configure webhook for source repo: {}`);
+      this.logger.error(`Failed to configure webhook for source repo: ${error}`);
       throw error;
     }
   }
@@ -954,7 +954,7 @@ export class BitbucketProvider extends BaseGitProvider {
         `Successfully configured webhook for GitOps repo ${this.workspace}/${this.gitOpsRepoName} with ID: ${response.uuid}`
       );
     } catch (error: any) {
-      this.logger.error(`Failed to configure webhook for GitOps repo: {}`);
+      this.logger.error(`Failed to configure webhook for GitOps repo: ${error}`);
       throw error;
     }
   }

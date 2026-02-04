@@ -48,22 +48,22 @@ class LoggerFactoryClass {
   }
 
   /**
-   * Get or create a logger instance with parameterized logging support
-   * Java-style API: LoggerFactory.getLogger(ClassName) or LoggerFactory.getLogger('LoggerName')
+   * Get or create a logger instance with template literal logging support
+   * API: LoggerFactory.getLogger(ClassName) or LoggerFactory.getLogger('logger.name')
    *
    * AUTOMATICALLY injects metadata (zero effort required):
    * - projectName: From testInfo.project.name (e.g., 'e2e-go[github-tekton-quay-remote]')
    * - worker: Worker/parallel index (e.g., 0, 1, 2...)
    * - timestamp: Automatic via Winston formatter
    *
-   * Supports three logging styles:
-   * 1. Parameterized: logger.info("User {} logged in from {}", username, ipAddress)
-   * 2. Structured: logger.info('User logged in', { username, ipAddress })
-   * 3. Mixed: logger.info("Processing {} items", count, { batchId, timestamp })
+   * Supports two logging styles:
+   * 1. Template literals: logger.info(`User ${username} logged in from ${ipAddress}`)
+   * 2. Structured metadata: logger.info('User logged in', { username, ipAddress })
+   * 3. Combined: logger.info(`Processing ${count} items`, { batchId, timestamp })
    *
    * @param name - Logger name (string or class constructor)
    * @param metadata - Optional additional metadata for this logger
-   * @returns Logger instance with {} placeholder support and context injection
+   * @returns Logger instance with template literal support and context injection
    */
   public getLogger(name: LoggerName, metadata?: LoggerMetadata): Logger {
     // Convert class constructor to string name

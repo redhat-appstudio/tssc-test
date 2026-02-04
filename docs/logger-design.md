@@ -5,27 +5,27 @@
 A Winston-based logger for RHTAP tests that provides clean, type-safe logging with automatic test context injection and flexible output formats.
 
 **Key Features**:
-- **Parameterized Logging**: Log4j-style `{}` placeholders - `logger.info("User {} logged in", username)`
+- **Template Literal Logging**: Modern JavaScript template literals - `logger.info(\`User ${username} logged in\`)`
 - **Zero-Configuration Context**: Test context (project name, worker ID) automatically injected via AsyncLocalStorage
 - **Dual Formats**: Human-readable text for console, structured JSON for files (ELK/Splunk ready)
-- **Composable Architecture**: Pluggable formatters, context injectors, and transports
-- **Type-Safe**: Full TypeScript support with familiar log4j/slf4j-style API
+- **Simplified Architecture**: Direct Winston integration without unnecessary abstraction layers
+- **Type-Safe**: Full TypeScript support with familiar logging API
 
 
 ## Core Principles
+
 1. **Automatic Basics + Optional Enhancements**
    - Test identification requires zero user effort (automatic via AsyncLocalStorage)
    - Context propagates through async call chains without manual threading
    - Rich metadata available when needed, automatic when possible
 
-2. **Composable Architecture**
-   - Independent components: formatters, context injectors, transports
-   - Swap implementations without changing client code
-   - Unit test each component in isolation
+2. **Simple, Direct Architecture**
+   - Thin wrapper around Winston - no unnecessary abstraction layers
+   - Direct access to Winston logger when needed via `getUnderlyingLogger()`
+   - Easy to understand, easy to debug
 
 3. **Developer Experience First**
-   - Familiar API patterns (log4j, slf4j)
-   - Three logging styles for different use cases
+   - Modern JavaScript template literals for string interpolation
    - Type-safe throughout with TypeScript interfaces
    - Minimal configuration required to get started
 
@@ -33,21 +33,20 @@ A Winston-based logger for RHTAP tests that provides clean, type-safe logging wi
 
 ### System Design
 
-The logger uses a **Composite Pattern** to orchestrate three independent components:
+The logger uses a **simplified composite pattern** with direct Winston integration:
 
 ```mermaid
 classDiagram
     %% Core Logger Class
     class Logger {
-        -ILogTransport transport
-        -IMessageFormatter formatter
-        -IContextInjector contextInjector
-        +trace(message, ...params)
-        +debug(message, ...params)
-        +info(message, ...params)
-        +warn(message, ...params)
-        +error(message, ...params)
-        +getUnderlyingLogger()
+        -winston.Logger winstonLogger
+        -string name
+        +trace(message, metadata?)
+        +debug(message, metadata?)
+        +info(message, metadata?)
+        +warn(message, metadata?)
+        +error(message, metadata?)
+        +getUnderlyingLogger() winston.Logger
     }
 
     %% Factory
@@ -58,85 +57,61 @@ classDiagram
         -winston.Logger rootLogger
         +getInstance() LoggerFactory
         +configure(config)
-        +getLogger(name, metadata) Logger
-        +shutdown() Promise
-    }
-
-    %% Message Formatter
-    class IMessageFormatter {
-        <<interface>>
-        +format(message, params) FormattedMessage
-    }
-
-    class ParameterizedFormatter {
-        +format(message, params) FormattedMessage
+        +getLogger(name, metadata?) Logger
+        +closeAllLoggers() Promise
     }
 
     %% Context Injector
-    class IContextInjector {
-        <<interface>>
-        +enrichMetadata(metadata) object
-    }
-
     class AsyncContextInjector {
+        -AsyncLocalStorage storage
         +enrichMetadata(metadata) object
+        +getContext() TestContext
     }
 
-    %% Transport
-    class ILogTransport {
-        <<interface>>
-        +log(level, message, metadata)
-        +getUnderlyingLogger() any
-    }
-
-    class WinstonTransport {
-        -winston.Logger winstonLogger
-        +log(level, message, metadata)
-        +getUnderlyingLogger() winston.Logger
+    %% Winston Logger
+    class WinstonLogger {
+        <<external>>
+        +log(level, message, meta)
+        +info(message, meta)
+        +error(message, meta)
     }
 
     %% Relationships
     LoggerFactory ..> Logger : creates
-    Logger *-- IMessageFormatter : composes
-    Logger *-- IContextInjector : composes
-    Logger *-- ILogTransport : composes
-    ParameterizedFormatter ..|> IMessageFormatter : implements
-    AsyncContextInjector ..|> IContextInjector : implements
-    WinstonTransport ..|> ILogTransport : implements
+    Logger *-- WinstonLogger : wraps
+    Logger --> AsyncContextInjector : uses
+    AsyncContextInjector --> TestContext : manages
 ```
 
 **Component Responsibilities**:
 
-1. **Message Formatter**: Handles `{}` placeholder replacement and parameter formatting
-2. **Context Injector**: Enriches logs with test context from AsyncLocalStorage
-3. **Transport Adapter**: Delegates to Winston for actual log writing
+1. **Logger**: Thin wrapper around Winston that adds context injection
+2. **LoggerFactory**: Creates and manages Logger instances, configures Winston
+3. **AsyncContextInjector**: Enriches logs with test context from AsyncLocalStorage
+4. **Winston**: Handles actual log formatting and output (transports, formatters)
 
 ### Key Components
 
 **LoggerFactory (Singleton)**:
 - Creates and manages Logger instances
 - Configures Winston root logger and transports
-- Provides log4j-style `LoggerFactory.getLogger(ClassName)` API
+- Provides `LoggerFactory.getLogger(name)` API
 
-**Logger (Composite)**:
-- Orchestrates message formatting, context injection, and log output
-- Provides log level methods: `trace`, `debug`, `info`, `warn`, `error`
-- Supports three logging styles: parameterized, structured, mixed
+**Logger (Wrapper)**:
+- Thin wrapper around Winston logger
+- Automatically injects test context into all logs
+- Provides typed log level methods: `trace`, `debug`, `info`, `warn`, `error`
+- Supports two logging styles: template literals, structured metadata
 
-**ParameterizedFormatter (Strategy)**:
-- Replaces `{}` placeholders with parameters
-- Extracts metadata from last parameter if object
-- Maintains backward compatibility with Winston structured logging
-
-**AsyncContextInjector (Strategy)**:
+**AsyncContextInjector**:
 - Retrieves test context from AsyncLocalStorage
 - Merges user metadata with auto-injected context
-- Context fields take precedence to prevent user override
+- Context fields (projectName, worker) added automatically
 
-**WinstonTransport (Adapter)**:
-- Delegates log calls to Winston logger
-- Enables swapping Winston for other logging libraries
-- Provides escape hatch to underlying Winston instance
+**Winston Logger (External)**:
+- Handles log formatting (text vs JSON)
+- Manages transports (console, file rotation)
+- Provides underlying logging infrastructure
 
 ## Installation
 
@@ -210,7 +185,7 @@ export const loggerConfig: LoggerConfig = {
 Override defaults at application startup:
 
 ```typescript
-import { LoggerFactory } from '@logger';
+import { LoggerFactory } from './src/logger/logger';
 
 // Configure once at startup
 LoggerFactory.configure({
@@ -330,13 +305,12 @@ export function extractTestContext(testInfo: any): TestContext {
 
 ### Test Fixtures
 
-The logger fixture is configured in `tests/utils/test/fixtures.ts`:
+The logger fixture is configured in `src/utils/test/fixtures.ts`:
 
 ```typescript
 import { test as base } from '@playwright/test';
-import { LoggerFactory } from '@logger';
-import { testContextStorage, extractTestContext } from '@logger/context/testContext';
-import type { Logger } from '@logger';
+import { LoggerFactory, type Logger } from '../../logger/logger';
+import { testContextStorage, extractTestContext } from '../../logger/context/testContext';
 
 type TestFixtures = {
   logger: Logger;
@@ -393,14 +367,14 @@ You create the logger using `LoggerFactory.getLogger()`. There are two options:
 Pass the class constructor - logger name becomes the class name:
 
 ```typescript
-import { LoggerFactory } from '@logger';
+import { LoggerFactory, type Logger } from '../../logger/logger';
 
 export class UserService {
-  private readonly logger = LoggerFactory.getLogger(UserService);
+  private readonly logger: Logger = LoggerFactory.getLogger(UserService);
   // Logger name: "UserService"
 
   async processUser(userId: string) {
-    this.logger.info("Processing user {}", userId);
+    this.logger.info(`Processing user ${userId}`);
   }
 }
 ```
@@ -410,10 +384,10 @@ export class UserService {
 Use dot-separated names for logical grouping and grep-friendly filtering:
 
 ```typescript
-import { LoggerFactory } from '@logger';
+import { LoggerFactory, type Logger } from '../../logger/logger';
 
 export class GithubClient {
-  private readonly logger = LoggerFactory.getLogger('github.client');
+  private readonly logger: Logger = LoggerFactory.getLogger('github.client');
   // Logger name: "github.client"
 
   async ping() {
@@ -423,19 +397,19 @@ export class GithubClient {
 ```
 
 **Benefits of hierarchical naming**:
-- Grep-friendly: `grep "github\." logs.txt` finds all GitHub-related logs
+- Grep-friendly: `grep "github\\.client" logs.txt` finds all GitHub client logs
 - Logical grouping: `github.client`, `github.actions`, `github.repository`
 - Consistent module organization
 
 **For utility functions or non-class contexts**:
 
 ```typescript
-import { LoggerFactory } from '@logger';
+import { LoggerFactory } from '../../logger/logger';
 
 const logger = LoggerFactory.getLogger('utils.validation');
 
 function validateEmail(email: string) {
-  logger.debug("Validating email {}", email);
+  logger.debug(`Validating email ${email}`);
 }
 ```
 
@@ -464,19 +438,19 @@ The logger provides five log levels (from most to least verbose):
 const logger = LoggerFactory.getLogger('UserService');
 
 // TRACE: Very detailed debugging (finest-grained)
-logger.trace("Entering method processUser with userId={}", userId);
+logger.trace(`Entering method processUser with userId=${userId}`);
 
 // DEBUG: Detailed debugging information
-logger.debug("Cache miss for key {}", cacheKey);
+logger.debug(`Cache miss for key ${cacheKey}`);
 
 // INFO: Normal operational events (default level)
-logger.info("User {} logged in successfully", username);
+logger.info(`User ${username} logged in successfully`);
 
 // WARN: Warning conditions that don't prevent operation
-logger.warn("Retry attempt {} of {}", currentAttempt, maxAttempts);
+logger.warn(`Retry attempt ${currentAttempt} of ${maxAttempts}`);
 
 // ERROR: Error events requiring attention
-logger.error("Failed to process user {}", userId, { error: err.message });
+logger.error(`Failed to process user ${userId}`, { error: err.message });
 ```
 
 **When to use each level**:
@@ -489,23 +463,22 @@ logger.error("Failed to process user {}", userId, { error: err.message });
 | `warn`  | Potentially harmful situations              | Retries, deprecated API usage     |
 | `error` | Failures requiring attention                | Exceptions, failed operations     |
 
-### 3. Parameterized Logging
+### 3. Template Literal Logging
 
-Use `{}` placeholders for clean, readable log messages:
+Use JavaScript template literals for clean, readable log messages:
 
 ```typescript
 const logger = LoggerFactory.getLogger('OrderService');
 
-// Basic parameterized logging
-logger.info("Processing order {}", orderId);
-logger.info("User {} placed order {}", username, orderId);
+// Basic template literal logging
+logger.info(`Processing order ${orderId}`);
+logger.info(`User ${username} placed order ${orderId}`);
 
-// Multiple placeholders
-logger.info("Transferring {} from {} to {}", amount, fromAccount, toAccount);
+// Multiple variables
+logger.info(`Transferring ${amount} from ${fromAccount} to ${toAccount}`);
 
-// Null/undefined handling
-logger.info("User is {}", null);        // Output: "User is null"
-logger.info("Value is {}", undefined);  // Output: "Value is null"
+// Expressions in templates
+logger.info(`Cart has ${cart.items.length} items totaling ${cart.total}`);
 ```
 
 **Output**:
@@ -514,11 +487,11 @@ logger.info("Value is {}", undefined);  // Output: "Value is null"
 2024-01-21 10:30:45 [INFO ] OrderService: User alice placed order ORD-12345
 ```
 
-**Why use placeholders?**
-- **Cleaner code**: `logger.info("User {}", name)` vs `logger.info("User " + name)`
-- **Lazy evaluation**: Parameters only evaluated if log level is enabled
-- **Performance**: Avoids string concatenation when logging is disabled
-- **Familiar**: Same syntax as log4j/slf4j
+**Why use template literals?**:
+- **Modern JavaScript**: Standard ES6+ syntax
+- **Readable code**: `logger.info(\`User ${name}\`)` vs `logger.info("User " + name)`
+- **Expression support**: Can include any JavaScript expression `${obj.prop}`
+- **Familiar**: Same syntax used throughout JavaScript/TypeScript
 
 ### 4. Adding Metadata
 
@@ -536,18 +509,18 @@ logger.warn("High memory usage", { currentMB: 850, limitMB: 1024 });
 2024-01-21 10:30:45 [INFO ] UserService: User logged in {username=alice, ipAddress=192.168.1.1, projectName=e2e-go[github-tekton-quay-remote], worker=0}
 ```
 
-#### Combined: Placeholders + Metadata (Recommended)
+#### Combined: Template Literals + Metadata (Recommended)
 
-Combine placeholders for the main message with metadata for additional details:
+Combine template literals for the main message with metadata for additional details:
 
 ```typescript
-logger.info("Processing {} items from {}", count, source, { 
-  batchId, 
-  startTime, 
-  queueDepth 
+logger.info(`Processing ${count} items from ${source}`, {
+  batchId,
+  startTime,
+  queueDepth
 });
 
-logger.error("Failed to connect to {}:{}", host, port, {
+logger.error(`Failed to connect to ${host}:${port}`, {
   timeout: 5000,
   retryCount: 3,
   lastError: err.message
@@ -559,7 +532,7 @@ logger.error("Failed to connect to {}:{}", host, port, {
 2024-01-21 10:30:45 [INFO ] BatchService: Processing 100 items from database {batchId=abc123, startTime=1737269288, queueDepth=42, projectName=e2e-go[github-tekton-quay-remote], worker=0}
 ```
 
-**Best Practice**: Use placeholders for key information (easy to grep), metadata for structured details (easy to analyze).
+**Best Practice**: Use template literals for key information (easy to grep), metadata for structured details (easy to analyze).
 
 ### 5. Automatic Context Injection
 
@@ -580,7 +553,7 @@ The logger automatically injects test context into every log - **you don't need 
 
 ```typescript
 // You just write normal logs
-logger.info("Creating component {}", componentName);
+logger.info(`Creating component ${componentName}`);
 
 // Output automatically includes context (no extra code needed):
 // 2024-01-21 10:30:45 [INFO ] MyTest: Creating component my-app {projectName=e2e-go[github-tekton-quay-remote], worker=0}
@@ -640,3 +613,88 @@ Structured format for log aggregation systems:
 - Metrics and monitoring dashboards
 - Long-term log storage
 - Compliance and audit trails
+
+## Advanced Usage
+
+### Accessing Underlying Winston Logger
+
+For advanced Winston features not exposed by the Logger wrapper:
+
+```typescript
+const logger = LoggerFactory.getLogger('MyService');
+
+// Get underlying Winston logger
+const winstonLogger = logger.getUnderlyingLogger();
+
+// Use Winston-specific features
+winstonLogger.profile('expensive-operation');
+// ... expensive operation ...
+winstonLogger.profile('expensive-operation');
+```
+
+**Use Cases**:
+- Profiling with Winston's built-in profiler
+- Using Winston plugins or features not in the wrapper
+- Migration from direct Winston usage
+
+### Cleanup on Shutdown
+
+Close all loggers and flush pending logs:
+
+```typescript
+import { closeAllLoggers } from './src/logger/logger';
+
+process.on('SIGTERM', async () => {
+  await closeAllLoggers();
+  process.exit(0);
+});
+```
+
+## Migration Guide
+
+### Migrating from Placeholder-based Logging
+
+If upgrading from the older `{}` placeholder format:
+
+**Before**:
+```typescript
+logger.info("Processing user {}", userId);
+logger.info("User {} placed order {}", username, orderId);
+```
+
+**After**:
+```typescript
+logger.info(`Processing user ${userId}`);
+logger.info(`User ${username} placed order ${orderId}`);
+```
+
+**Key Changes**:
+- Replace `{}` placeholders with `${variable}` template literal syntax
+- Wrap log messages in backticks (\`) instead of quotes
+- Variables/expressions go inside `${...}`
+- Metadata object still goes as second parameter
+
+## Architecture Changes from Previous Version
+
+The logger has been simplified from the previous implementation:
+
+**Removed Components**:
+- ❌ `ILogTransport` interface - direct Winston integration instead
+- ❌ `WinstonTransport` adapter - unnecessary abstraction layer
+- ❌ `IMessageFormatter` interface - Winston handles formatting
+- ❌ `ParameterizedFormatter` class - template literals replace placeholder parsing
+- ❌ `verify-logger.ts` - removed obsolete verification script
+
+**Simplified Architecture**:
+- ✅ Direct Winston wrapper in `Logger` class
+- ✅ Single responsibility: context injection + Winston delegation
+- ✅ Fewer moving parts, easier to understand and debug
+- ✅ Modern JavaScript template literals instead of custom parsing
+- ✅ Access to underlying Winston logger when needed
+
+**Benefits**:
+- Simpler codebase (removed ~250 lines of abstraction code)
+- Easier to debug (direct Winston integration)
+- Modern syntax (template literals)
+- Better performance (no placeholder parsing overhead)
+- More maintainable (fewer components to manage)

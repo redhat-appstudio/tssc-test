@@ -264,7 +264,7 @@ export class GitLabCI extends BaseCI {
           minTimeout: pollIntervalMs,
           onRetry: (error: Error, attemptNumber: number) => {
             this.logger.info(
-              `[GITLAB-CI-RETRY ${attemptNumber}/${maxAttempts}] 🔄 Component: ${this.componentName} | Status: Waiting | Reason: {}`
+              `[GITLAB-CI-RETRY ${attemptNumber}/${maxAttempts}] 🔄 Component: ${this.componentName} | Status: Waiting | Reason: ${error.message}`
             );
           },
         });
@@ -353,8 +353,8 @@ export class GitLabCI extends BaseCI {
       });
 
     } catch (error: any) {
-      this.logger.error(`[GitLabCI] Error in cancelAllPipelines: ${error}`);
-      throw new Error(`Failed to cancel pipelines: {}`);
+      this.logger.error(`[GitLabCI] Error in cancelAllPipelines: ${error.message}`);
+      throw new Error(`Failed to cancel pipelines: ${error.message}`);
     }
 
     return result;

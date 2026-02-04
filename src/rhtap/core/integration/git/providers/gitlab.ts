@@ -210,7 +210,7 @@ export class GitlabProvider extends BaseGitProvider {
       );
       return commitSha;
     } catch (error: any) {
-      this.logger.error(`Error creating promotion commit for ${environment}: {}`);
+      this.logger.error(`Error creating promotion commit for ${environment}: ${error}`);
       throw error;
     }
   }
@@ -378,7 +378,7 @@ export class GitlabProvider extends BaseGitProvider {
       this.logger.info(`Successfully created promotion MR #${prNumber} for ${environment} environment`);
       return new PullRequest(prNumber, commitSha, this.gitOpsRepoName);
     } catch (error: any) {
-      this.logger.error(`Error creating promotion PR for ${environment}: {}`);
+      this.logger.error(`Error creating promotion PR for ${environment}: ${error}`);
       throw error;
     }
   }
@@ -452,7 +452,7 @@ export class GitlabProvider extends BaseGitProvider {
       this.logger.info(`Extracted image from ${filePath}: ${imageValue}`);
       return imageValue;
     } catch (error: any) {
-      this.logger.error(`Error extracting application image: {}`);
+      this.logger.error(`Error extracting application image: ${error}`);
       throw error;
     }
   }
@@ -520,7 +520,7 @@ export class GitlabProvider extends BaseGitProvider {
       // Return a PullRequest object with the merge request details
       return new PullRequest(prNumber, commitSha, this.sourceRepoName, false, undefined, prUrl);
     } catch (error: any) {
-      this.logger.error(`Error creating sample merge request: {}`);
+      this.logger.error(`Error creating sample merge request: ${error}`);
       throw error;
     }
   }
@@ -599,7 +599,7 @@ export class GitlabProvider extends BaseGitProvider {
       // Return a PullRequest object with the details
       return new PullRequest(prNumber, commitSha, this.sourceRepoName);
     } catch (error: any) {
-      this.logger.error(`Error creating sample merge request: {}`);
+      this.logger.error(`Error creating sample merge request: ${error}`);
       throw error;
     }
   }
@@ -701,7 +701,7 @@ export class GitlabProvider extends BaseGitProvider {
             content: fileContent,
           });
         } catch (error: any) {
-          this.logger.error(`Error preparing file modification for ${filePath}: {}`);
+          this.logger.error(`Error preparing file modification for ${filePath}: ${error}`);
           throw error;
         }
       }
@@ -735,7 +735,7 @@ export class GitlabProvider extends BaseGitProvider {
       );
       return commitSha;
     } catch (error: any) {
-      this.logger.error(`Error creating direct commit on branch '${branch}': {}`);
+      this.logger.error(`Error creating direct commit on branch '${branch}': ${error}`);
       throw error;
     }
   }
@@ -776,7 +776,7 @@ export class GitlabProvider extends BaseGitProvider {
 
       return commitSha;
     } catch (error: any) {
-      this.logger.error(`Failed to get commit SHA for source repo: {}`);
+      this.logger.error(`Failed to get commit SHA for source repo: ${error}`);
       throw error;
     }
   }
@@ -816,7 +816,7 @@ export class GitlabProvider extends BaseGitProvider {
 
       return commitSha;
     } catch (error: any) {
-      this.logger.error(`Failed to get commit SHA for GitOps repo: {}`);
+      this.logger.error(`Failed to get commit SHA for GitOps repo: ${error}`);
       throw error;
     }
   }
@@ -846,7 +846,7 @@ export class GitlabProvider extends BaseGitProvider {
         `Webhook configured successfully for source repo ${this.getGroup()}/${this.sourceRepoName} with ${webhookUrl}`
       );
     } catch (error: any) {
-      this.logger.error(`Failed to configure webhook on source repo: {}`);
+      this.logger.error(`Failed to configure webhook on source repo: ${error}`);
       throw error;
     }
   }
@@ -872,7 +872,7 @@ export class GitlabProvider extends BaseGitProvider {
         `Webhook configured successfully for GitOps repo ${this.getGroup()}/${this.gitOpsRepoName} with ${webhookUrl}`
       );
     } catch (error: any) {
-      this.logger.error(`Failed to configure webhook on GitOps repo: {}`);
+      this.logger.error(`Failed to configure webhook on GitOps repo: ${error}`);
       throw error;
     }
   }

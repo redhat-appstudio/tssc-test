@@ -166,7 +166,7 @@ export class TektonCI extends BaseCI {
           onRetry: (error: Error, attemptNumber) => {
             // Log retry but don't show the full error stack trace
             this.logger.info(
-              `[TEKTON-RETRY ${attemptNumber}/${maxRetries}] 🔄 Repository: ${gitRepository} | Status: ${pipelineStatus} | Reason: {}`
+              `[TEKTON-RETRY ${attemptNumber}/${maxRetries}] 🔄 Repository: ${gitRepository} | Status: ${pipelineStatus} | Reason: ${error.message}`
             );
           },
         }
@@ -361,7 +361,7 @@ export class TektonCI extends BaseCI {
         factor: 1.5, // Exponential backoff factor
         onRetry: (error: Error, attempt: number) => {
           this.logger.info(
-            `[TEKTON-RETRY ${attempt}/${maxRetries}] 🔄 Repository: ${sourceRepoName} | Status: Waiting | Reason: {}`
+            `[TEKTON-RETRY ${attempt}/${maxRetries}] 🔄 Repository: ${sourceRepoName} | Status: Waiting | Reason: ${error.message}`
           );
         },
       });

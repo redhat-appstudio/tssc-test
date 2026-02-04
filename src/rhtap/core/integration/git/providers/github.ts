@@ -269,7 +269,7 @@ export class GithubProvider extends BaseGitProvider {
 
       return new PullRequest(prNumber, commitSha, this.gitOpsRepoName, false, undefined, prUrl);
     } catch (error: any) {
-      this.logger.error(`Error creating promotion PR for ${environment}: {}`);
+      this.logger.error(`Error creating promotion PR for ${environment}: ${error}`);
       throw error;
     }
   }
@@ -356,7 +356,7 @@ export class GithubProvider extends BaseGitProvider {
       );
       return commitSha;
     } catch (error: any) {
-      this.logger.error(`Error creating batch commit on branch '${branch}': {}`);
+      this.logger.error(`Error creating batch commit on branch '${branch}': ${error}`);
       throw error;
     }
   }
@@ -490,7 +490,7 @@ export class GithubProvider extends BaseGitProvider {
       this.logger.info(`Extracted image from ${filePath}: ${imageValue}`);
       return imageValue;
     } catch (error: any) {
-      this.logger.error(`Error extracting application image: {}`);
+      this.logger.error(`Error extracting application image: ${error}`);
       throw error;
     }
   }
@@ -513,7 +513,7 @@ export class GithubProvider extends BaseGitProvider {
         branch
       );
     } catch (error: any) {
-      this.logger.error(`Failed to get commit SHA for source repo: {}`);
+      this.logger.error(`Failed to get commit SHA for source repo: ${error}`);
       throw error;
     }
   }
@@ -536,7 +536,7 @@ export class GithubProvider extends BaseGitProvider {
         branch
       );
     } catch (error: any) {
-      this.logger.error(`Failed to get commit SHA for GitOps repo: {}`);
+      this.logger.error(`Failed to get commit SHA for GitOps repo: ${error}`);
       throw error;
     }
   }
@@ -557,7 +557,7 @@ export class GithubProvider extends BaseGitProvider {
         active: true
       });
     } catch (error: any) {
-      this.logger.error(`Failed to configure webhook on source repo: {}`);
+      this.logger.error(`Failed to configure webhook on source repo: ${error}`);
       throw error;
     }
   }
@@ -578,7 +578,7 @@ export class GithubProvider extends BaseGitProvider {
         active: true
       });
     } catch (error: any) {
-      this.logger.error(`Failed to configure webhook on GitOps repo: {}`);
+      this.logger.error(`Failed to configure webhook on GitOps repo: ${error}`);
       throw error;
     }
   }

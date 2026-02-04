@@ -3,7 +3,7 @@
  *
  * Main logger class that provides logging with automatic context injection.
  * Uses Winston directly for transport.
- * Uses template literals for message formatting (no {} placeholders).
+ * Uses template literals for message formatting.
  */
 
 import * as winston from 'winston';

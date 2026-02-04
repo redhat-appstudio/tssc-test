@@ -362,7 +362,7 @@ export class JenkinsCI extends BaseCI {
             factor: JenkinsCI.BACKOFF_FACTOR,
             onRetry: (error: Error, attemptNumber) => {
               this.logger.info(
-                `[JENKINS-RETRY ${attemptNumber}/${maxRetries}] 🔄 Job: ${jobName} | SHA: ${commitSha} | Status: ${pipelineStatus} | Reason: {}`
+                `[JENKINS-RETRY ${attemptNumber}/${maxRetries}] 🔄 Job: ${jobName} | SHA: ${commitSha} | Status: ${pipelineStatus} | Reason: ${error.message}`
               );
             },
           }
@@ -427,15 +427,14 @@ export class JenkinsCI extends BaseCI {
           factor: JenkinsCI.BACKOFF_FACTOR,
           onRetry: (error: Error, attemptNumber) => {
             this.logger.info(
-              `[JENKINS-RETRY ${attemptNumber}/${maxRetries}] 🔄 Checking status of ${jobName} #${buildNumber} | Reason: {}`
+              `[JENKINS-RETRY ${attemptNumber}/${maxRetries}] 🔄 Checking status of ${jobName} #${buildNumber} | Reason: ${error.message}`
             );
           },
         }
       );
     } catch (error) {
       this.logger.error(
-        `Failed to check Jenkins build status for ${jobName} #${buildNumber} after multiple retries:`,
-        error
+        `Failed to check Jenkins build status for ${jobName} #${buildNumber} after multiple retries: ${error}`
       );
       return PipelineStatus.UNKNOWN;
     }
@@ -485,7 +484,7 @@ export class JenkinsCI extends BaseCI {
         folderName
       );
     } catch (error) {
-      this.logger.error(`Failed to get jobs activity status:`, error);
+      this.logger.error(`Failed to get jobs activity status: ${error}`);
       throw error;
     }
   }
@@ -647,8 +646,8 @@ export class JenkinsCI extends BaseCI {
       });
 
     } catch (error: any) {
-      this.logger.error(`[Jenkins] Error in cancelAllPipelines: ${error}`);
-      throw new Error(`Failed to cancel pipelines: {}`);
+      this.logger.error(`[Jenkins] Error in cancelAllPipelines: ${error.message}`);
+      throw new Error(`Failed to cancel pipelines: ${error.message}`);
     }
 
     return result;
