@@ -142,7 +142,6 @@ export class GitLabCI extends BaseCI {
       pipelines.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
       const latestPipeline = pipelines[0];
-      //TODO: for debugging purpose, remove it later
       this.logger.info(`Latest pipeline ID: ${latestPipeline.id}, Source: ${latestPipeline.source}`);
       const mappedStatus = this.mapPipelineStatus(latestPipeline.status);
 

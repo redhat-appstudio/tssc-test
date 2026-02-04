@@ -109,6 +109,19 @@ export class EnableTPAVariablesModification implements JenkinsfileModification {
     };
   }
 }
+
+export class EnableGitoAuthUsernameModification implements JenkinsfileModification {
+  getModification(): ContentModifications {
+    return {
+      Jenkinsfile: [
+        {
+          oldContent: "/* GITOPS_AUTH_USERNAME = credentials('GITOPS_AUTH_USERNAME') */",
+          newContent: "GITOPS_AUTH_USERNAME = credentials('GITOPS_AUTH_USERNAME')",
+        },
+      ],
+    };
+  }
+}
 /**
  * Enum of available Jenkinsfile modification types
  */
@@ -119,6 +132,7 @@ export enum JenkinsfileModificationType {
   DISABLE_QUAY_CREDENTIALS = 'DISABLE_QUAY_CREDENTIALS',
   ENABLE_COSIGN_PUBLIC_KEY = 'ENABLE_COSIGN_PUBLIC_KEY',
   ENABLE_TPA_VARIABLES = 'ENABLE_TPA_VARIABLES',
+  GITOPS_AUTH_USERNAME = 'GITOPS_AUTH_USERNAME',
 }
 
 /**
@@ -144,6 +158,8 @@ export class JenkinsfileModificationFactory {
         return new EnableCosignPublicKeyModification();
       case JenkinsfileModificationType.ENABLE_TPA_VARIABLES:
         return new EnableTPAVariablesModification();
+      case JenkinsfileModificationType.GITOPS_AUTH_USERNAME:
+        return new EnableGitoAuthUsernameModification();
       default:
         throw new Error(`Unknown Jenkinsfile modification type: ${type}`);
     }
@@ -225,6 +241,14 @@ export class JenkinsfileModifier {
   // Apply modifications directly to content
   applyModifications(content: string): string {
     return this.container.applyToContent('Jenkinsfile', content);
+  }
+
+  enableGitoAuthUsername(): JenkinsfileModifier {
+    const modification = JenkinsfileModificationFactory.create(
+      JenkinsfileModificationType.GITOPS_AUTH_USERNAME
+    ).getModification();
+    this.container.merge(modification);
+    return this;
   }
 
   // Static factory method for easy creation
