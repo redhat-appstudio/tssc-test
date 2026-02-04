@@ -95,7 +95,7 @@ export class AzureCI extends BaseCI {
 
       this.logger.info('Azure client initialized successfully');
     } catch (error) {
-      this.logger.error(`Failed to initialize Azure client:`);
+      this.logger.error(`Failed to initialize Azure client: ${error}`);
       throw error;
     }
   }

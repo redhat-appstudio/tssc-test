@@ -133,7 +133,7 @@ export class JenkinsCI extends BaseCI {
       await this.initJenkinsClient();
       this.logger.info('Jenkins client initialized successfully');
     } catch (error) {
-      this.logger.error(`Failed to initialize Jenkins client:`);
+      this.logger.error(`Failed to initialize Jenkins client: ${error}`);
       throw error;
     }
   }
@@ -223,7 +223,7 @@ export class JenkinsCI extends BaseCI {
 
       this.logger.info('Jenkins client initialized successfully');
     } catch (error) {
-      this.logger.error(`Failed to initialize Jenkins client:`);
+      this.logger.error(`Failed to initialize Jenkins client: ${error}`);
       throw error;
     }
   }
