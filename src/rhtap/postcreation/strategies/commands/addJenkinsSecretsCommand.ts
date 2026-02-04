@@ -1,4 +1,3 @@
-import { CredentialType } from '../../../../api/jenkins';
 import { Component } from '../../../core/component';
 import { JenkinsCI } from '../../../core/integration/ci';
 import { GitType } from '../../../core/integration/git';
@@ -66,12 +65,18 @@ export class AddJenkinsSecretsCommand extends BaseCommand {
   private async addGitAuthSecrets(): Promise<void> {
     const username = this.git.getUsername();
     const password = this.getGitOpsAuthPassword();
-    await this.jenkinsCI.addCredential(
-      this.folderName,
-      Credential.GITOPS_AUTH_PASSWORD,
-      `${username}:${password}`,
-      CredentialType.USERNAME_PASSWORD
-    );
+    await Promise.all([
+      this.jenkinsCI.addCredential(
+        this.folderName,
+        Credential.GITOPS_AUTH_USERNAME,
+        username
+      ),
+      this.jenkinsCI.addCredential(
+        this.folderName,
+        Credential.GITOPS_AUTH_PASSWORD,
+        password
+      ),
+    ]);
   }
 
   private async addImageRegistrySecrets(): Promise<void> {
