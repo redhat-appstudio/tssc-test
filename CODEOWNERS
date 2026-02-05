@@ -4,3 +4,5 @@
 # Owners for UI related files and directories
 /src/ui/ @BohdanMar @jsmid1
 /tests/ui/ @BohdanMar @jsmid1
+/integration-tests/ @BohdanMar @jsmid1
+/docs/ @BohdanMar @jsmid1
