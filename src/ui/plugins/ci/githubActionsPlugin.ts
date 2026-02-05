@@ -1,8 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { BaseCIPlugin } from './baseCIPlugin';
 import { GitPO } from '../../page-objects/commonPo';
-import { GhLoginPO } from '../../page-objects/loginPo';
-import { performGitHubLogin } from '../../commonUi';
 
 export class GithubActionsPlugin extends BaseCIPlugin {
     constructor(name: string, registryOrg: string) {
@@ -39,37 +37,10 @@ export class GithubActionsPlugin extends BaseCIPlugin {
             const actionsUrl = this.buildActionsUrl(repoUrl);
             await githubPage.goto(actionsUrl, { timeout: 20000, waitUntil: 'domcontentloaded' });
 
-            // Handle GitHub login if required
-            await this.handleGitHubLoginIfRequired(githubPage);
-
             await expect(githubPage).toHaveURL(actionsUrl, { timeout: 20000 });
         } finally {
             await githubPage.close();
         }
-    }
-
-    /**
-     * Handles GitHub login if the login page is displayed.
-     * Uses shared authentication helper for username/password and 2FA.
-     *
-     * @param page - Playwright Page object for the GitHub page
-     */
-    private async handleGitHubLoginIfRequired(page: Page): Promise<void> {
-        const loginField = page.locator(GhLoginPO.githubLoginField);
-
-        // Check if login is required (login field is visible)
-        try {
-            await loginField.waitFor({ state: 'visible', timeout: 5000 });
-        } catch {
-            // Login not required, page is already authenticated
-            console.warn('[GITHUB-ACTIONS] Login not required, already authenticated');
-            return;
-        }
-
-        console.warn('[GITHUB-ACTIONS] Login required, performing authentication...');
-
-        // Use shared authentication helper
-        await performGitHubLogin(page, { logPrefix: 'GITHUB-ACTIONS' });
     }
 
     /**
