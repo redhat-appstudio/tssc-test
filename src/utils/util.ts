@@ -1,4 +1,5 @@
 import { LoggerFactory, Logger } from '../logger/logger';
+import { KubeClient } from '../api/ocp/kubeClient';
 
 const logger: Logger = LoggerFactory.getLogger('utils.util');
 
@@ -256,4 +257,27 @@ export function getRunnerImageFromCIFile(fileContent: string): string {
  */
 export function escapeRegex(s: string): string {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Developer Hub configuration interface
+ */
+export interface DeveloperHubConfig {
+  signInPage?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Retrieves the Developer Hub configuration from the Kubernetes ConfigMap.
+ * 
+ * @param kubeClient - KubeClient instance for Kubernetes API access
+ * @returns Parsed Developer Hub configuration
+ */
+export async function getDeveloperHubConfig(
+): Promise<DeveloperHubConfig> {
+  const kubeClient = new KubeClient();
+  const configMap = await kubeClient.getConfigMap('tssc-developer-hub-app-config', 'tssc-dh');
+  const raw = configMap['app-config.tssc.yaml'];
+  const yaml = await import('js-yaml');
+  return yaml.load(raw) as DeveloperHubConfig;
 }

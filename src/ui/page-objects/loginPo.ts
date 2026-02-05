@@ -3,7 +3,7 @@
  * Contains locators for Developer Hub login elements
  */
 export class DHLoginPO {
-    static readonly signInButtonName = "Sign In";
+    static readonly signInButtonName = /Sign In|Log In/i;
 }
 
 /**
