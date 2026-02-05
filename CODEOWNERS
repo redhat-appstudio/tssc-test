@@ -1,2 +1,6 @@
 # Default owner for everything in this repository.
 * @xinredhat
+
+# Owners for UI related files and directories
+/src/ui/ @BohdanMar @jsmid1
+/tests/ui/ @BohdanMar @jsmid1
