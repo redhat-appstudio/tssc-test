@@ -1,8 +1,11 @@
 import { expect, Page } from '@playwright/test';
 import { BaseCIPlugin } from './baseCIPlugin';
 import { GitPO } from '../../page-objects/commonPo';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class GithubActionsPlugin extends BaseCIPlugin {
+    private readonly logger: Logger = LoggerFactory.getLogger('GithubActionsPlugin');
+
     constructor(name: string, registryOrg: string) {
         super(name, registryOrg);
     }
@@ -55,5 +58,10 @@ export class GithubActionsPlugin extends BaseCIPlugin {
         // Remove any query parameters or fragments and append /actions
         const pathname = url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
         return `${url.origin}${pathname}/actions`;
+    }
+
+    // eslint-disable-next-line no-unused-vars
+    public async checkImageRegistryLinks(_page: Page): Promise<void> {
+        this.logger.info('Skipping checkImageRegistryLinks - not applicable for GitHub Actions CI');
     }
 }
