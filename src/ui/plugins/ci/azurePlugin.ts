@@ -4,8 +4,11 @@ import { checkWebsiteStatus } from '../../commonUi';
 import { AzurePO } from '../../page-objects/azurePo';
 import { CiPo } from '../../page-objects/ciPo';
 import { CommonPO } from '../../page-objects/commonPo';
+import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class AzurePlugin extends BaseCIPlugin {
+    private readonly logger: Logger = LoggerFactory.getLogger('AzurePlugin');
+
     constructor(name: string, registryOrg: string) {
         super(name, registryOrg);
     }
@@ -76,12 +79,17 @@ export class AzurePlugin extends BaseCIPlugin {
         await expect(pipelineRunsTable).toBeVisible();
 
         await this.checkColumnHeaders(pipelineRunsTable);
-        
+
         const tableRows = pipelineRunsTable.locator(CommonPO.dataRowSelector);
         await expect(tableRows.first()).toBeVisible();
 
         const tableRowCells = await tableRows.first().locator('td').all();
         await this.checkRowCellsVisible(tableRowCells);
         await this.checkRowCellContents(page, tableRowCells);
+    }
+
+    // eslint-disable-next-line no-unused-vars
+    public async checkImageRegistryLinks(_page: Page): Promise<void> {
+        this.logger.info('Skipping checkImageRegistryLinks - not applicable for Azure DevOps CI');
     }
 }
