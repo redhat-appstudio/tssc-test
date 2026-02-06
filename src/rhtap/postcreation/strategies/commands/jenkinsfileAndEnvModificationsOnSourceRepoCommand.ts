@@ -42,9 +42,9 @@ export class JenkinsfileAndEnvModificationsOnSourceRepoCommand extends BaseComma
 
     modificationsContainer.merge(
       JenkinsfileModifier.create()
-        .updateKubernetesAgentConfig()
         .enableRegistryPassword()
         .disableQuayCredentials()
+        .enableGitoAuthUsername()
         .getModifications()
     );
 

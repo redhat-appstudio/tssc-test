@@ -36,10 +36,9 @@ export class JenkinsfileAndEnvModificationsOnGitopsRepoCommand extends BaseComma
 
     modificationsContainer.merge(
       JenkinsfileModifier.create()
-        .updateKubernetesAgentConfig()
         .enableRegistryPassword()
         .disableQuayCredentials()
-        .enableTPAVariables()
+        .enableGitoAuthUsername()
         .getModifications()
     );
 
