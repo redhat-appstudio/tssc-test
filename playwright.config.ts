@@ -223,5 +223,6 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'off',
+    ignoreHTTPSErrors: true, // Allow self-signed certificates in test environments
   },
 });
