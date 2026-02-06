@@ -19,4 +19,11 @@ export interface CIPlugin {
      * @param page - The page object
      */
     checkPipelineRunsTable(page: Page): Promise<void>;
+
+    /**
+     * Verify image registry links in the View Output popup are actual clickable links
+     * that navigate to the external registry (not just text)
+     * @param page - The page object
+     */
+    checkImageRegistryLinks(page: Page): Promise<void>;
 }

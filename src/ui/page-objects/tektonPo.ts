@@ -1,7 +1,7 @@
 export const TektonPO = {
 	// Test IDs
 	logsIconTestId: 'view-logs-icon',
-	internalSbomLinkTestId: 'internal-sbom-link',
+	sbomIconTestId: 'view-sbom-icon',
 	viewOutputTestId: 'view-output-icon',
 	closeIconTestId: 'CloseIcon',
 
