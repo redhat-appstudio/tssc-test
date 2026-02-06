@@ -51,7 +51,15 @@
           "registry": "quay",
           "tpa": "remote",
           "acs": "remote"
-        }],
+        },
+        {
+          "git": "bitbucket",
+          "ci": "jenkins",
+          "registry": "quay",
+          "tpa": "remote",
+          "acs": "remote"
+        }
+      ],
         "tests": ["full_workflow.test.ts"]
       }
     ]

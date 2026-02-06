@@ -64,13 +64,20 @@ export class AddJenkinsSecretsCommand extends BaseCommand {
   }
 
   private async addGitAuthSecrets(): Promise<void> {
+    const username = this.git.getUsername();
     const password = this.getGitOpsAuthPassword();
-    await this.jenkinsCI.addCredential(
-      this.folderName,
-      Credential.GITOPS_AUTH_PASSWORD,
-      `fakeUsername:${password}`,
-      CredentialType.USERNAME_PASSWORD
-    );
+    await Promise.all([
+      this.jenkinsCI.addCredential(
+        this.folderName,
+        Credential.GITOPS_AUTH_USERNAME,
+        username
+      ),
+      this.jenkinsCI.addCredential(
+        this.folderName,
+        Credential.GITOPS_AUTH_PASSWORD,
+        password
+      ),
+    ]);
   }
 
   private async addImageRegistrySecrets(): Promise<void> {
@@ -181,4 +188,6 @@ export class AddJenkinsSecretsCommand extends BaseCommand {
       );
     }
   }
+
+
 }

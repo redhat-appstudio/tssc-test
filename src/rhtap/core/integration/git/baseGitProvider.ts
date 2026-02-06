@@ -165,4 +165,11 @@ export abstract class BaseGitProvider implements Git {
   ): Promise<string>;
 
   public abstract getToken(): string;
+
+  public getUsername(): string {
+    if (!this.secret?.username) {
+      throw new Error(`Username not found in ${this.getGitType()} secret. Please ensure the username is provided.`);
+    }
+    return this.secret.username;
+  }
 }

@@ -1,10 +1,9 @@
 import { BitbucketClient } from '../../../../../api/bitbucket';
+import { ContentModifications } from '../../../../modification/contentModification';
 import { Environment } from '../../cd/argocd';
 import { BaseGitProvider } from '../baseGitProvider';
 import { GitType } from '../gitInterface';
 import { PullRequest } from '../models';
-import { ContentModifications } from '../../../../modification/contentModification';
-
 import { ITemplate, TemplateFactory, TemplateType } from '../templates/templateFactory';
 import { KubeClient } from '../../../../../api/ocp/kubeClient';
 import { LoggerFactory, Logger } from '../../../../../logger/logger';
@@ -118,7 +117,12 @@ export class BitbucketProvider extends BaseGitProvider {
     try {
       // Get the content of the  file
       this.logger.info(`Getting File Contents of ${filePath} in repo ${repo}`);
-      const fileContent = await this.bitbucketClient.repositories.getFileContent(owner, repo, filePath, branch);
+      const fileContent = await this.bitbucketClient.repositories.getFileContent(
+        owner,
+        repo,
+        filePath,
+        branch
+      );
 
       if (!fileContent) {
         throw new Error(`No content found in file: ${filePath}`);
@@ -159,7 +163,9 @@ export class BitbucketProvider extends BaseGitProvider {
     repository: string
   ): Promise<PullRequest> {
     try {
-      this.logger.info(`Creating a sample pull request in Bitbucket with the following parameters:`);
+      this.logger.info(
+        `Creating a sample pull request in Bitbucket with the following parameters:`
+      );
       this.logger.info(`Repository: ${repository}`);
       this.logger.info(`New Branch Name: ${newBranchName}`);
       this.logger.info(`Title: ${title}`);
@@ -213,7 +219,10 @@ export class BitbucketProvider extends BaseGitProvider {
       );
 
       // Get the latest commit on the branch
-      const commits = await this.bitbucketClient.repositories.getCommits(this.workspace, repository);
+      const commits = await this.bitbucketClient.repositories.getCommits(
+        this.workspace,
+        repository
+      );
 
       if (!commits || commits.length === 0) {
         throw new Error(`No commits found on branch ${newBranchName}`);
@@ -225,7 +234,9 @@ export class BitbucketProvider extends BaseGitProvider {
       // Construct the pull request URL
       const prUrl = `https://${this.getHost()}/${this.workspace}/${repository}/pull-requests/${prNumber}`;
 
-      this.logger.info(`Successfully created pull request #${prNumber} with commit SHA: ${commitSha}`);
+      this.logger.info(
+        `Successfully created pull request #${prNumber} with commit SHA: ${commitSha}`
+      );
       this.logger.info(`Pull request URL: ${prUrl}`);
 
       return new PullRequest(prNumber, commitSha, repository, false, undefined, prUrl);
@@ -254,7 +265,9 @@ export class BitbucketProvider extends BaseGitProvider {
 
       const contentModifications = this.template.getContentModifications();
 
-      this.logger.info(`Creating a sample pull request in Bitbucket with the following parameters:`);
+      this.logger.info(
+        `Creating a sample pull request in Bitbucket with the following parameters:`
+      );
       this.logger.info(`New Branch Name: ${newBranchName}`);
       this.logger.info(`Source Repository: ${this.sourceRepoName}`);
 
@@ -280,56 +293,15 @@ export class BitbucketProvider extends BaseGitProvider {
 
       this.logger.info(`Created new branch ${newBranchName} from ${baseBranch}`);
 
-      // Commit the changes to the new branch
-      // We need to use a different approach since Bitbucket API works differently
-      // For each file in contentModifications, we'll update it directly
-      for (const [filePath, modifications] of Object.entries(contentModifications)) {
-        for (const { oldContent, newContent } of modifications) {
-          try {
-            // Determine the content to upload
-            let fileContent = newContent;
-
-            try {
-              // Try to get existing content if the file exists
-              const existingContent = await this.getFileContentInString(
-                this.workspace,
-                this.sourceRepoName,
-                filePath,
-                newBranchName
-              );
-
-              // If we get here, the file exists, apply the modification
-              if (existingContent && oldContent) {
-                // Simple replacement; in a real implementation you might want a more sophisticated diff algorithm
-                fileContent = existingContent.replace(oldContent, newContent);
-              }
-            } catch (error) {
-              // File probably doesn't exist, we'll create it with the new content
-              this.logger.info(`File ${filePath} not found, will create it`);
-            }
-
-            // Upload the file via the src endpoint
-            // In Bitbucket API we can't easily do atomic multi-file commits through the REST API
-            // We'll do individual file updates
-            const commitData = {
-              branch: newBranchName,
-              message: `Update ${filePath}`,
-              [filePath]: fileContent,
-            };
-
-            await this.bitbucketClient.repositories.createCommit(
-              this.workspace,
-              this.sourceRepoName,
-              commitData
-            );
-
-            this.logger.info(`Updated file ${filePath} on branch ${newBranchName}`);
-          } catch (error: any) {
-            this.logger.error(`Error updating file ${filePath}: ${error}`);
-            throw error;
-          }
-        }
-      }
+      // Commit the changes to the new branch using the common commit method
+      // This ensures all modifications are applied correctly and committed as a single atomic operation
+      await this.commitChangesToRepo(
+        this.getWorkspace(),
+        this.sourceRepoName,
+        contentModifications,
+        `Changes for pull request: ${title}`,
+        newBranchName
+      );
 
       // Create the pull request
       const pullRequestData = {
@@ -347,7 +319,10 @@ export class BitbucketProvider extends BaseGitProvider {
       );
 
       // Get the latest commit on the branch
-      const commits = await this.bitbucketClient.repositories.getCommits(this.workspace, this.sourceRepoName);
+      const commits = await this.bitbucketClient.repositories.getCommits(
+        this.workspace,
+        this.sourceRepoName
+      );
 
       const commitSha = commits[0]?.hash || 'unknown-commit-sha';
       const prNumber = prResult.id;
@@ -355,7 +330,9 @@ export class BitbucketProvider extends BaseGitProvider {
       // Construct the pull request URL
       const prUrl = `https://${this.getHost()}/${this.workspace}/${this.sourceRepoName}/pull-requests/${prNumber}`;
 
-      this.logger.info(`Successfully created pull request #${prNumber} with commit SHA: ${commitSha}`);
+      this.logger.info(
+        `Successfully created pull request #${prNumber} with commit SHA: ${commitSha}`
+      );
       this.logger.info(`Pull request URL: ${prUrl}`);
 
       return new PullRequest(prNumber, commitSha, this.sourceRepoName, false, undefined, prUrl);
@@ -400,50 +377,46 @@ export class BitbucketProvider extends BaseGitProvider {
       // Process each file modification
       for (const [filePath, modifications] of Object.entries(contentModifications)) {
         let fileContent: string = '';
-        
-        for (const { oldContent, newContent } of modifications) {
-          try {
-            // Get the current file content to apply the modifications
-            try {
-              // Try to get existing content
-              fileContent = await this.getFileContentInString(
-                this.workspace,
-                repo,
-                filePath,
-                branch
-              );
 
-              // If we have old content and it exists in the file, replace it with new content
-              if (typeof fileContent === 'string' && oldContent) {
-                let contentExists = false;
-                if (typeof oldContent === 'string') {
-                  contentExists = fileContent.includes(oldContent);
-                } else if (oldContent instanceof RegExp) {
-                  contentExists = oldContent.test(fileContent);
-                }
-                
-                if (contentExists) {
-                  fileContent = fileContent.replace(oldContent, newContent);
-                } else {
-                  // Can't find the old content or the response format is unexpected
-                  this.logger.info(
-                    `Could not find old content in ${filePath}, using new content directly`
-                  );
-                  fileContent = newContent;
-                }
-              }
-            } catch (error) {
-              // File may not exist, use new content directly
-              this.logger.info(`Error getting file ${filePath}, using new content directly: ${error}`);
-              fileContent = newContent;
-            }
-          } catch (error: any) {
-            this.logger.error(`Error modifying file ${filePath}: ${error}`);
+        // Fetch file content ONCE before applying modifications
+        try {
+          fileContent = await this.getFileContentInString(this.workspace, repo, filePath, branch);
+        } catch (error: any) {
+          const status = error?.status ?? error?.response?.status;
+          if (status !== 404) {
             throw error;
           }
+          // File doesn't exist, will create it with accumulated modifications
+          this.logger.info(`File ${filePath} not found, will create it with new content`);
+          fileContent = '';
         }
-        
-        // Add to the files object for committing
+
+        // Apply all modifications sequentially to the same content
+        for (const { oldContent, newContent } of modifications) {
+          if (oldContent && fileContent) {
+            // Apply modification to existing content
+            let contentExists = false;
+            if (typeof oldContent === 'string') {
+              contentExists = fileContent.includes(oldContent);
+            } else if (oldContent instanceof RegExp) {
+              contentExists = oldContent.test(fileContent);
+              oldContent.lastIndex = 0;
+            }
+
+            if (contentExists) {
+              fileContent = fileContent.replace(oldContent, newContent);
+            } else {
+              // Can't find old content, append new content
+              this.logger.info(`Could not find old content in ${filePath}, appending new content`);
+              fileContent += newContent;
+            }
+          } else {
+            // No old content specified or file is new, use new content
+            fileContent = fileContent ? fileContent + newContent : newContent;
+          }
+        }
+
+        // Add the fully modified file to the commit
         files[filePath] = fileContent;
       }
 
@@ -456,11 +429,7 @@ export class BitbucketProvider extends BaseGitProvider {
       };
 
       // Make the commit via the API
-      await this.bitbucketClient.repositories.createCommit(
-        this.workspace,
-        repo,
-        formData
-      );
+      await this.bitbucketClient.repositories.createCommit(this.workspace, repo, formData);
 
       // Get the latest commit SHA for the branch
       const commits = await this.bitbucketClient.repositories.getCommits(this.workspace, repo);
@@ -493,7 +462,10 @@ export class BitbucketProvider extends BaseGitProvider {
         `Getting latest commit SHA for source repo: ${this.sourceRepoName}, branch: ${branch}`
       );
 
-      const commits = await this.bitbucketClient.repositories.getCommits(this.workspace, this.sourceRepoName);
+      const commits = await this.bitbucketClient.repositories.getCommits(
+        this.workspace,
+        this.sourceRepoName
+      );
 
       if (!commits || commits.length === 0) {
         throw new Error(`No commits found for branch ${branch}`);
@@ -521,7 +493,10 @@ export class BitbucketProvider extends BaseGitProvider {
         `Getting latest commit SHA for GitOps repo: ${this.gitOpsRepoName}, branch: ${branch}`
       );
 
-      const commits = await this.bitbucketClient.repositories.getCommits(this.workspace, this.gitOpsRepoName);
+      const commits = await this.bitbucketClient.repositories.getCommits(
+        this.workspace,
+        this.gitOpsRepoName
+      );
 
       if (!commits || commits.length === 0) {
         throw new Error(`No commits found for branch ${branch}`);
@@ -595,7 +570,9 @@ export class BitbucketProvider extends BaseGitProvider {
         },
       ];
 
-      this.logger.info(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
+      this.logger.info(
+        `Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`
+      );
 
       // Create a direct commit with the changes
       const commitSha = await this.commitChangesToRepo(
@@ -756,7 +733,9 @@ export class BitbucketProvider extends BaseGitProvider {
         },
       ];
 
-      this.logger.info(`Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`);
+      this.logger.info(
+        `Will update image from "${oldImageLine.trim()}" to "${newImageLine.trim()}"`
+      );
 
       // Create a branch for this PR using the refs endpoint
       // Get the latest commit on the base branch to use as the starting point
@@ -805,7 +784,10 @@ export class BitbucketProvider extends BaseGitProvider {
       );
 
       // Get the latest commit on the branch
-      const commits = await this.bitbucketClient.repositories.getCommits(this.workspace, this.gitOpsRepoName);
+      const commits = await this.bitbucketClient.repositories.getCommits(
+        this.workspace,
+        this.gitOpsRepoName
+      );
 
       const commitSha = commits[0]?.hash || 'unknown-commit-sha';
       const prNumber = prResult.id;
@@ -813,7 +795,9 @@ export class BitbucketProvider extends BaseGitProvider {
       // Construct the pull request URL
       const prUrl = `https://${this.getHost()}/${this.workspace}/${this.gitOpsRepoName}/pull-requests/${prNumber}`;
 
-      this.logger.info(`Successfully created promotion PR #${prNumber} for ${environment} environment`);
+      this.logger.info(
+        `Successfully created promotion PR #${prNumber} for ${environment} environment`
+      );
       this.logger.info(`Pull request URL: ${prUrl}`);
 
       return new PullRequest(prNumber, commitSha, this.gitOpsRepoName, false, undefined, prUrl);
