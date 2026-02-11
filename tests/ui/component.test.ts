@@ -90,13 +90,14 @@ test.describe('Component UI Test Suite', () => {
 
       // Navigate to CI tab
       await page.goto(`${component.getComponentUrl()}/ci`, { timeout: 20000 });
-      await waitForPageLoad(page, component.getCoreComponent().getName());
 
       // Login to GitHub if the CI provider is GitHub Actions and the sign in page is not GitHub
       if (ciPlugin instanceof GithubActionsPlugin && (await getDeveloperHubConfig()).signInPage !== GitType.GITHUB) {
         const githubUI = new GithubUiPlugin({} as Git);
         await githubUI.login(page);
       }
+
+      await waitForPageLoad(page, component.getCoreComponent().getName());
 
       await test.step('Hide Quick start side panel', async () => {
         await hideQuickStartIfVisible(page);
