@@ -21,7 +21,7 @@ declare module '@playwright/test' {
 const DEFAULT_TIMEOUT = 2100000; // 35 minutes
 
 // Environment variable flags to control which tests run
-const DEFAULT_WORKERS = 6;
+const DEFAULT_WORKERS = 10;
 const DEFAULT_UI_TIMEOUT = 60000;
 
 let projectConfigs: ProjectConfig[] = [];
@@ -223,5 +223,6 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'off',
+    ignoreHTTPSErrors: true, // Allow self-signed certificates in test environments
   },
 });
