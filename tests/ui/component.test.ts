@@ -114,6 +114,10 @@ test.describe('Component UI Test Suite', () => {
       await test.step('Check Pipeline Runs table row values', async () => {
         await ciPlugin!.checkPipelineRunsTable(page);
       }, { timeout: 30000 });
+
+      await test.step('Check image registry links in View Output popup', async () => {
+        await ciPlugin!.checkImageRegistryLinks(page);
+      }, { timeout: 40000 });
     });
   });
 
