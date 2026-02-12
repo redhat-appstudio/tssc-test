@@ -3,7 +3,7 @@
  * Provides fallback when AsyncLocalStorage doesn't propagate
  */
 
-import { TestContext } from './testContext';
+import { TestContext } from './types';
 
 /**
  * Global context storage (fallback for when AsyncLocalStorage fails)
