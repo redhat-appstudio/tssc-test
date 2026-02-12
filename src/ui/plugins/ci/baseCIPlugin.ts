@@ -7,7 +7,7 @@ import { AcsPO } from '../../page-objects/acsPo';
 
 export class BaseCIPlugin implements CIPlugin {
     protected name: string;
-    private imageUrlRegex: RegExp;
+    protected imageUrlRegex: RegExp;
 
     constructor(name: string, registryOrg: string) {
         this.name = name;
@@ -107,6 +107,10 @@ export class BaseCIPlugin implements CIPlugin {
 
         const closeButton = page.getByRole('dialog').getByTestId(CommonPO.closeIconTestId);
         await closeButton.click();
+    }
+
+    // eslint-disable-next-line no-unused-vars
+    public async checkImageRegistryLinks(_page: Page): Promise<void> {
     }
 
     // eslint-disable-next-line no-unused-vars
