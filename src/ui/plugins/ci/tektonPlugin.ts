@@ -116,7 +116,7 @@ export class TektonPlugin extends BaseCIPlugin {
         // 5. Task status has a visible bar (look for progress elements)
         await expect(firstRow.locator('[role="progressbar"], [class*="bar"], [data-testid*="progress"]').first()).toBeVisible();
 
-        // 6. Duration is visible (`{number} minutes {number} seconds`)
+        // 6. Duration is visible (e.g. `3 minutes 20 seconds`, `3 minutes`, or `45 seconds`)
         await expect(firstRow.getByRole('cell').filter({ hasText: TektonPO.durationRegex })).toBeVisible();
     }
 
