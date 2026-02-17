@@ -23,7 +23,7 @@ export const TektonPO = {
 	onPushRowRegex: /on-push/i,
 	logStepRegex: /\bSTEP\b/i,
 	vulnerabilitySeverityRegex: /Critical|High|Medium|Low/i,
-	durationRegex: /\d+\s+minutes?\s+\d+\s+seconds?/,
+	durationRegex: /\d+\s+minutes?\s+\d+\s+seconds?|\d+\s+minutes?|\d+\s+seconds?/,
 
 	// Task names
     sourceTasks: ['clone-repository', 'build', 'deploy', 'deployment-check', 'scan', 'show-sbom', 'summarize'],
