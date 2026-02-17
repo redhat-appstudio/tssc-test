@@ -26,6 +26,6 @@ export const TektonPO = {
 	durationRegex: /\d+\s+minutes?\s+\d+\s+seconds?|\d+\s+minutes?|\d+\s+seconds?/,
 
 	// Task names
-    sourceTasks: ['init', 'clone-repository', 'build-container', 'update-deployment', 'acs-image-scan', 'acs-image-check', 'acs-deploy-check', 'show-summary', 'show-sbom'],
-	gitopsTasks: ['clone-repository', 'get-images-to-verify', 'get-images-to-upload-sbom', 'download-sboms', 'upload-sboms-to-trustification', 'verify-enterprise-contract'],
+    sourceTasks: ['clone-repository', 'build', 'deploy', 'scan', 'deployment-check', 'show-sbom', 'summarize'],
+	gitopsTasks: ['clone-repository', 'get-images', 'download-sboms', 'verify-conforma', 'upload-sboms'],
 };

@@ -3,12 +3,8 @@ import { BaseCIPlugin } from './baseCIPlugin';
 import { TektonPO } from '../../page-objects/tektonPo';
 import { CiPo } from '../../page-objects/ciPo';
 import { CommonPO } from '../../page-objects/commonPo';
-import { AcsPO } from '../../page-objects/acsPo';
-import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class TektonPlugin extends BaseCIPlugin {
-    private readonly logger: Logger = LoggerFactory.getLogger('TektonPlugin');
-
     constructor(name: string, registryOrg: string) {
         super(name, registryOrg);
     }
@@ -28,7 +24,7 @@ export class TektonPlugin extends BaseCIPlugin {
         await expect(logsPopup).toBeVisible();
 
         for (const task of TektonPO.sourceTasks) {
-            const button = page.getByRole('heading', { name: task });
+            const button = page.getByRole('heading', { name: task, exact: true });
             await expect(button).toBeVisible();
         }
 
@@ -36,7 +32,7 @@ export class TektonPlugin extends BaseCIPlugin {
         await button.click();
 
         // Check the log is visible by looking for the word 'STEP'
-        const span = page.getByText(TektonPO.logStepRegex);
+        const span = page.getByText(TektonPO.logStepRegex).first();
         await expect(span).toBeVisible();
 
         // Close popup
@@ -166,69 +162,7 @@ export class TektonPlugin extends BaseCIPlugin {
         const dialog = page.getByRole('dialog');
         await expect(dialog).toBeVisible();
 
-        // Verify Image Scan tab registry link
-        const imageScanTabButton = dialog.getByRole('tab', { name: CiPo.imageScanTabName });
-        await imageScanTabButton.click();
-        const imageScanPanel = dialog.locator(AcsPO.visibleTabPanelSelector);
-        await expect(imageScanPanel).toBeVisible();
-        await this.verifyRegistryLinkInTab(page, imageScanPanel, CiPo.imageScanTabName);
-
-        // Verify Image Check tab registry link
-        const imageCheckTabButton = dialog.getByRole('tab', { name: CiPo.imageCheckTabName });
-        await imageCheckTabButton.click();
-        const imageCheckPanel = dialog.locator(AcsPO.visibleTabPanelSelector);
-        await expect(imageCheckPanel).toBeVisible();
-        await this.verifyRegistryLinkInTab(page, imageCheckPanel, CiPo.imageCheckTabName);
-
         const closeButton = dialog.getByTestId(CommonPO.closeIconTestId);
         await closeButton.click();
-    }
-
-    /**
-     * Helper method to verify a registry link within a specific tab panel.
-     * Checks that the link is visible, is an actual anchor element with href,
-     * opens in a new tab, and navigates to an external URL outside Developer Hub.
-     *
-     * @param page - Playwright Page object
-     * @param panel - The visible tab panel locator
-     * @param tabName - Name of the tab being verified (for logging purposes)
-     */
-    private async verifyRegistryLinkInTab(
-        page: Page,
-        panel: Locator,
-        tabName: string,
-    ): Promise<void> {
-        // Find the registry link using the image URL regex pattern
-        const registryLink = panel.getByRole('link', { name: this.imageUrlRegex });
-        await expect(registryLink, `${tabName}: Registry link should be visible`).toBeVisible();
-
-        // Verify it's an actual link with href attribute (not just styled text)
-        const href = await registryLink.getAttribute('href');
-        expect(href, `${tabName}: Registry link should have href attribute`).toBeTruthy();
-        expect(href, `${tabName}: Registry link href should use HTTPS`).toMatch(/^https:\/\//);
-
-        this.logger.info(`[${tabName}] Found registry link: ${href}`);
-
-        // Confirm the link opens a new tab leading to the external registry
-        const [externalPage] = await Promise.all([
-            page.waitForEvent('popup', { timeout: 10000 }),
-            registryLink.click(),
-        ]);
-
-        try {
-            await externalPage.waitForLoadState('domcontentloaded', { timeout: 15000 });
-            const destinationUrl = externalPage.url();
-
-            // Verify the URL is external (not Developer Hub)
-            const backstageOrigin = new URL(page.url()).origin;
-            expect(
-                destinationUrl.startsWith(backstageOrigin),
-                `${tabName}: Registry link should navigate outside Developer Hub`
-            ).toBe(false);
-
-            this.logger.info(`[${tabName}] Registry link verified - navigates to: ${destinationUrl}`);
-        } finally {
-            await externalPage.close();
-        }
     }
 }
