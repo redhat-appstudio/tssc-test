@@ -18,7 +18,7 @@ RUN curl --proto "=https" --tlsv1.2 -sSf -L "https://github.com/mikefarah/yq/rel
     && yq --version
 
 # Final stage
-FROM registry.access.redhat.com/ubi9/nodejs-20:9.7-1770626460
+FROM registry.access.redhat.com/ubi9/nodejs-20:9.7-1771417935
 
 LABEL name="tssc-test" \
     maintainers="TSSC Team"
