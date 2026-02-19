@@ -12,6 +12,7 @@ import { ImageRegistry, createRegistry } from '../core/integration/registry';
 import { ScaffolderScaffoldOptions } from '@backstage/plugin-scaffolder-react';
 import { LoggerFactory, Logger } from '../../logger/logger';
 
+
 export class Component {
   private readonly logger: Logger;
   private name: string;
