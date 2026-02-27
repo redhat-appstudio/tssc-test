@@ -39,7 +39,7 @@ export class AzureVariableGroupService {
         `${this.project}/_apis/distributedtask/variablegroups?${this.getApiVersionParam()}`,
         payload
       );
-      this.logger.info(`AzureCI group creation response: ${response}`);
+      this.logger.info(`AzureCI group creation response: ${JSON.stringify(response)}`);
     } catch (error) {
       this.logger.error(`Failed to create variable group '${groupName}': ${error}`);
       throw error;
