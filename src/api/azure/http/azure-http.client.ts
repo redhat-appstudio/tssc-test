@@ -45,9 +45,9 @@ export class AzureHttpClient extends BaseHttpClient {
       response => response,
       (error: AxiosError) => {
         if (error.response) {
-          this.logger.error(`Azure DevOps API Error: ${error.response.status} ${error.response.statusText} - ${error.response.data}`);
+          this.logger.error(`Azure DevOps API Error: ${error.response.status} ${error.response.statusText} - ${JSON.stringify(error.response.data)}`);
         } else if (error.request) {
-          this.logger.error(`Azure DevOps API Error: No response received - ${error.request}`);
+          this.logger.error(`Azure DevOps API Error: No response received - ${JSON.stringify(error.request)}`);
         } else {
           this.logger.error(`Azure DevOps API Error: Request setup failed - ${error}`);
         }
