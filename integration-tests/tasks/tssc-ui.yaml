@@ -33,7 +33,7 @@ spec:
       args: ['mkdir -p /workspace/ui-test && cp -r /tssc-test/* /workspace/ui-test && chown -R 1001:0 /workspace/ui-test && chmod -R 777 /workspace/ui-test']
       workingDir: /workspace/ui-test
     - name: setup-test-environment
-      image: quay.io/konflux-qe-incubator/konflux-qe-tools:latest
+      image: quay.io/konflux-ci/tekton-integration-catalog/utils:latest
       workingDir: /workspace/ui-test
       computeResources:
         limits:
