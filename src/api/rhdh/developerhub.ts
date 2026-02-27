@@ -42,7 +42,7 @@ export class DeveloperHub {
     componentScaffoldOptions: ScaffolderScaffoldOptions
   ): Promise<ComponentIdResponse> {
     try {
-      this.logger.info(`Creating component with options: ${componentScaffoldOptions}`);
+      this.logger.info(`Creating component with options: ${JSON.stringify(componentScaffoldOptions)}`);
       const response: AxiosResponse<ComponentIdResponse> = await this.axios.post(
         `${this.url}/api/scaffolder/v2/tasks`,
         componentScaffoldOptions
