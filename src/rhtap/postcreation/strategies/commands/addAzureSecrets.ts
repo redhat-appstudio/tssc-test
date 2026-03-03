@@ -64,17 +64,17 @@ export class AddAzureVarsAndSecrets extends BaseCommand {
       },
       {
         key: Credential.TRUSTIFICATION_OIDC_ISSUER_URL,
-        value: this.tpa.getOidc_issuer_url(),
+        value: this.authentication.getOidc_issuer_url(),
         isSecret: false,
       },
       {
         key: Credential.TRUSTIFICATION_OIDC_CLIENT_ID,
-        value: this.tpa.getOidc_client_id(),
+        value: this.authentication.getOidc_client_id(),
         isSecret: false,
       },
       {
         key: Credential.TRUSTIFICATION_OIDC_CLIENT_SECRET,
-        value: this.tpa.getOidc_client_secret(),
+        value: this.authentication.getOidc_client_secret(),
         isSecret: true,
       },
       {
