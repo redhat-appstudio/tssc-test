@@ -1,6 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { BaseCIPlugin } from './baseCIPlugin';
 import { GitPO } from '../../page-objects/commonPo';
+import { CiPo } from '../../page-objects/ciPo';
 import { LoggerFactory, Logger } from '../../../logger/logger';
 
 export class GitlabCIPlugin extends BaseCIPlugin {
@@ -53,5 +54,12 @@ export class GitlabCIPlugin extends BaseCIPlugin {
     // eslint-disable-next-line no-unused-vars
     public async checkImageRegistryLinks(_page: Page): Promise<void> {
         this.logger.info('Skipping checkImageRegistryLinks - not applicable for GitLab CI');
+    }
+
+    public async checkSecurityInformation(page: Page): Promise<void> {
+        // GitLab CI does not have ACS integration, so Security Information should not be visible
+        const heading = page.getByRole('heading', { name: CiPo.securityInformationHeading });
+        await expect(heading).not.toBeVisible({ timeout: 5000 });
+        this.logger.info('Verified Security Information is not visible for GitLab CI');
     }
 }
