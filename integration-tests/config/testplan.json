@@ -7,56 +7,56 @@
           "git": "github",
           "ci": "tekton",
           "registry": "quay",
-          "tpa": "remote",
+          "tpa": "local",
           "acs": "remote"
         },
         {
           "git": "gitlab",
           "ci": "tekton",
           "registry": "nexus",
-          "tpa": "remote",
+          "tpa": "local",
           "acs": "remote"
         },
         {
           "git": "gitlab",
           "ci": "gitlabci",
           "registry": "quay",
-          "tpa": "remote",
+          "tpa": "local",
           "acs": "remote"
         },
         {
           "git": "github",
           "ci": "githubactions",
           "registry": "artifactory",
-          "tpa": "remote",
+          "tpa": "local",
           "acs": "remote"
         },
         {
           "git": "github",
           "ci": "azure",
           "registry": "quay",
-          "tpa": "remote",
+          "tpa": "local",
           "acs": "remote"
         },
         {
           "git": "github",
           "ci": "jenkins",
           "registry": "quay",
-          "tpa": "remote",
+          "tpa": "local",
           "acs": "remote"
         },
         {
           "git": "gitlab",
           "ci": "jenkins",
           "registry": "quay",
-          "tpa": "remote",
+          "tpa": "local",
           "acs": "remote"
         },
         {
           "git": "bitbucket",
           "ci": "jenkins",
           "registry": "quay",
-          "tpa": "remote",
+          "tpa": "local",
           "acs": "remote"
         }
       ],
