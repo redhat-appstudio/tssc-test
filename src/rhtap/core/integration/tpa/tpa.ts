@@ -2,6 +2,7 @@ import { KubeClient } from '../../../../../src/api/ocp/kubeClient';
 import { SBOMResult, TPAClient } from '../../../../../src/api/tpa/tpaClient';
 import { IntegrationSecret } from '../../integrationSecret';
 import { LoggerFactory, Logger } from '../../../../logger/logger';
+import { Authentication } from '../authentication/authentication';
 
 /**
  * TPA (Trustification) singleton class
@@ -61,15 +62,19 @@ export class TPA implements IntegrationSecret {
   private async initClient(): Promise<void> {
     if (!this.initialized) {
       try {
-        // Get secrets from Kubernetes
+        // Get TPA-specific secrets from Kubernetes
         this.secret = await this.loadSecret();
+
+        // Get OIDC information from Authentication integration
+        const authentication = await Authentication.initialize(this.kubeClient);
+        const authenticationSecret = await authentication.getIntegrationSecret();
 
         // Initialize TPA client with secrets
         this.tpaClient = new TPAClient({
           bombasticApiUrl: this.secret.bombastic_api_url,
-          oidcIssuerUrl: this.secret.oidc_issuer_url,
-          oidcClientId: this.secret.oidc_client_id,
-          oidcClientSecret: this.secret.oidc_client_secret
+          oidcIssuerUrl: authenticationSecret.oidc_issuer_url,
+          oidcClientId: authenticationSecret.oidc_client_id,
+          oidcClientSecret: authenticationSecret.oidc_client_secret
         });
 
         await this.tpaClient.initAccessToken();
@@ -83,18 +88,6 @@ export class TPA implements IntegrationSecret {
 
   public getBombastic_api_url(): string {
     return this.secret.bombastic_api_url;
-  }
-
-  public getOidc_issuer_url(): string {
-    return this.secret.oidc_issuer_url;
-  }
-
-  public getOidc_client_id(): string {
-    return this.secret.oidc_client_id;
-  }
-
-  public getOidc_client_secret(): string {
-    return this.secret.oidc_client_secret;
   }
 
   public getSupported_cyclonedx_version(): string {

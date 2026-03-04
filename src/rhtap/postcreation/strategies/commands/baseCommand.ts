@@ -1,6 +1,7 @@
 import { KubeClient } from '../../../../api/ocp/kubeClient';
 import { Component } from '../../../core/component';
 import { ACS } from '../../../core/integration/acs';
+import { Authentication } from '../../../core/integration/authentication';
 import { CI } from '../../../core/integration/ci';
 import { Git } from '../../../core/integration/git';
 import { ImageRegistry } from '../../../core/integration/registry';
@@ -24,6 +25,7 @@ export abstract class BaseCommand implements Command {
   protected kubeClient: KubeClient;
   protected tas!: TAS;
   protected acs!: ACS;
+  protected authentication!: Authentication;
   protected tpa!: TPA;
   protected credentialService: CredentialService;
   protected imageRegistry: ImageRegistry;
@@ -46,6 +48,7 @@ export abstract class BaseCommand implements Command {
   protected async ensureServicesInitialized(): Promise<void> {
     this.tas = await TAS.initialize(this.kubeClient);
     this.acs = await ACS.initialize(this.kubeClient);
+    this.authentication = await Authentication.initialize(this.kubeClient);
     this.tpa = await TPA.initialize(this.kubeClient);
   }
 
