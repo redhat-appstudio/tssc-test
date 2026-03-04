@@ -73,4 +73,19 @@ export class BaseCIPlugin implements CIPlugin {
     // eslint-disable-next-line no-unused-vars
     public async checkPipelineRunsTable(_page: Page): Promise<void> {
     }
+
+    public async checkSecurityInformation(page: Page): Promise<void> {
+        // Security Information viewer may not be present for all CI providers
+        const heading = page.getByRole('heading', { name: CiPo.securityInformationHeading });
+        const isVisible = await heading.isVisible().catch(() => false);
+        if (!isVisible) {
+            return;
+        }
+
+        // Scope column header checks to the security table
+        const securityTable = page.getByRole('table').filter({ has: page.getByRole('columnheader', { name: CiPo.securityTableColumns[0] }) });
+        for (const column of CiPo.securityTableColumns) {
+            await expect(securityTable.getByRole('columnheader', { name: column })).toBeVisible();
+        }
+    }
 }
