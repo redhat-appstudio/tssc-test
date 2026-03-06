@@ -213,7 +213,7 @@ export default defineConfig({
   reporter: [
     ['html', { open: 'never', outputFolder: 'playwright-report' }],
     ['list'],
-    ['junit', { outputFile: junitOutputFile }],
+    ['./src/reporters/junit-with-project.ts', { outputFile: junitOutputFile }],
   ],
   // Global setup and teardown
   globalSetup: './global-setup.ts',
