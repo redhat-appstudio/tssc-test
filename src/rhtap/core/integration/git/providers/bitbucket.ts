@@ -1012,9 +1012,9 @@ export class BitbucketProvider extends BaseGitProvider {
       // Delete the file using Bitbucket API
       await this.bitbucketClient.repositories.deleteFile(owner, repoName, filePath, branch, commitMessage);
 
-      console.log(`Successfully deleted file ${filePath} from ${owner}/${repoName}`);
+      this.logger.info(`Successfully deleted file ${filePath} from ${owner}/${repoName}`);
     } catch (error: any) {
-      console.error(`Failed to delete file ${filePath} from ${owner}/${repoName}: ${error.message}`);
+      this.logger.error(`Failed to delete file ${filePath} from ${owner}/${repoName}: ${error.message}`);
       throw error;
     }
   }
@@ -1047,9 +1047,9 @@ export class BitbucketProvider extends BaseGitProvider {
         }
       }
 
-      console.log(`Successfully deleted folder ${folderPath} from ${owner}/${repoName}`);
+      this.logger.info(`Successfully deleted folder ${folderPath} from ${owner}/${repoName}`);
     } catch (error: any) {
-      console.error(`Failed to delete folder ${folderPath} from ${owner}/${repoName}: ${error.message}`);
+      this.logger.error(`Failed to delete folder ${folderPath} from ${owner}/${repoName}: ${error.message}`);
       throw error;
     }
   }

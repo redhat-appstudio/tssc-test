@@ -43,9 +43,7 @@ test.describe('TSSC Complete Workflow', () => {
   test.describe('Component Creation', () => {
     test('should create a component successfully', async ({ testItem, logger }) => {
       // Generate component name directly in the test
-      // Add test-specific suffix to ensure uniqueness when running with other test suites
-      const baseName = testItem.getName();
-      const componentName = `${baseName}-workflow`;
+      const componentName = testItem.getName();
       const imageName = `${componentName}`;
       logger.info(`Creating component: ${componentName}`);
 

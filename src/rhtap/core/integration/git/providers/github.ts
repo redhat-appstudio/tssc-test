@@ -754,9 +754,9 @@ export class GithubProvider extends BaseGitProvider {
       // Delete the file using the GitHub API
       await this.githubClient.repository.deleteFile(owner, repoName, filePath, commitMessage, fileContent.sha, branch);
 
-      console.log(`Successfully deleted file ${filePath} from ${owner}/${repoName}`);
+      this.logger.info(`Successfully deleted file ${filePath} from ${owner}/${repoName}`);
     } catch (error: any) {
-      console.error(`Failed to delete file ${filePath} from ${owner}/${repoName}: ${error.message}`);
+      this.logger.error(`Failed to delete file ${filePath} from ${owner}/${repoName}: ${error.message}`);
       throw error;
     }
   }
@@ -839,9 +839,9 @@ export class GithubProvider extends BaseGitProvider {
         sha: newCommitData.sha,
       });
 
-      console.log(`Successfully deleted folder ${folderPath} from ${owner}/${repoName} in a single commit`);
+      this.logger.info(`Successfully deleted folder ${folderPath} from ${owner}/${repoName} in a single commit`);
     } catch (error: any) {
-      console.error(`Failed to delete folder ${folderPath} from ${owner}/${repoName}: ${error.message}`);
+      this.logger.error(`Failed to delete folder ${folderPath} from ${owner}/${repoName}: ${error.message}`);
       throw error;
     }
   }
@@ -856,9 +856,9 @@ export class GithubProvider extends BaseGitProvider {
     try {
       await this.githubClient.repository.deleteRepository(owner, repoName);
 
-      console.log(`Successfully deleted repository ${owner}/${repoName}`);
+      this.logger.info(`Successfully deleted repository ${owner}/${repoName}`);
     } catch (error: any) {
-      console.error(`Failed to delete repository ${owner}/${repoName}: ${error.message}`);
+      this.logger.error(`Failed to delete repository ${owner}/${repoName}: ${error.message}`);
       throw error;
     }
   }

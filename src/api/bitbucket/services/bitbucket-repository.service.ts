@@ -161,9 +161,9 @@ export class BitbucketRepositoryService {
         },
       });
       
-      console.log(`Successfully deleted file ${filePath} from ${workspace}/${repoSlug}`);
-    } catch (error) {
-      console.error(`Failed to delete file ${filePath} from ${workspace}/${repoSlug}:`, error);
+      defaultLogger.info({ operation: 'deleteFile', workspace, repoSlug, filePath }, `Successfully deleted file ${filePath} from ${workspace}/${repoSlug}`);
+    } catch (error: any) {
+      defaultLogger.error({ operation: 'deleteFile', workspace, repoSlug, filePath, error: error?.message }, `Failed to delete file ${filePath} from ${workspace}/${repoSlug}`);
       throw error;
     }
   }

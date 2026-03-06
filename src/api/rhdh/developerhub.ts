@@ -203,7 +203,7 @@ export class DeveloperHub {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`Fetching entities (attempt ${attempt}/${maxRetries})`);
+        this.logger.info(`Fetching entities (attempt ${attempt}/${maxRetries})`);
         const response = await this.axios.get(`${this.url}/api/catalog/entities`, {
           timeout: 10000, // 10 second per-request timeout
         });
@@ -212,13 +212,13 @@ export class DeveloperHub {
         const isLastAttempt = attempt === maxRetries;
         
         if (isLastAttempt) {
-          console.error(`Failed to fetch entities after ${maxRetries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          this.logger.error(`Failed to fetch entities after ${maxRetries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`);
           throw error;
         }
         
         // Calculate exponential backoff delay
         const delay = baseDelay * Math.pow(2, attempt - 1);
-        console.log(`Request failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        this.logger.info(`Request failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms: ${error instanceof Error ? error.message : 'Unknown error'}`);
         
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -235,19 +235,22 @@ export class DeveloperHub {
    */
   public async deleteEntitiesBySelector(selector: string): Promise<boolean> {
     try {
-      console.log(`Deleting entities with selector: ${selector}`);
+      this.logger.info(`Deleting entities with selector: ${selector}`);
 
       // Get all entities with retry logic for network resilience
       const response = await this.getEntitiesWithRetry();
       
-      // Parse selector format (e.g., "kind=Component,name=my-component")
+      // Parse selector format (e.g., "kind=Component,name=my-component"); split only on first '=' so values may contain '='
       const selectorParts = selector.split(',');
       const selectorCriteria: { [key: string]: string } = {};
       
       selectorParts.forEach(part => {
-        const [key, value] = part.split('=');
+        const idx = part.indexOf('=');
+        if (idx === -1) return;
+        const key = part.slice(0, idx).trim();
+        const value = part.slice(idx + 1).trim();
         if (key && value) {
-          selectorCriteria[key.trim()] = value.trim();
+          selectorCriteria[key] = value;
         }
       });
       
@@ -281,7 +284,7 @@ export class DeveloperHub {
       });
 
       if (filteredEntities.length === 0) {
-        console.log(`No entities found in catalog matching selector "${selector}".`);
+        this.logger.info(`No entities found in catalog matching selector "${selector}".`);
         return false;
       }
 
@@ -302,8 +305,8 @@ export class DeveloperHub {
               maxTimeout: 3000,
               factor: 2,
               onRetry: (error: Error, attempt: number) => {
-                console.log(
-                  `[RETRY ${attempt}/3] 🔄 Entity UID: ${entity.metadata.uid} | Reason: ${error.message}`
+                this.logger.warn(
+                  `[RETRY ${attempt}/3] Entity UID: ${entity.metadata.uid} | Reason: ${error.message}`
                 );
               }
             }
@@ -312,14 +315,14 @@ export class DeveloperHub {
       );
 
       if (results.every(r => r === true)) {
-        console.log(`Successfully deleted all entities with selector: ${selector}`);
+        this.logger.info(`Successfully deleted all entities with selector: ${selector}`);
         return true;
       } else {
-        console.log(`Some entities with selector ${selector} failed to delete`);
+        this.logger.warn(`Some entities with selector ${selector} failed to delete`);
         return false;
       }
     } catch (error) {
-      console.error(`Error deleting entities with selector ${selector}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`Error deleting entities with selector ${selector}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;
     }
   }
@@ -334,14 +337,14 @@ export class DeveloperHub {
     try {
       const response = await this.axios.delete(`${this.url}/api/catalog/entities/by-uid/${id}`);
       if (response.status >= 200 && response.status < 300) {
-        console.log(`Entity UID: ${id} deleted successfully (status ${response.status})`);
+        this.logger.info(`Entity UID: ${id} deleted successfully (status ${response.status})`);
         return true;
       } else {
-        console.log(`Failed to delete entity UID ${id}: ${response.status} ${response.statusText}`);
+        this.logger.warn(`Failed to delete entity UID ${id}: ${response.status} ${response.statusText}`);
         return false;
       }
     } catch (error) {
-      console.error(`Error deleting entity with UID ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`Error deleting entity with UID ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;
     }
   }

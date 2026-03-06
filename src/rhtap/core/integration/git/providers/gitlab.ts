@@ -1041,15 +1041,15 @@ export class GitlabProvider extends BaseGitProvider {
       // Delete the file using GitLab API
       await this.gitlabClient.deleteFile(project.id, filePath, branch, commitMessage);
 
-      console.log(`Successfully deleted file ${filePath} from ${owner}/${repoName}`);
+      this.logger.info(`Successfully deleted file ${filePath} from ${owner}/${repoName}`);
     } catch (error: any) {
       // Handle 404 errors gracefully for idempotent cleanup
       if (error.response?.status === 404 || error.status === 404 || error.message?.includes('404')) {
-        console.log(`File ${filePath} was already absent from ${owner}/${repoName} (404 Not Found)`);
+        this.logger.info(`File ${filePath} was already absent from ${owner}/${repoName} (404 Not Found)`);
         return;
       }
       
-      console.error(`Failed to delete file ${filePath} from ${owner}/${repoName}: ${error.message}`);
+      this.logger.error(`Failed to delete file ${filePath} from ${owner}/${repoName}: ${error.message}`);
       throw error;
     }
   }
@@ -1084,15 +1084,15 @@ export class GitlabProvider extends BaseGitProvider {
         }
       }
 
-      console.log(`Successfully deleted folder ${folderPath} from ${owner}/${repoName}`);
+      this.logger.info(`Successfully deleted folder ${folderPath} from ${owner}/${repoName}`);
     } catch (error: any) {
       // Handle 404 errors gracefully for idempotent cleanup
       if (error.response?.status === 404 || error.status === 404 || error.message?.includes('404')) {
-        console.log(`Folder ${folderPath} was already absent from ${owner}/${repoName} (404 Not Found)`);
+        this.logger.info(`Folder ${folderPath} was already absent from ${owner}/${repoName} (404 Not Found)`);
         return;
       }
       
-      console.error(`Failed to delete folder ${folderPath} from ${owner}/${repoName}: ${error.message}`);
+      this.logger.error(`Failed to delete folder ${folderPath} from ${owner}/${repoName}: ${error.message}`);
       throw error;
     }
   }
