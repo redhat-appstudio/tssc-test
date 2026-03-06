@@ -30,7 +30,7 @@ test.describe.configure({ mode: 'serial' });
  * 4. Verification of deployments in all environments
  * 5. SBOM validation in Trustification server
  */
-test.describe('TSSC Complete Workflow', () => {
+test.describe('TSSC E2E', () => {
   // Shared variables for test steps
   let component: Component;
   let cd: ArgoCD;
