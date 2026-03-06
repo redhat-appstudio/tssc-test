@@ -11,7 +11,7 @@
  */
 
 import * as winston from 'winston';
-import { getCurrentTestContext } from '../context/testContext';
+import { getCurrentTestContext } from '../context/testContextStorage';
 
 /**
  * Create JSON formatter for file output
