@@ -29,7 +29,7 @@ const test = createBasicFixture();
  * 5. Check the CD tab and verify information shown
  * 6. Check the Image Registry tab and verify information shown
  */
-test.describe('Component UI Test Suite', () => {
+test.describe('TSSC UI - Component', () => {
   // Skip the entire UI suite if auth storage state is missing
   test.beforeAll(async () => {
     if (!existsSync(AUTH_STORAGE_FILE)) {

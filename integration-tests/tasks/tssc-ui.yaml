@@ -165,6 +165,14 @@ spec:
           value: "true"
         - name: KUBECONFIG
           value: ./.kube/config
+        - name: PLAYWRIGHT_JUNIT_SUITE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tekton.dev/pipelineRun']
+        - name: PLAYWRIGHT_JUNIT_SUITE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['tekton.dev/taskRun']
       script: |
         #!/usr/bin/env bash
         set -eu
