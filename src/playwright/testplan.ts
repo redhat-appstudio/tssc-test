@@ -9,8 +9,10 @@ export interface TSScConfig {
   git: GitType;
   ci: CIType;
   registry: ImageRegistryType;
-  tpa: string;
-  acs: string;
+  /** @deprecated Unused, kept for backward compatibility with existing testplans */
+  tpa?: string;
+  /** @deprecated Unused, kept for backward compatibility with existing testplans */
+  acs?: string;
   name?: string; // Optional name for deterministic TestItem naming
 }
 
@@ -52,8 +54,8 @@ export class TestPlan {
         git: config.git || '',
         ci: config.ci || '',
         registry: config.registry || '',
-        tpa: config.tpa || '',
-        acs: config.acs || '',
+        tpa: config.tpa ?? '',
+        acs: config.acs ?? '',
         name: config.name,
       }));
       this.tests = data.tests || [];
@@ -76,8 +78,8 @@ export class TestPlan {
             tsscConfig.registry,
             tsscConfig.git,
             tsscConfig.ci,
-            tsscConfig.tpa,
-            tsscConfig.acs
+            tsscConfig.tpa ?? '',
+            tsscConfig.acs ?? ''
           );
           
           // Add to global test items array
@@ -104,8 +106,8 @@ export class TestPlan {
             tsscConfig.registry,
             tsscConfig.git,
             tsscConfig.ci,
-            tsscConfig.tpa,
-            tsscConfig.acs
+            tsscConfig.tpa ?? '',
+            tsscConfig.acs ?? ''
           )
         );
       });
@@ -141,7 +143,7 @@ export class TestPlan {
     testItem: TestItem;
   }> {
     return this.testItems.map(testItem => ({
-      name: `${testItem.getTemplate()}[${testItem.getGitType()}-${testItem.getCIType()}-${testItem.getRegistryType()}-${testItem.getACS()}]`,
+      name: `${testItem.getTemplate()}[${testItem.getGitType()}-${testItem.getCIType()}-${testItem.getRegistryType()}]`,
       testItem
     }));
   }
