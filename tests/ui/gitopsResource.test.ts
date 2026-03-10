@@ -12,7 +12,7 @@ import { AUTH_STORAGE_FILE } from '../../playwright.config';
  */
 const test = createBasicFixture();
 
-test.describe('Gitops Resource UI Test Suite', () => {
+test.describe('TSSC UI Gitops', () => {
   // Skip the entire UI suite if auth storage state is missing
   test.beforeAll(async () => {
     if (!existsSync(AUTH_STORAGE_FILE)) {
