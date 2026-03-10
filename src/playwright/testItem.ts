@@ -113,8 +113,8 @@ export class TestItem {
       data.registryType as ImageRegistryType,
       data.gitType as GitType,
       data.ciType as CIType,
-      data.tpa as string,
-      data.acs as string
+      (data.tpa as string) ?? '',
+      (data.acs as string) ?? ''
     );
   }
 }

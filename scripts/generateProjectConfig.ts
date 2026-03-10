@@ -49,7 +49,7 @@ function generateProjectConfig(): void {
       }
       
       projectConfigs = allTestItems.map(testItem => ({
-        name: `${testItem.getTemplate()}[${testItem.getGitType()}-${testItem.getCIType()}-${testItem.getRegistryType()}-${testItem.getACS()}]`,
+        name: `${testItem.getTemplate()}[${testItem.getGitType()}-${testItem.getCIType()}-${testItem.getRegistryType()}]`,
         testItem
       }));
     } else {
