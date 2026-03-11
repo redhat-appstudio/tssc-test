@@ -839,6 +839,7 @@ export class GitlabProvider extends BaseGitProvider {
         {
           pushEvents: true,           // Enable for direct commits to main branch
           mergeRequestsEvents: true,  // Enable for pull request workflows
+          token: this.getWebhookSecret(), // Use the webhook secret for authentication
         }
       );
 
@@ -862,10 +863,15 @@ export class GitlabProvider extends BaseGitProvider {
       );
 
       // Set up webhook using GitLab client with specific event triggers and webhook secret
-      await this.gitlabClient.webhooks.configWebhook(
+      await this.gitlabClient.webhooks.configWebhook(  
         this.getGroup(),
         this.gitOpsRepoName,
-        webhookUrl
+        webhookUrl,
+        {
+          pushEvents: true,           // Enable for direct commits to main branch
+          mergeRequestsEvents: true,  // Enable for pull request workflows
+          token: this.getWebhookSecret(), // Use the webhook secret for authentication
+        }
       );
 
       this.logger.info(
