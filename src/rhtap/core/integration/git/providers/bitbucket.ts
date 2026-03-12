@@ -59,12 +59,12 @@ export class BitbucketProvider extends BaseGitProvider {
    */
   private async initBitbucketClient(): Promise<BitbucketClient> {
     const username = this.getUsername();
-    const appPassword = this.getAppPassword();
+    const token = this.getToken();
 
     // Using the default baseUrl from BitbucketClient for Bitbucket Cloud
     const bitbucketClient = new BitbucketClient({
       username: username,
-      appPassword: appPassword,
+      token: token,
     });
 
     return bitbucketClient;
@@ -99,13 +99,13 @@ export class BitbucketProvider extends BaseGitProvider {
     return this.secret.username;
   }
 
-  public getAppPassword(): string {
-    if (!this.secret?.appPassword) {
+  public getToken(): string {
+    if (!this.secret?.token) {
       throw new Error(
-        'Bitbucket app password not found in the secret. Please ensure the app password is provided.'
+        'Bitbucket token not found in the secret. Please ensure the token is provided.'
       );
     }
-    return this.secret.appPassword;
+    return this.secret.token;
   }
 
   public override async getFileContentInString(
@@ -133,15 +133,6 @@ export class BitbucketProvider extends BaseGitProvider {
       this.logger.error(`Error getting file contents of ${filePath} in repo ${repo}:${error}`);
       throw error;
     }
-  }
-
-  public getToken(): string {
-    if (!this.secret?.appPassword) {
-      throw new Error(
-        'Bitbucket token not found in the secret. Please ensure the token is provided.'
-      );
-    }
-    return this.secret.token;
   }
 
   /**

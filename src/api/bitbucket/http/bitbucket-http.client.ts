@@ -8,10 +8,8 @@ export class BitbucketHttpClient extends BaseHttpClient {
   constructor(options: BitbucketClientOptions) {
     const headers: Record<string, string> = {};
 
-    if (options.accessToken) {
-      headers['Authorization'] = `Bearer ${options.accessToken}`;
-    } else if (options.username && options.appPassword) {
-      const credentials = Buffer.from(`${options.username}:${options.appPassword}`).toString('base64');
+    if (options.username && options.token) {
+      const credentials = Buffer.from(`${options.username}:${options.token}`).toString('base64');
       headers['Authorization'] = `Basic ${credentials}`;
     }
 
