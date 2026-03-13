@@ -30,10 +30,10 @@ export class Authentication implements IntegrationSecret {
    * @returns Promise with the secret data
    */
   private async loadSecret(): Promise<Record<string, string>> {
-    const secret = await this.kubeClient.getSecret('tssc-trustificationauth-integration', 'tssc');
+    const secret = await this.kubeClient.getSecret('tssc-authentication-integration', 'tssc');
     if (!secret) {
       throw new Error(
-        'Authentication integration secret tssc-trustificationauth-integration not found in the cluster. Please ensure the secret exists.'
+        'Authentication integration secret tssc-authentication-integration not found in the cluster. Please ensure the secret exists.'
       );
     }
     return secret;
