@@ -5,17 +5,8 @@
 
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { TestInfo } from '@playwright/test';
-
-/**
- * Auto-injected test context - projectName and worker ID
- * - projectName: From testInfo.project.name (e.g., 'e2e-go[github-tekton-quay-remote]')
- * - worker: Worker/parallel index (e.g., 0, 1, 2...)
- * Note: timestamp is added automatically by Winston formatter
- */
-export interface TestContext {
-  projectName?: string;    // e.g., 'e2e-go[github-tekton-quay-remote]'
-  worker?: number;         // e.g., 0, 1, 2
-}
+import { contextManager } from './contextManager';
+import { TestContext } from './types';
 
 /**
  * AsyncLocalStorage for automatic context propagation
@@ -34,7 +25,6 @@ export function extractTestContext(testInfo: TestInfo): TestContext {
   };
 }
 
-
 /**
  * Get current test context (if running within a test)
  * Returns undefined if not in test execution context
@@ -49,10 +39,5 @@ export function getCurrentTestContext(): TestContext | undefined {
   }
 
   // Fallback to global context manager (for when AsyncLocalStorage doesn't propagate)
-  try {
-    const { contextManager } = require('./contextManager');
-    return contextManager.getContext();
-  } catch {
-    return undefined;
-  }
+  return contextManager.getContext();
 }

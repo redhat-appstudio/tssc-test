@@ -6,7 +6,7 @@
  */
 
 import { IContextInjector } from './IContextInjector';
-import { getCurrentTestContext } from '../../context/testContext';
+import { getCurrentTestContext } from '../../context/testContextStorage';
 
 /**
  * AsyncLocalStorage-based Context Injector
