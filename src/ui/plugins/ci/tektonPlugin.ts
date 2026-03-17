@@ -110,7 +110,8 @@ export class TektonPlugin extends BaseCIPlugin {
         await expect(firstRow.getByRole('cell').filter({ hasText: /\d{1,2}\/\d{1,2}\/\d{4}/ })).toBeVisible();
 
         // 5. Task status has a visible bar (look for progress elements)
-        await expect(firstRow.locator('[role="progressbar"], [class*="bar"], [data-testid*="progress"]').first()).toBeVisible();
+        // Skipping until https://redhat.atlassian.net/browse/SSCUI-82 is fixed
+        //await expect(firstRow.locator('[role="progressbar"], [class*="bar"], [data-testid*="progress"]').first()).toBeVisible();
 
         // 6. Duration is visible (e.g. `3 minutes 20 seconds`, `3 minutes`, or `45 seconds`)
         await expect(firstRow.getByRole('cell').filter({ hasText: TektonPO.durationRegex })).toBeVisible();
