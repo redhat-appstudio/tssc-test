@@ -260,12 +260,14 @@ export class GitLabClient extends BaseApiClient {
    * @param projectId The project ID or path
    * @param path The path to get tree for (default: root)
    * @param branch The branch to get tree for (default: 'main')
+   * @param recursive When true, list all blobs under `path` (needed to delete nested folders like `.tekton`)
    * @returns Promise with the repository tree contents
    */
   public async getRepositoryTree(
     projectId: ProjectIdentifier,
     path: string = '',
-    branch: string = 'main'
+    branch: string = 'main',
+    recursive: boolean = false
   ): Promise<RepositoryTreeNode[]> {
     // Input validation
     if (!projectId) {
@@ -285,6 +287,7 @@ export class GitLabClient extends BaseApiClient {
             return await this.client.Repositories.allRepositoryTrees(projectId, {
               path: trimmedPath,
               ref: trimmedBranch,
+              ...(recursive ? { recursive: true } : {}),
             });
           } catch (error: any) {
             // Check if error is 404 - don't retry on 404 errors

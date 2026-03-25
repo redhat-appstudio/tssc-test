@@ -3,6 +3,15 @@ import { defaultLogger } from '../../../logger/logger';
 import { BitbucketHttpClient } from '../http/bitbucket-http.client';
 import { BitbucketRepository, BitbucketBranch, BitbucketCommit, BitbucketPaginatedResponse, BitbucketDirectoryEntry } from '../types/bitbucket.types';
 
+function httpStatusFromError(error: any): number | undefined {
+  return error?.status ?? error?.response?.status;
+}
+
+function isNotFoundError(error: any): boolean {
+  const status = httpStatusFromError(error);
+  return status === 404 || (typeof error?.message === 'string' && error.message.includes('404'));
+}
+
 export class BitbucketRepositoryService {
   constructor(private readonly httpClient: BitbucketHttpClient) {}
 
@@ -69,10 +78,17 @@ export class BitbucketRepositoryService {
 
     try {
       const response = await retry(
-        async () => {
-          return await this.httpClient.get<BitbucketPaginatedResponse<BitbucketDirectoryEntry>>(
-            `/repositories/${trimmedWorkspace}/${trimmedRepoSlug}/src/${trimmedRef}/${trimmedPath}`
-          );
+        async bail => {
+          try {
+            return await this.httpClient.get<BitbucketPaginatedResponse<BitbucketDirectoryEntry>>(
+              `/repositories/${trimmedWorkspace}/${trimmedRepoSlug}/src/${trimmedRef}/${trimmedPath}`
+            );
+          } catch (error: any) {
+            if (isNotFoundError(error)) {
+              bail(error);
+            }
+            throw error;
+          }
         },
         {
           retries: 3,
@@ -119,7 +135,7 @@ export class BitbucketRepositoryService {
       return response.values;
     } catch (error: any) {
       // Handle 404 errors gracefully for idempotent operations
-      if (error.response?.status === 404 || error.status === 404 || error.message?.includes('404')) {
+      if (isNotFoundError(error)) {
         defaultLogger.info({
           operation: 'getDirectoryContent',
           workspace: trimmedWorkspace,
@@ -138,7 +154,7 @@ export class BitbucketRepositoryService {
         path: trimmedPath,
         ref: trimmedRef,
         error: error.message,
-        status: error.response?.status || error.status
+        status: httpStatusFromError(error)
       }, `Failed to get directory content for ${trimmedWorkspace}/${trimmedRepoSlug}/${trimmedPath}`);
       throw error;
     }
@@ -146,16 +162,14 @@ export class BitbucketRepositoryService {
 
   public async deleteFile(workspace: string, repoSlug: string, filePath: string, branch: string = 'main', commitMessage: string = 'Delete file'): Promise<void> {
     try {
-      // Bitbucket API requires a commit with file deletion
-      const commitData = {
-        message: commitMessage,
-        branch: branch,
-        files: {
-          [filePath]: null // null value indicates file deletion
-        }
-      };
-      
-      await this.httpClient.post(`/repositories/${workspace}/${repoSlug}/src`, commitData, {
+      // Bitbucket: repeat `files` fields with repo paths (see POST .../src — delete via multipart -F files=/path)
+      const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+      const body = new URLSearchParams();
+      body.append('message', commitMessage);
+      body.append('branch', branch);
+      body.append('files', normalizedPath);
+
+      await this.httpClient.post(`/repositories/${workspace}/${repoSlug}/src`, body.toString(), {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },

@@ -992,7 +992,7 @@ export class GitlabProvider extends BaseGitProvider {
    * @param repoName The repository name
    * @returns Promise<boolean> True if repository exists, false otherwise
    */
-  public async checkIfRepositoryExists(owner: string, repoName: string): Promise<boolean> {
+  public override async checkIfRepositoryExists(owner: string, repoName: string): Promise<boolean> {
     try {
       await this.gitlabClient.projects.getProject(`${owner}/${repoName}`);
       return true;
@@ -1012,7 +1012,7 @@ export class GitlabProvider extends BaseGitProvider {
    * @param branch The branch to check (default: 'main')
    * @returns Promise<boolean> True if file exists, false otherwise
    */
-  public async checkIfFileExistsInRepository(owner: string, repoName: string, filePath: string, branch: string = 'main'): Promise<boolean> {
+  public override async checkIfFileExistsInRepository(owner: string, repoName: string, filePath: string, branch: string = 'main'): Promise<boolean> {
     try {
       const project = await this.gitlabClient.projects.getProject(`${owner}/${repoName}`);
       await this.gitlabClient.repositories.getFileContent(project.id, filePath, branch);
@@ -1040,7 +1040,7 @@ export class GitlabProvider extends BaseGitProvider {
    * @param commitMessage The commit message for the deletion
    * @returns Promise<void>
    */
-  public async deleteFileInRepository(owner: string, repoName: string, filePath: string, branch: string = 'main', commitMessage: string = 'Delete file'): Promise<void> {
+  public override async deleteFileInRepository(owner: string, repoName: string, filePath: string, branch: string = 'main', commitMessage: string = 'Delete file'): Promise<void> {
     try {
       const project = await this.gitlabClient.projects.getProject(`${owner}/${repoName}`);
       
@@ -1069,25 +1069,28 @@ export class GitlabProvider extends BaseGitProvider {
    * @param commitMessage The commit message for the deletion
    * @returns Promise<void>
    */
-  public async deleteFolderInRepository(owner: string, repoName: string, folderPath: string, branch: string = 'main', commitMessage: string = 'Delete folder'): Promise<void> {
+  public override async deleteFolderInRepository(owner: string, repoName: string, folderPath: string, branch: string = 'main', commitMessage: string = 'Delete folder'): Promise<void> {
     try {
       const project = await this.gitlabClient.projects.getProject(`${owner}/${repoName}`);
-      
-      // Get the contents of the folder
-      const folderContents = await this.gitlabClient.getRepositoryTree(project.id, folderPath, branch);
-      
+
+      // Recursive listing so nested paths under e.g. `.tekton/` are all removed (non-recursive only sees one level)
+      const folderContents = await this.gitlabClient.getRepositoryTree(project.id, folderPath, branch, true);
+
       if (!Array.isArray(folderContents)) {
         throw new Error(`Path ${folderPath} is not a folder`);
       }
 
-      // Delete each file in the folder
-      for (const item of folderContents) {
-        if (item.type === 'blob') {
-          await this.deleteFileInRepository(owner, repoName, item.path, branch, `${commitMessage}: ${item.name}`);
-        } else if (item.type === 'tree') {
-          // Recursively delete subdirectories
-          await this.deleteFolderInRepository(owner, repoName, item.path, branch, `${commitMessage}: ${item.name}`);
-        }
+      if (folderContents.length === 0) {
+        this.logger.info(`Folder ${folderPath} empty or missing in ${owner}/${repoName}; nothing to delete`);
+        return;
+      }
+
+      const blobs = folderContents
+        .filter((item) => item.type === 'blob')
+        .sort((a, b) => b.path.length - a.path.length);
+
+      for (const item of blobs) {
+        await this.deleteFileInRepository(owner, repoName, item.path, branch, `${commitMessage}: ${item.name}`);
       }
 
       this.logger.info(`Successfully deleted folder ${folderPath} from ${owner}/${repoName}`);

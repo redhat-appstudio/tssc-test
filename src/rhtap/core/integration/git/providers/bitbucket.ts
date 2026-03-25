@@ -966,7 +966,7 @@ export class BitbucketProvider extends BaseGitProvider {
    * @param repoName The repository name
    * @returns Promise<boolean> True if repository exists, false otherwise
    */
-  public async checkIfRepositoryExists(owner: string, repoName: string): Promise<boolean> {
+  public override async checkIfRepositoryExists(owner: string, repoName: string): Promise<boolean> {
     try {
       await this.bitbucketClient.repositories.getRepository(owner, repoName);
       return true;
@@ -986,7 +986,7 @@ export class BitbucketProvider extends BaseGitProvider {
    * @param branch The branch to check (default: 'main')
    * @returns Promise<boolean> True if file exists, false otherwise
    */
-  public async checkIfFileExistsInRepository(owner: string, repoName: string, filePath: string, branch: string = 'main'): Promise<boolean> {
+  public override async checkIfFileExistsInRepository(owner: string, repoName: string, filePath: string, branch: string = 'main'): Promise<boolean> {
     try {
       await this.bitbucketClient.repositories.getFileContent(owner, repoName, filePath, branch);
       return true;
@@ -1007,7 +1007,7 @@ export class BitbucketProvider extends BaseGitProvider {
    * @param commitMessage The commit message for the deletion
    * @returns Promise<void>
    */
-  public async deleteFileInRepository(owner: string, repoName: string, filePath: string, branch: string = 'main', commitMessage: string = 'Delete file'): Promise<void> {
+  public override async deleteFileInRepository(owner: string, repoName: string, filePath: string, branch: string = 'main', commitMessage: string = 'Delete file'): Promise<void> {
     try {
       // Delete the file using Bitbucket API
       await this.bitbucketClient.repositories.deleteFile(owner, repoName, filePath, branch, commitMessage);
@@ -1028,7 +1028,7 @@ export class BitbucketProvider extends BaseGitProvider {
    * @param commitMessage The commit message for the deletion
    * @returns Promise<void>
    */
-  public async deleteFolderInRepository(owner: string, repoName: string, folderPath: string, branch: string = 'main', commitMessage: string = 'Delete folder'): Promise<void> {
+  public override async deleteFolderInRepository(owner: string, repoName: string, folderPath: string, branch: string = 'main', commitMessage: string = 'Delete folder'): Promise<void> {
     try {
       // Get the contents of the folder
       const folderContents = await this.bitbucketClient.repositories.getDirectoryContent(owner, repoName, folderPath, branch);

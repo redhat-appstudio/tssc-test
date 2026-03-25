@@ -6,6 +6,11 @@ import { GithubApiError, GithubNotFoundError } from '../errors/github.errors';
 import { ContentModifications } from '../../../rhtap/modification/contentModification';
 import { LoggerFactory, Logger } from '../../../logger/logger';
 
+/** Octokit RequestError uses `status`; github.client hook throws GithubError with `statusCode`. */
+function httpStatusFromError(error: any): number | undefined {
+  return error?.status ?? error?.statusCode;
+}
+
 export class GithubRepositoryService {
   // Retry configuration constants
   private static readonly RETRY_ATTEMPTS = 3;
@@ -27,7 +32,7 @@ export class GithubRepositoryService {
       return data;
     } catch (error: any) {
       this.logger.error(`Failed to get repository ${owner}/${repo}: ${error}`);
-      throw new GithubApiError(`Failed to get repository ${owner}/${repo}`, error.status, error);
+      throw new GithubApiError(`Failed to get repository ${owner}/${repo}`, httpStatusFromError(error), error);
     }
   }
 
@@ -42,7 +47,7 @@ export class GithubRepositoryService {
       return data;
     } catch (error: any) {
       this.logger.error(`Failed to get content for ${owner}/${repo} at path ${path}: ${error}`);
-      throw new GithubApiError(`Failed to get content for ${owner}/${repo} at path ${path}`, error.status, error);
+      throw new GithubApiError(`Failed to get content for ${owner}/${repo} at path ${path}`, httpStatusFromError(error), error);
     }
   }
 
@@ -129,7 +134,7 @@ export class GithubRepositoryService {
           });
         } catch (error: any) {
           this.logger.error(`Error processing file ${filePath}: ${error}`);
-          throw new GithubApiError(`Failed to process file ${filePath}`, error.status, error);
+          throw new GithubApiError(`Failed to process file ${filePath}`, httpStatusFromError(error), error);
         }
       }
 
@@ -159,7 +164,7 @@ export class GithubRepositoryService {
       return newCommitData.sha;
     } catch (error: any) {
       this.logger.error(`Failed to commit changes to branch '${branch}': ${error}`);
-      throw new GithubApiError(`Failed to commit changes to branch '${branch}'`, error.status, error);
+      throw new GithubApiError(`Failed to commit changes to branch '${branch}'`, httpStatusFromError(error), error);
     }
   }
 
@@ -197,7 +202,7 @@ export class GithubRepositoryService {
       return matches;
     } catch (error: any) {
       this.logger.error(`Error extracting content with regex from ${filePath}: ${error}`);
-      throw new GithubApiError(`Failed to extract content by regex from ${filePath}`, error.status, error);
+      throw new GithubApiError(`Failed to extract content by regex from ${filePath}`, httpStatusFromError(error), error);
     }
   }
 
@@ -221,7 +226,7 @@ export class GithubRepositoryService {
       return commitSha;
     } catch (error: any) {
       this.logger.error(`Failed to get commit SHA for branch '${branch}': ${error}`);
-      throw new GithubApiError(`Failed to get commit SHA for branch '${branch}'`, error.status, error);
+      throw new GithubApiError(`Failed to get commit SHA for branch '${branch}'`, httpStatusFromError(error), error);
     }
   }
 
@@ -283,7 +288,7 @@ export class GithubRepositoryService {
               branch: trimmedBranch,
             });
           } catch (error: any) {
-            const status = error.status || error.response?.status;
+            const status = httpStatusFromError(error) ?? error.response?.status;
             const errorCode = error.code;
             const isHttpRetryable = status === 429 || (status >= 500 && status < 600);
             const retryableTransportCodes = [
@@ -316,7 +321,7 @@ export class GithubRepositoryService {
               repo: trimmedRepo,
               path: trimmedPath,
               attempt,
-              status: error.status || error.response?.status,
+              status: httpStatusFromError(error) ?? error.response?.status,
               errorCode: error.code,
               error: error.message
             }, `Retrying file deletion (attempt ${attempt}/3)`);
@@ -332,7 +337,7 @@ export class GithubRepositoryService {
         branch: trimmedBranch
       }, `Successfully deleted file ${trimmedPath} from ${trimmedOwner}/${trimmedRepo}`);
     } catch (error: any) {
-      const status = error.status || error.response?.status;
+      const status = httpStatusFromError(error) ?? error.response?.status;
       
       defaultLogger.error({
         operation: 'deleteFile',
@@ -379,7 +384,7 @@ export class GithubRepositoryService {
               repo: trimmedRepo,
             });
           } catch (error: any) {
-            const status = error.status || error.response?.status;
+            const status = httpStatusFromError(error) ?? error.response?.status;
             const isRetryable = status === 429 || (status >= 500 && status < 600) ||
               error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND' ||
               error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED';
@@ -396,7 +401,7 @@ export class GithubRepositoryService {
           maxTimeout: GithubRepositoryService.MAX_DELAY_MS,
           factor: 2,
           onRetry: (error: any, attempt: number) => {
-            const status = error.status || error.response?.status;
+            const status = httpStatusFromError(error) ?? error.response?.status;
             const delay = Math.min(
               GithubRepositoryService.BASE_DELAY_MS * Math.pow(2, attempt - 1),
               GithubRepositoryService.MAX_DELAY_MS
@@ -420,7 +425,7 @@ export class GithubRepositoryService {
         repo: trimmedRepo
       }, `Successfully deleted repository ${trimmedOwner}/${trimmedRepo}`);
     } catch (error: any) {
-      const status = error.status || error.response?.status;
+      const status = httpStatusFromError(error) ?? error.response?.status;
       
       defaultLogger.error({
         operation: 'deleteRepository',
