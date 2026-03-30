@@ -16,9 +16,7 @@
       {
         "git": "gitlab",
         "ci": "gitlabci",
-        "registry": "quay",
-        "tpa": "local",
-        "acs": "remote"
+        "registry": "quay"
       },
       {
         "git": "github",
