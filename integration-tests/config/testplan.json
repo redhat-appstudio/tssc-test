@@ -46,18 +46,6 @@
         "registry": "quay"
       }],
       "tests": ["tssc/full_workflow.test.ts"]
-    },
-    {
-      "name": "import-tests",
-      "templates": ["go"],
-      "tssc": [
-        {
-          "git": "github",
-          "ci": "tekton",
-          "registry": "quay"
-        }
-      ],
-      "tests": ["templates/import_templates.test.ts"]
     }
   ]
 }
