@@ -12,10 +12,12 @@
         "generate-config": "npx ts-node scripts/generateProjectConfig.ts",
         "test": "npm run generate-config && playwright test",
         "test:plan": "npm run generate-config && JUNIT_OUTPUT_FILE=test-results/${TESTPLAN_NAME:-testplan}-e2e.junit playwright test",
-        "test:e2e": "TESTPLAN_NAME=backend-tests npm run generate-config && JUNIT_OUTPUT_FILE=test-results/devlake-backend-e2e.junit playwright test",
+        "test:e2e": "TESTPLAN_NAME=e2e-tests npm run generate-config && JUNIT_OUTPUT_FILE=test-results/devlake-backend-e2e.junit playwright test",
+        "test:import": "TESTPLAN_NAME=import-tests npm run generate-config &&  playwright test",
+        "test:backend": "TESTPLAN_NAME=e2e-tests,import-tests npm run generate-config &&  playwright test",
         "test:ui": "TESTPLAN_NAME=ui-tests JUNIT_OUTPUT_FILE=test-results/devlake-frontend-e2e.junit  playwright test",
         "test:ui-interactive": "TESTPLAN_NAME=ui-tests playwright test --ui",
-        "test:all": "TESTPLAN_NAME=backend-tests npm run generate-config &&  playwright test && TESTPLAN_NAME=ui-tests playwright test",
+        "test:all": "TESTPLAN_NAME=e2e-tests,import-tests npm run generate-config &&  playwright test && TESTPLAN_NAME=ui-tests playwright test",
         "test:report": "playwright show-report"
     },
     "keywords": [
@@ -39,7 +41,9 @@
         "winston-daily-rotate-file": "^5.0.0"
     },
     "overrides": {
-        "ansi-regex": "^6.0.1 <=6.2.2"
+        "ansi-regex": "^6.0.1 <=6.2.2",
+        "@types/react": "18.3.18",
+        "@types/react-dom": "18.3.5"
     },
     "devDependencies": {
         "@backstage/plugin-scaffolder-react": "^1.18.0",
@@ -50,6 +54,7 @@
         "@playwright/test": "^1.54.1",
         "@trivago/prettier-plugin-sort-imports": "^6.0.0",
         "@types/node": "^24.0.14",
+        "@types/proper-lockfile": "^4.1.4",
         "@types/sodium-native": "^2.3.9",
         "@types/uuid": "^11.0.0",
         "@types/winston": "^2.4.4",
@@ -67,6 +72,7 @@
         "pino": "^10.0.0",
         "pino-pretty": "^13.0.0",
         "prettier": "^3.6.2",
+        "proper-lockfile": "^4.1.2",
         "rimraf": "^6.0.1",
         "ts-node": "^10.9.2",
         "typescript": "^5.8.3"
