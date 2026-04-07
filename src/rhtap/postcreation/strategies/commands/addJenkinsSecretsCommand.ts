@@ -106,17 +106,17 @@ export class AddJenkinsSecretsCommand extends BaseCommand {
       this.jenkinsCI.addCredential(
         this.folderName,
         Credential.TRUSTIFICATION_OIDC_ISSUER_URL,
-        this.tpa.getOidc_issuer_url()
+        this.authentication.getOidc_issuer_url()
       ),
       this.jenkinsCI.addCredential(
         this.folderName,
         Credential.TRUSTIFICATION_OIDC_CLIENT_ID,
-        this.tpa.getOidc_client_id()
+        this.authentication.getOidc_client_id()
       ),
       this.jenkinsCI.addCredential(
         this.folderName,
         Credential.TRUSTIFICATION_OIDC_CLIENT_SECRET,
-        this.tpa.getOidc_client_secret()
+        this.authentication.getOidc_client_secret()
       ),
       this.jenkinsCI.addCredential(
         this.folderName,

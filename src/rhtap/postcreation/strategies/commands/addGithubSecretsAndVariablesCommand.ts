@@ -62,8 +62,8 @@ export class AddGithubSecretsAndVariablesCommand extends BaseCommand {
       IMAGE_REGISTRY: imageRegistry.getRegistryHost(),
       COSIGN_PUBLIC_KEY: await this.credentialService.getCosignPublicKey(),
       TRUSTIFICATION_BOMBASTIC_API_URL: this.tpa.getBombastic_api_url(),
-      TRUSTIFICATION_OIDC_ISSUER_URL: this.tpa.getOidc_issuer_url(),
-      TRUSTIFICATION_OIDC_CLIENT_ID: this.tpa.getOidc_client_id(),
+      TRUSTIFICATION_OIDC_ISSUER_URL: this.authentication.getOidc_issuer_url(),
+      TRUSTIFICATION_OIDC_CLIENT_ID: this.authentication.getOidc_client_id(),
       TRUSTIFICATION_SUPPORTED_CYCLONEDX_VERSION: this.tpa.getSupported_cyclonedx_version(),
       IMAGE_REGISTRY_USER: imageRegistry.getImageRegistryUser(),
       REKOR_HOST: this.tas.getRekorServerURL(),
@@ -74,7 +74,7 @@ export class AddGithubSecretsAndVariablesCommand extends BaseCommand {
     await github.setVariablesOnGitOpsRepo(variables);
 
     const secrets = {
-      TRUSTIFICATION_OIDC_CLIENT_SECRET: this.tpa.getOidc_client_secret(),
+      TRUSTIFICATION_OIDC_CLIENT_SECRET: this.authentication.getOidc_client_secret(),
       IMAGE_REGISTRY_PASSWORD: imageRegistry.getImageRegistryPassword(),
     };
 

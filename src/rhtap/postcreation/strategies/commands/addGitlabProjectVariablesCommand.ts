@@ -114,9 +114,9 @@ export class AddGitlabProjectVariablesCommand extends BaseCommand {
 
     await gitlab.setProjectVariableOnGitOpsRepo({
       TRUSTIFICATION_BOMBASTIC_API_URL: this.tpa.getBombastic_api_url(),
-      TRUSTIFICATION_OIDC_ISSUER_URL: this.tpa.getOidc_issuer_url(),
-      TRUSTIFICATION_OIDC_CLIENT_ID: this.tpa.getOidc_client_id(),
-      TRUSTIFICATION_OIDC_CLIENT_SECRET: this.tpa.getOidc_client_secret(),
+      TRUSTIFICATION_OIDC_ISSUER_URL: this.authentication.getOidc_issuer_url(),
+      TRUSTIFICATION_OIDC_CLIENT_ID: this.authentication.getOidc_client_id(),
+      TRUSTIFICATION_OIDC_CLIENT_SECRET: this.authentication.getOidc_client_secret(),
       TRUSTIFICATION_SUPPORTED_CYCLONEDX_VERSION: this.tpa.getSupported_cyclonedx_version(),
     });
   }

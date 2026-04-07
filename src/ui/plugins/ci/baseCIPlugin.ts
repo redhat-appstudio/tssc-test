@@ -3,7 +3,6 @@ import { CiPo } from '../../page-objects/ciPo';
 import { CommonPO } from '../../page-objects/commonPo';
 import { CIPlugin } from './ciPlugin';
 import { expect, Locator, Page } from '@playwright/test';
-import { AcsPO } from '../../page-objects/acsPo';
 
 export class BaseCIPlugin implements CIPlugin {
     protected name: string;
@@ -30,82 +29,36 @@ export class BaseCIPlugin implements CIPlugin {
         }
     }
 
-    protected async checkImageScanTable(page: Locator): Promise<void> {
-        // Check the titles are visible
-        for (const titleName of [AcsPO.cvesBySeverityTitle, AcsPO.cvesByStatusTitle, AcsPO.totalScanResultsTitle]) {
-            const title = page.getByText(titleName, { exact: true }).first();
-            await expect(title).toBeVisible();
-        }
-
-        // Check the ACS vulnerability scan message is visible
-        const acsVulnerabilityScanMessage = page.getByText(AcsPO.imageScanMessage);
-        await expect(acsVulnerabilityScanMessage).toBeVisible();
-
-        // Check the image url is visible
-        await expect(page.getByText(this.imageUrlRegex)).toBeVisible();
-
-        // Check the table is visible
-        const table = page.getByTestId(AcsPO.imageScanTableTestId);
-        await expect(table).toBeVisible();  
-    }
-
-    protected async checkImageCheckTable(page: Locator): Promise<void> {
-        for (const titleName of [AcsPO.cvesBySeverityTitle, AcsPO.failingPolicyChecksTitle]) {
-            const title = page.getByText(titleName, { exact: true }).first();
-            await expect(title).toBeVisible();
-        }
-
-        // Check the ACS vulnerability image check message is visible
-        const acsVulnerabilityScanMessage = page.getByText(AcsPO.imageCheckMessage);
-        await expect(acsVulnerabilityScanMessage).toBeVisible();
-
-        // Check the image url is visible
-        await expect(page.getByText(this.imageUrlRegex)).toBeVisible();
-
-        // Check the table is visible
-        const table = page.getByTestId(AcsPO.imageCheckTableTestId);
-        await expect(table).toBeVisible();
-    }
-
-    protected async checkDeploymentCheckTable(page: Locator): Promise<void> {
-        // Check the titles are visible
-        for (const titleName of [AcsPO.violationsBySeverityTitle, AcsPO.failingPolicyChecksTitle]) {
-            const title = page.getByText(titleName, { exact: true }).first();
-            await expect(title).toBeVisible();
-        }
-
-        // Check the ACS vulnerability deployment check message is visible
-        const acsDeploymentCheckMessage = page.getByText(`${AcsPO.deploymentCheckMessagePrefix} ${this.name}`);
-        await expect(acsDeploymentCheckMessage).toBeVisible();
-
-        // Check the table is visible
-        const table = page.getByTestId(AcsPO.deploymentCheckTableTestId);
-        await expect(table).toBeVisible();
-    }
-
     protected async checkViewOutputPopup(page: Page, row: Locator): Promise<void> {
         const viewOutputButton = row.getByTestId(CommonPO.viewOutputIconTestId);
         await viewOutputButton.click();
 
-        const acsTitle = page.locator(`div[data-testid="${AcsPO.cardTitleTestId}"]`).first();
-        await expect(acsTitle).toBeVisible();
+        const dialog = page.getByRole('dialog');
+        await expect(dialog).toBeVisible();
 
-        const visiblePanel = page.locator(AcsPO.visibleTabPanelSelector);
-        await expect(visiblePanel).toBeVisible();
+        // Check results table
+        const resultsTable = dialog.getByTestId(CiPo.resultsTableTestId);
+        await expect(resultsTable).toBeVisible();
 
-        const imageScanTabButton = page.getByRole('tab', { name: CiPo.imageScanTabName });
-        await imageScanTabButton.click();
-        await this.checkImageScanTable(visiblePanel);
+        // Check column headers
+        for (const column of CiPo.resultsTableColumns) {
+            await expect(resultsTable.getByRole('columnheader', { name: column })).toBeVisible();
+        }
 
-        const imageCheckTabButton = page.getByRole('tab', { name: CiPo.imageCheckTabName });
-        await imageCheckTabButton.click();
-        await this.checkImageCheckTable(visiblePanel);
+        // Check expected rows exist
+        for (const rowName of CiPo.resultsTableRows) {
+            await expect(resultsTable.getByRole('gridcell', { name: rowName, exact: true })).toBeVisible();
+        }
 
-        const deploymentCheckTabButton = page.getByRole('tab', { name: CiPo.deploymentCheckTabName });
-        await deploymentCheckTabButton.click();
-        await this.checkDeploymentCheckTable(visiblePanel);
+        // Check IMAGE_URL contains component name
+        const imageUrlRow = resultsTable.getByRole('row').filter({ hasText: CiPo.imageUrlRow });
+        await expect(imageUrlRow).toContainText(this.name);
 
-        const closeButton = page.getByRole('dialog').getByTestId(CommonPO.closeIconTestId);
+        // Check CHAINS-GIT_URL has a link
+        const gitUrlRow = resultsTable.getByRole('row').filter({ hasText: CiPo.chainsGitUrlRow });
+        await expect(gitUrlRow.getByRole('link')).toBeVisible();
+
+        const closeButton = dialog.getByTestId(CommonPO.closeIconTestId);
         await closeButton.click();
     }
 
