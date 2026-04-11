@@ -1,7 +1,7 @@
 export interface BitbucketClientOptions {
   username?: string;
-  appPassword?: string;
-  accessToken?: string;
+  /** Bitbucket API token */
+  token?: string;
   baseUrl?: string;
   timeout?: number;
 }

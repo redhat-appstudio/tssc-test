@@ -291,6 +291,8 @@ Git Provider Configuration:
 - `BITBUCKET_WORKSPACE` - Bitbucket workspace name (required when using Bitbucket)
 - `BITBUCKET_PROJECT` - Bitbucket project key (required when using Bitbucket)
 
+The Bitbucket integration uses an API token (not app password). The Kubernetes secret `tssc-bitbucket-integration` in namespace `tssc` must contain `username` and `token`.
+
 CI Provider Configuration:
 - `AZURE_PROJECT` - Azure DevOps project name (required when using Azure Pipelines as CI)
 

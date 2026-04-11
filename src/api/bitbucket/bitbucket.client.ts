@@ -19,7 +19,7 @@ import { BaseApiClient } from '../common/base-api.client';
  * 
  * const client = new BitbucketClient({
  *   username: 'your-username',
- *   password: 'your-password', // or app password
+ *   token: 'your-api-token',
  *   baseUrl: 'https://api.bitbucket.org', // Optional, defaults to Bitbucket Cloud
  *   timeout: 30000 // Optional, defaults to 30 seconds
  * });
@@ -93,18 +93,18 @@ export class BitbucketClient extends BaseApiClient {
 
   /**
    * Creates a new Bitbucket client instance
-   * 
+   *
    * @param options Configuration options for the Bitbucket client
    * @param options.username Bitbucket username (required)
-   * @param options.password Bitbucket password or app password (required)
+   * @param options.token Bitbucket API token (required)
    * @param options.baseUrl Bitbucket API base URL (optional, defaults to 'https://api.bitbucket.org')
    * @param options.timeout Request timeout in milliseconds (optional, defaults to 30000)
-   * 
+   *
    * @example
    * ```typescript
    * const client = new BitbucketClient({
    *   username: process.env.BITBUCKET_USERNAME,
-   *   password: process.env.BITBUCKET_APP_PASSWORD,
+   *   token: process.env.BITBUCKET_TOKEN,
    *   baseUrl: 'https://api.bitbucket.org',
    *   timeout: 30000
    * });

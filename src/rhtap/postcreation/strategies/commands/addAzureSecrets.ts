@@ -108,7 +108,7 @@ export class AddAzureVarsAndSecrets extends BaseCommand {
         return gitlabProvider.getToken();
       case GitType.BITBUCKET:
         const bitbucketProvider = this.git as unknown as BitbucketProvider;
-        return bitbucketProvider.getAppPassword();
+        return bitbucketProvider.getToken();
       default:
         throw new Error('Unsupported Git type');
     }
