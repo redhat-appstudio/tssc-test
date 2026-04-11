@@ -1,6 +1,6 @@
 import { TestItem } from '../../playwright/testItem';
 import { test as base, TestInfo } from '@playwright/test';
-import { testContextStorage, extractTestContext } from '../../logger/context/testContext';
+import { testContextStorage, extractTestContext } from '../../logger/context/testContextStorage';
 import { LoggerFactory } from '../../logger/logger';
 import type { Logger } from '../../logger/logger';
 

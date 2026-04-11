@@ -10,7 +10,7 @@
  */
 
 import * as winston from 'winston';
-import { getCurrentTestContext } from '../context/testContext';
+import { getCurrentTestContext } from '../context/testContextStorage';
 
 /**
  * Colorize log level with ANSI colors
