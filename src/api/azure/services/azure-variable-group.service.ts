@@ -1,3 +1,4 @@
+import retry from 'async-retry';
 import { AzureHttpClient } from '../http/azure-http.client';
 import { VariableGroup } from '../types/azure.types';
 import { AZURE_API_VERSIONS } from '../constants/api-versions';
@@ -67,22 +68,29 @@ export class AzureVariableGroupService {
     pipelineId: number,
     groupId: number
   ): Promise<void> {
-    try {
-      const payload = {
-        pipelines: [{ id: pipelineId, authorized: true }],
-        resource: {
-          id: groupId.toString(),
-          type: 'variablegroup',
+    await retry(
+      async () => {
+        const payload = {
+          pipelines: [{ id: pipelineId, authorized: true }],
+          resource: {
+            id: groupId.toString(),
+            type: 'variablegroup',
+          },
+        };
+        await this.client.patch(
+          `${this.project}/_apis/pipelines/pipelinePermissions/variablegroup/${groupId}?api-version=${AZURE_API_VERSIONS.PIPELINE_PERMISSIONS}`,
+          payload
+        );
+      },
+      {
+        retries: 3,
+        minTimeout: 5000,
+        maxTimeout: 15000,
+        onRetry: (error, attempt) => {
+          this.logger.warn(`Retry attempt ${attempt}/3 to authorize pipeline ${pipelineId} for variable group ${groupId}: ${error}`);
         },
-      };
-      await this.client.patch(
-        `${this.project}/_apis/pipelines/pipelinePermissions/variablegroup/${groupId}?api-version=${AZURE_API_VERSIONS.PIPELINE_PERMISSIONS}`,
-        payload
-      );
-    } catch (error) {
-      this.logger.error(`Failed to authorize pipeline ${pipelineId} for variable group ${groupId}: ${error}`);
-      throw error;
-    }
+      }
+    );
   }
 
   public async deleteVariableGroup(groupId: number, projectId: string): Promise<void> {

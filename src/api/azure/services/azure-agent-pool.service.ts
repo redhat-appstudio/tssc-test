@@ -1,3 +1,4 @@
+import retry from 'async-retry';
 import { AzureHttpClient } from '../http/azure-http.client';
 import { AgentQueue } from '../types/azure.types';
 import { AZURE_API_VERSIONS } from '../constants/api-versions';
@@ -38,21 +39,28 @@ export class AzureAgentPoolService {
   }
 
   public async authorizePipelineForAgentPool(pipelineId: number, poolId: number): Promise<void> {
-    try {
-      const payload = {
-        pipelines: [{ id: pipelineId, authorized: true }],
-        resource: {
-          id: poolId.toString(),
-          type: 'queue',
+    await retry(
+      async () => {
+        const payload = {
+          pipelines: [{ id: pipelineId, authorized: true }],
+          resource: {
+            id: poolId.toString(),
+            type: 'queue',
+          },
+        };
+        await this.client.patch(
+          `${this.project}/_apis/pipelines/pipelinePermissions/queue/${poolId}?api-version=${AZURE_API_VERSIONS.PIPELINE_PERMISSIONS}`,
+          payload
+        );
+      },
+      {
+        retries: 3,
+        minTimeout: 5000,
+        maxTimeout: 15000,
+        onRetry: (error, attempt) => {
+          this.logger.warn(`Retry attempt ${attempt}/3 to authorize pipeline ${pipelineId} for agent pool ${poolId}: ${error}`);
         },
-      };
-      await this.client.patch(
-        `${this.project}/_apis/pipelines/pipelinePermissions/queue/${poolId}?api-version=${AZURE_API_VERSIONS.PIPELINE_PERMISSIONS}`,
-        payload
-      );
-    } catch (error) {
-      this.logger.error(`Failed to authorize pipeline ${pipelineId} for agent pool ${poolId}: ${error}`);
-      throw error;
-    }
+      }
+    );
   }
 }

@@ -29,7 +29,7 @@ export class AzureClient {
       host: config.host,
       organization: config.organization,
       pat: config.pat,
-      timeout: 30000, // 30s default
+      timeout: 90000,
     };
 
     this.httpClient = new AzureHttpClient(httpClientConfig);
