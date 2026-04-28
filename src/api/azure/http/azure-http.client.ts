@@ -1,7 +1,23 @@
 import { BaseHttpClient } from '../../common/http/base-http.client';
-import { AxiosError } from 'axios';
+import { ApiError } from '../../common/errors/api.errors';
 import { AzureApiError } from '../errors/azure.errors';
 import { LoggerFactory, Logger } from '../../../logger/logger';
+
+function sanitizeErrorData(data: unknown): string {
+  if (data == null) return 'no data';
+  if (typeof data === 'string') return data.slice(0, 2000);
+  if (typeof data === 'object') {
+    const { message, typeKey, errorCode, statusCode } = data as Record<string, unknown>;
+    const parts = [
+      message != null ? `message=${message}` : null,
+      typeKey != null ? `typeKey=${typeKey}` : null,
+      errorCode != null ? `errorCode=${errorCode}` : null,
+      statusCode != null ? `statusCode=${statusCode}` : null,
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : '[response data omitted]';
+  }
+  return String(data);
+}
 
 export interface AzureHttpClientConfig {
   organization: string;
@@ -43,21 +59,36 @@ export class AzureHttpClient extends BaseHttpClient {
 
     this.client.interceptors.response.use(
       response => response,
-      (error: AxiosError) => {
-        if (error.response) {
-          this.logger.error(`Azure DevOps API Error: ${error.response.status} ${error.response.statusText} - ${error.response.data}`);
+      (error) => {
+        // Build the AzureApiError first, so wrapping always succeeds regardless of logging
+        let azureError: AzureApiError;
+
+        // BaseHttpClient already transforms AxiosError → ApiError
+        // Map ApiError to Azure-specific errors first
+        if (error instanceof ApiError) {
+          azureError = new AzureApiError(error.message, error.status, error.data, error);
+          try {
+            this.logger.error(`Azure DevOps API Error: ${error.status} - ${sanitizeErrorData(error.data)}`);
+          } catch { /* logging must not break error propagation */ }
+        } else if (error.response) {
+          // Fallback: Handle raw AxiosError if BaseHttpClient interceptor didn't catch it
+          azureError = new AzureApiError(error.message, error.response.status, error.response.data, error);
+          try {
+            this.logger.error(`Azure DevOps API Error: ${error.response.status} ${error.response.statusText} - ${sanitizeErrorData(error.response.data)}`);
+          } catch { /* logging must not break error propagation */ }
         } else if (error.request) {
-          this.logger.error(`Azure DevOps API Error: No response received - ${error.request}`);
+          azureError = new AzureApiError('No response received from Azure DevOps', undefined, undefined, error);
+          try {
+            const { method, baseURL, url, timeout } = error.request?.config ?? error.config ?? {};
+            this.logger.error(`Azure DevOps API Error: No response received - ${method?.toUpperCase()} ${baseURL ?? ''}${url ?? ''} (timeout: ${timeout})`);
+          } catch { /* logging must not break error propagation */ }
         } else {
-          this.logger.error(`Azure DevOps API Error: Request setup failed - ${error}`);
+          azureError = new AzureApiError('Request setup failed', undefined, undefined, error);
+          try {
+            this.logger.error(`Azure DevOps API Error: Request setup failed - ${error}`);
+          } catch { /* logging must not break error propagation */ }
         }
-        // Wrap AxiosError in a custom AzureApiError
-        const azureError = new AzureApiError(
-          error.message,
-          error.response?.status,
-          error.response?.data,
-          error
-        );
+
         return Promise.reject(azureError);
       }
     );
