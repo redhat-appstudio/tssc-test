@@ -24,6 +24,12 @@ export class AzureNotFoundError extends NotFoundError {
   }
 }
 
+export function isTransientAzureError(error: unknown): boolean {
+  if (!(error instanceof AzureApiError)) return true;
+  const status = error.status;
+  return !status || status === 408 || status === 429 || status >= 500;
+}
+
 export class AzureBadRequestError extends BadRequestError {
   constructor(message = 'Azure bad request', status = 400, data?: any, cause?: unknown) {
     super(message, status, data, cause);

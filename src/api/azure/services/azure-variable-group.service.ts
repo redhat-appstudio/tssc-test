@@ -1,7 +1,7 @@
 import retry from 'async-retry';
 import { AzureHttpClient } from '../http/azure-http.client';
 import { VariableGroup } from '../types/azure.types';
-import { AzureApiError } from '../errors/azure.errors';
+import { AzureApiError, isTransientAzureError } from '../errors/azure.errors';
 import { AZURE_API_VERSIONS } from '../constants/api-versions';
 import { LoggerFactory, Logger } from '../../../logger/logger';
 
@@ -85,13 +85,9 @@ export class AzureVariableGroupService {
               payload
             );
           } catch (error) {
-            if (error instanceof AzureApiError) {
-              const status = error.status;
-              const isTransient = !status || status === 408 || status === 429 || status >= 500;
-              if (!isTransient) {
-                bail(error);
-                return;
-              }
+            if (!isTransientAzureError(error)) {
+              bail(error as Error);
+              return;
             }
             throw error;
           }
